@@ -147,6 +147,8 @@ flowchart LR
 
 ## 近期工作顺序
 
+用户最新指定 M 系列 Mac、32 GiB，并明确授权仅控制器挂载 Docker socket。控制器容器、跨架构镜像选择、数据卷子目录隔离及 Compose 部署已落地，真实容器控制器的人机协作、保存配置和异常回收在 Linux amd64 自动验收通过；下一步是 Mac 实机验收，不将 Linux 结果当作 Apple Silicon 兼容证明。详见 [Mac 部署指南](MAC_DEPLOYMENT.md)。
+
 S1/S2/S3、MCP 完整协作和受限双访客演示已自动验收。当前优先完成：
 
 1. 复查最终源码包、镜像 ID 和全套验收记录，形成可追溯的本地预览基线。

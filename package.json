@@ -23,6 +23,7 @@
     "members": "tsx src/members-cli.ts",
     "test:team": "tsx --test test/team-browser.integration.ts test/team-desktop.integration.ts",
     "test:runtime": "tsx --test test/runtime.integration.ts",
+    "test:controller": "tsx --test test/controller.integration.ts",
     "test:demo": "tsx --test test/public-demo.integration.ts",
     "doctor": "tsx src/doctor.ts",
     "package:preview": "python3 scripts/package-preview.py",

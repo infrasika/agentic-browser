@@ -1,0 +1,59 @@
+name: ${AB_PROJECT_NAME:-agentic-browser}
+
+services:
+  controller:
+    image: ${AB_CONTROLLER_IMAGE:-agentic-browser:controller-preview}
+    pull_policy: never
+    init: true
+    user: "1000:1000"
+    group_add:
+      - "${AB_DOCKER_GID:?Use bash scripts/compose.sh to detect the socket group}"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 1g
+    cpus: 1
+    pids_limit: 256
+    tmpfs:
+      - /tmp:rw,nosuid,nodev,size=128m,mode=1777
+    environment:
+      HOST: 0.0.0.0
+      PORT: "3333"
+      PUBLIC_URL: ${AB_PUBLIC_URL:-http://127.0.0.1:${AB_PORT:-3333}}
+      BROWSER_AUTH_MODE: team
+      BROWSER_MODE: docker
+      BROWSER_RUNTIME_IMAGE: ${AB_RUNTIME_IMAGE:-agentic-browser:zkpass-prototype}
+      BROWSER_NETWORK: public
+      BROWSER_EGRESS_DENY_HOSTS: ${AB_EGRESS_DENY_HOSTS:-}
+      BROWSER_DATA_DIR: /data
+      BROWSER_DATA_VOLUME: ${AB_PROJECT_NAME:-agentic-browser}-data
+      BROWSER_DATA_VOLUME_ROOT: /data
+      MAX_SESSIONS: ${AB_MAX_SESSIONS:-1}
+      MAX_SESSIONS_PER_MEMBER: "1"
+      SESSION_TTL_SECONDS: "1800"
+      SESSION_MAX_LIFETIME_SECONDS: "14400"
+      DOCKER_HOST: unix:///var/run/docker.sock
+    ports:
+      - "127.0.0.1:${AB_PORT:-3333}:3333"
+    volumes:
+      # Trusted controller only: this is daemon-wide management permission.
+      - type: bind
+        source: ${AB_DOCKER_SOCKET:?Use bash scripts/compose.sh}
+        target: /var/run/docker.sock
+        bind:
+          create_host_path: false
+      - type: volume
+        source: data
+        target: /data
+    stop_grace_period: 60s
+    restart: unless-stopped
+    healthcheck:
+      test: [CMD, node, -e, "fetch('http://127.0.0.1:3333/health',{signal:AbortSignal.timeout(3000)}).then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      start_period: 20s
+      retries: 6
+
+volumes:
+  data:
+    name: ${AB_PROJECT_NAME:-agentic-browser}-data

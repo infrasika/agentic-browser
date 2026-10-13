@@ -2,6 +2,8 @@
 
 当前交付是本地源码预览版。控制服务运行在 Linux 主机上，每个 Session 的 Chrome 与镜像服务运行在独立 Docker 容器中；不要求 Mac 安装扩展。先核对 [进度记录](PROGRESS.md)，其中分别列出自动化结果和真实账号待验收项。
 
+M 系列 Mac 使用 Linux 控制器容器和数据卷，完整 Compose 链路已在 Linux amd64 验收，Mac 实机仍待确认。请按 [Mac 部署指南](MAC_DEPLOYMENT.md) 操作；本文下方是控制服务直接运行于 Linux 宿主机的方式。
+
 ## 安装和成员初始化
 
 要求 Linux amd64、Node 24、npm、Python 3、Docker、util-linux 的 flock。控制服务使用非 root 用户，该用户需有 Docker 权限。每个浏览器容器上限 2 GiB 内存和 2 CPU，另有出网代理开销；根据主机资源降低 `MAX_SESSIONS`。当前 Docker 后端不支持 Mac 原生控制服务、Windows 或 rootless Docker 的保证性兼容。
@@ -56,10 +58,11 @@ Cursor/SSH 只需转发服务端口 3333，镜像 WebSocket 使用同一端口�
 npm run browser:install
 npm run desktop:install
 npm run runtime:build
+docker build -f runtime/controller.Dockerfile -t agentic-browser:controller-preview .
 npm run verify
 ```
 
-`verify` 顺序运行类型检查、单元/API、Chromium、原生桌面、团队镜像、扩展、独立 Runtime、真实 MCP 容器链路和双访客演示。任何一步失败即停止，记录 `output/acceptance/<UTC时间>/results.tsv` 与各项日志。测试创建独立临时数据目录和专属容器，不复用真实账号配置；公网 Runtime 测试依赖外部无凭据测试服务可达。
+`verify` 顺序运行类型检查、单元/API、Chromium、原生桌面、团队镜像、扩展、独立 Runtime、Compose 控制器、真实 MCP 容器链路和双访客演示。需安装 Compose；控制器验收仅给测试控制器挂载 Docker socket，并使用独立随机命名卷，结束后删除。任何一步失败即停止，记录 `output/acceptance/<UTC时间>/results.tsv` 与各项日志。测试不复用真实账号配置；公网 Runtime 测试依赖外部无凭据测试服务可达。
 
 `npm run doctor` 是只读环境检查，不代表浏览器或真实登录流程已经通过。干净目录重新安装通过，也不等价于另一台干净主机的验收。
 

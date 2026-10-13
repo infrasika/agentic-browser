@@ -24,6 +24,8 @@ export function readConfig(env: NodeJS.ProcessEnv = process.env) {
       BROWSER_NETWORK: z.enum(["none", "public"]).default("public"),
       BROWSER_EGRESS_DENY_HOSTS: z.string().default(""),
       BROWSER_DATA_DIR: z.string().min(1).default(".data"),
+      BROWSER_DATA_VOLUME: z.string().regex(/^[a-zA-Z0-9][a-zA-Z0-9_.-]+$/).optional(),
+      BROWSER_DATA_VOLUME_ROOT: z.string().min(1).optional(),
       DESKTOP_CHROME_PATH: z.string().default("/usr/bin/google-chrome-stable"),
     })
     .parse(env);
@@ -61,6 +63,7 @@ export function readConfig(env: NodeJS.ProcessEnv = process.env) {
     runtimeNetwork: parsed.BROWSER_AUTH_MODE === "demo" ? "none" as const : parsed.BROWSER_NETWORK,
     egressDenyHosts: parsed.BROWSER_EGRESS_DENY_HOSTS.split(',').map(host => host.trim()).filter(Boolean),
     dataDirectory: parsed.BROWSER_AUTH_MODE === "demo" ? `${parsed.BROWSER_DATA_DIR}/public-demo` : parsed.BROWSER_DATA_DIR,
+    runtimeVolume: parsed.BROWSER_DATA_VOLUME ? { name: parsed.BROWSER_DATA_VOLUME, root: parsed.BROWSER_DATA_VOLUME_ROOT ?? parsed.BROWSER_DATA_DIR } : undefined,
     desktopChromePath: parsed.DESKTOP_CHROME_PATH,
   };
 }

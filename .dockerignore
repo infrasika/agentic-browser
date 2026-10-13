@@ -10,6 +10,8 @@
 !test/**
 !runtime/
 !runtime/**
+!scripts/
+!scripts/fetch-runtime-assets.py
 !output/
 !output/runtime/
 !output/runtime/packages/

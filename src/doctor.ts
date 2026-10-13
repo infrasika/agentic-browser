@@ -18,15 +18,23 @@ if (existsSync('.env')) await check('本地配置权限', async () => {
   if ((await stat('.env')).mode & 0o077) throw new Error(); return '仅当前用户可读写';
 });
 if (config?.browserMode === 'docker') {
-  await check('平台', () => { if (process.platform !== 'linux' || process.arch !== 'x64' || process.getuid?.() === 0) throw new Error(); return 'Linux amd64，非 root 控制服务'; });
+  await check('平台', () => { if (process.platform !== 'linux' || !['x64', 'arm64'].includes(process.arch) || process.getuid?.() === 0) throw new Error(); return `Linux ${process.arch}，非 root 控制服务；浏览器固定 amd64`; });
   await check('flock', async () => { await execFile('flock', ['--version']); return '可用'; });
   await check('Docker', async () => {
     const { stdout } = await execFile('docker', ['version', '--format', '{{.Server.Version}}'], { timeout: 10000 });
     if (!/^\d+\.\d+/.test(stdout)) throw new Error(); return stdout.trim();
   });
   await check('本地运行镜像', async () => {
-    const { stdout } = await execFile('docker', ['image', 'inspect', config!.runtimeImage, '--format', '{{.Id}} {{.Os}}/{{.Architecture}} {{.Config.User}}'], { timeout: 10000 });
+    const platform = process.arch === 'arm64' ? ['--platform', 'linux/amd64'] : [];
+    const { stdout } = await execFile('docker', ['image', 'inspect', ...platform, config!.runtimeImage, '--format', '{{.Id}} {{.Os}}/{{.Architecture}} {{.Config.User}}'], { timeout: 10000 });
     if (!/^sha256:[a-f0-9]{64} linux\/amd64 node\s*$/.test(stdout)) throw new Error(); return stdout.trim();
+  });
+  if (config.runtimeVolume) await check('私有数据卷', async () => {
+    const { stdout } = await execFile('docker', ['version', '--format', '{{.Server.APIVersion}}'], { timeout: 10000 });
+    const version = stdout.trim().split('.').map(Number);
+    if (version[0] !== 1 || !Number.isInteger(version[1]) || version[1] < 45) throw new Error();
+    await execFile('docker', ['volume', 'inspect', config!.runtimeVolume!.name, '--format', '{{.Name}}'], { timeout: 10000 });
+    return '卷存在；Docker 支持仅挂载 Profile/代理子目录';
   });
   await check('扩展锁文件与沙箱配置', async () => {
     const lock = JSON.parse(await readFile('runtime/assets.lock.json', 'utf8'));

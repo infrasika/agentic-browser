@@ -17,6 +17,8 @@
 
 真实使用从 [自部署指南](docs/SELF_HOST.md) 开始，使用成员身份和每 Session 独立 Docker Runtime。公共功能展示使用 [受限访客演示](docs/PUBLIC_DEMO.md)，只运行虚构登录和固定协作步骤。固定扩展、源码打包和完整自动验收也在指南中说明。
 
+Apple Silicon Mac 使用容器化控制器与浏览器，启动命令见 [Mac 部署指南](docs/MAC_DEPLOYMENT.md)。Compose 完整链路已在 Linux amd64 验收，Mac 实机兼容与性能仍待确认。
+
 ## 可信单用户快速体验
 
 需要 Node.js 24+。在项目目录执行：
@@ -185,7 +187,7 @@ npm run check
 npm test
 npm run test:browser
 npm run test:desktop # Linux，先安装桌面依赖和 Playwright Chromium
-npm run verify # 全套验收；还需已构建的运行镜像
+npm run verify # 全套验收；需 Compose 及已构建的浏览器、控制器镜像
 npm run package:preview # 本地源码归档，排除私有数据
 ```
 

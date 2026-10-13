@@ -10,10 +10,10 @@ from datetime import datetime, timezone
 
 root = Path(__file__).resolve().parent.parent
 names = {"package.json", "package-lock.json", "tsconfig.json", ".env.example",
-         ".dockerignore", ".gitignore", "README.md", "THIRD_PARTY_NOTICES.md"}
+         ".dockerignore", ".gitignore", ".env.compose.example", "compose.yaml", "README.md", "THIRD_PARTY_NOTICES.md"}
 allowed = {"src": {".ts"}, "web": {".html", ".js", ".css"}, "test": {".ts"},
            "docs": {".md"}, "scripts": {".py", ".sh", ".mjs"},
-           "runtime": {".json", ".mjs", ".md"}}
+           "runtime": {".json", ".mjs", ".md", ".Dockerfile"}}
 for directory, suffixes in allowed.items():
     for path in (root / directory).rglob("*"):
         if path.is_symlink():

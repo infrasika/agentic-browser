@@ -9,6 +9,7 @@ import { setTimeout as delay } from 'node:timers/promises';
 import { z } from 'zod';
 import { ServiceError, type Actor, type BrowserAction, type BrowserEngine, type BrowserWorkspace } from './contracts.js';
 import { ProfileStore, type ProfileLease } from './profiles.js';
+import { runtimeMount, type RuntimeVolume } from './runtime-mounts.js';
 
 const exec = promisify(execFile);
 const docker = (args: string[]) => exec('docker', args, { timeout: 60000, maxBuffer: 2 * 1024 * 1024 });
@@ -25,7 +26,7 @@ export class DockerEngine implements BrowserEngine {
   private workspaces = new Map<string, DockerWorkspace>();
   private stopping = false;
   private reaping?: Promise<void>;
-  constructor(private options: { dataDirectory: string; image?: string; seccompPath?: string; network?: 'none' | 'public'; denyHosts?: string[] }) {
+  constructor(private options: { dataDirectory: string; image?: string; seccompPath?: string; network?: 'none' | 'public'; denyHosts?: string[]; volume?: RuntimeVolume }) {
     this.root = resolve(options.dataDirectory, 'runtimes');
     this.profiles = new ProfileStore(options.dataDirectory);
   }
@@ -40,14 +41,23 @@ export class DockerEngine implements BrowserEngine {
     if (code !== 0) { await lock.close(); throw new Error('Another runtime controller owns this data directory'); }
     this.releaseLock = () => lock.close();
     try {
+      if (this.options.volume) {
+        const version = (await docker(['version', '--format', '{{.Server.APIVersion}}'])).stdout.trim().split('.').map(Number);
+        if (version[0] !== 1 || !Number.isInteger(version[1]) || version[1] < 45) throw new Error('Volume isolation requires Docker Engine 26 or newer');
+        await docker(['volume', 'inspect', this.options.volume.name, '--format', '{{.Name}}']);
+        await runtimeMount(this.root, '/check', this.options.volume);
+      }
       const path = join(this.root, 'instance-id');
       try { this.instance = z.string().uuid().parse((await readFile(path, 'utf8')).trim()); }
       catch (error) {
         if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
         this.instance = randomUUID(); await writeFile(path, this.instance, { flag: 'wx', mode: 0o600 });
       }
-      this.image = (await docker(['image', 'inspect', this.options.image ?? 'agentic-browser:zkpass-prototype', '--format', '{{.Id}}'])).stdout.trim();
+      const inspectPlatform = process.arch === 'arm64' ? ['--platform', 'linux/amd64'] : [];
+      this.image = (await docker(['image', 'inspect', ...inspectPlatform, this.options.image ?? 'agentic-browser:zkpass-prototype', '--format', '{{.Id}}'])).stdout.trim();
       if (!/^sha256:[a-f0-9]{64}$/.test(this.image)) throw new Error('Runtime image is not available locally');
+      if ((await docker(['image', 'inspect', ...inspectPlatform, this.image, '--format', '{{.Os}}/{{.Architecture}}'])).stdout.trim() !== 'linux/amd64')
+        throw new Error('The current Chrome runtime requires a linux/amd64 image');
       await this.reap();
     } catch (error) { await this.releaseLock(); this.releaseLock = undefined; throw error; }
   }
@@ -69,13 +79,13 @@ export class DockerEngine implements BrowserEngine {
       const proxyDirectory = join(this.root, `${id}-proxy`);
       if (this.options.network === 'public') {
         await mkdir(proxyDirectory, { mode: 0o700 });
-        await docker(['run', '-d', '--rm', '--init', '--name', `agentic-egress-${id}`,
+        await docker(['run', '--platform', 'linux/amd64', '-d', '--rm', '--init', '--name', `agentic-egress-${id}`,
           '--label', `dev.agentic-browser.instance=${this.instance}`, '--label', `dev.agentic-browser.runtime=${id}`,
           '--network', 'bridge', '--read-only', '--user', `${process.getuid?.() ?? 1000}:${process.getgid?.() ?? 1000}`,
           '--tmpfs', '/tmp:rw,nosuid,nodev,size=16m', '--memory', '128m', '--cpus', '0.5', '--pids-limit', '64',
           '--cap-drop', 'ALL', '--security-opt', 'no-new-privileges',
           '--env', `AGENTIC_DENY_HOSTS=${JSON.stringify(this.options.denyHosts ?? [])}`,
-          '--mount', `type=bind,src=${proxyDirectory},dst=/proxy`,
+          '--mount', await runtimeMount(proxyDirectory, '/proxy', this.options.volume),
           this.image, 'node', '--import', 'tsx', 'src/egress-proxy.ts']);
         let ready = false;
         for (let attempt = 0; attempt < 100; attempt++) {
@@ -84,13 +94,13 @@ export class DockerEngine implements BrowserEngine {
         }
         if (!ready) throw new Error('Egress proxy did not start');
       }
-      const args = ['run', '--rm', '--init', '-i', '--name', record.name, '--hostname', record.hostname,
+      const args = ['run', '--platform', 'linux/amd64', '--rm', '--init', '-i', '--name', record.name, '--hostname', record.hostname,
         '--label', `dev.agentic-browser.instance=${this.instance}`, '--label', `dev.agentic-browser.runtime=${id}`,
         '--network', 'none', '--read-only', '--user', `${process.getuid?.() ?? 1000}:${process.getgid?.() ?? 1000}`,
         '--tmpfs', '/tmp:rw,nosuid,nodev,size=768m', '--shm-size', '512m', '--memory', '2g', '--cpus', '2', '--pids-limit', '512',
         '--cap-drop', 'ALL', '--security-opt', 'no-new-privileges', '--security-opt', `seccomp=${resolve(this.options.seccompPath ?? 'runtime/chrome-seccomp.json')}`];
-      if (lease) args.push('--mount', `type=bind,src=${lease.directory},dst=/profile`);
-      if (this.options.network === 'public') args.push('--mount', `type=bind,src=${proxyDirectory},dst=/egress,readonly`);
+      if (lease) args.push('--mount', await runtimeMount(lease.directory, '/profile', this.options.volume));
+      if (this.options.network === 'public') args.push('--mount', await runtimeMount(proxyDirectory, '/egress', this.options.volume, true));
       args.push(this.image, 'node', '--import', 'tsx', 'src/runtime-worker.ts');
       await workspace.start(args, this.options.network === 'public');
       return workspace;

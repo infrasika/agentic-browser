@@ -23,6 +23,7 @@ run_check desktop npm run test:desktop
 run_check team npm run test:team
 run_check extensions npm run test:extensions
 run_check runtime npm run test:runtime
+run_check controller npm run test:controller
 run_check mcp-docker env AGENTIC_TEST_DOCKER=1 AGENTIC_TEST_MCP=1 npx tsx --test test/team-desktop.integration.ts
 run_check demo npm run test:demo
 printf 'All acceptance steps passed: %s\n' "$acceptance_dir/results.tsv"

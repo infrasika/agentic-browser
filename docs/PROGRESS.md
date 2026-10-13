@@ -2,6 +2,37 @@
 
 更新日期：2026-10-13，北京时间。当前为自部署预览版，完成本轮可独立推进的开发和自动验收；没有发布公网服务。安装见 [自部署指南](SELF_HOST.md)，总体路线见 [计划](PLAN.md)。
 
+## 最新追加：已授权仅控制器挂载 Docker socket
+
+2026-10-13：用户在了解权限范围后明确授权“仅控制器容器挂载 Docker socket”。已落实 `compose.yaml`、本地配置示例和 `scripts/compose.sh`：团队认证、127.0.0.1 入口、默认单会话、专属 named volume，控制器以 uid/gid 1000 运行，附加 socket 的 Linux 组，不使用 privileged。只有控制器获得 Docker 管理权限；浏览器与代理不继承 socket 或附加组。启动步骤见 [Mac 部署指南](MAC_DEPLOYMENT.md)。
+
+真实 Compose 控制器自动验收已通过，测试文件为 `test/controller.integration.ts`，入口 `npm run test:controller`，已加入完整验收脚本。覆盖：
+
+- 控制器内 doctor 通过；只读根、cap-drop ALL、非 root、专属数据卷、仅本机发布 HTTP。
+- 双虚构成员与 Agent 越权拒绝、默认单会话限额，Chrome/代理只挂载 Profile/代理所需子目录，没有 Docker socket、身份库或完整控制器数据。
+- Agent 创建会话 → 人工镜像刷新重连 → 原生输入虚构登录 → 交还 → Agent 读取登录结果。
+- Chrome namespace/seccomp 沙箱保持启用；主动保存的虚构 Cookie 在控制器完全重建后仍能读取。
+- 控制器 SIGKILL 后再次启动，依据原实例账本清理遗留浏览器/代理并释放 Profile；正常停止同样完成回收且保留数据卷。
+
+最终镜像复验：类型检查、35 项单元/API 测试及 1 项完整 Compose 验收全部通过。日志为 `output/runtime/controller-types.log`、`controller-unit-test.log`、`controller-compose-final.log`；首轮证据为 `controller-compose-test.log`，最终镜像构建为 `controller-authorized-build.log`。测试只操作随机命名的测试项目和虚构数据，最终移除测试容器及其卷，未修改运行中旧服务、真实成员或 Profile。
+
+本轮解决了原先缺少明确 socket 授权的阻塞。当前 Ubuntu 可以完成容器控制器验收，**Apple Silicon Mac 实机尚未验收**；下一步是在用户 Mac 按指南构建、启动、创建成员并验证沙箱、固定扩展、人机交接和性能，不再需要重复申请该 socket 权限。
+
+## 前一批：M 系列 Mac / 32 GiB 适配
+
+用户明确希望部署在 Apple Silicon Mac，32 GiB 内存。已新增原生架构控制器镜像、容器内获取固定软件包的构建脚本，以及浏览器 amd64 平台选择和 named volume 子目录挂载支持。具体可审阅配置与边界见 [Mac 部署适配](MAC_DEPLOYMENT.md)。
+
+本批实际验收：
+
+- `npm run check` 通过；单元/API 测试由 33 增至 35，全部通过，新增卷根、路径越界、符号链接逃逸和 demo 卷根配置测试。
+- 原有 4 项 Runtime 验收通过；新增真实 named volume 子目录测试修正夹具后通过，覆盖配置/代理挂载范围、Chrome 沙箱、人工镜像交接、配置再开与清理。
+- 实际 MCP SDK → Docker Chrome → noVNC 虚构登录 → 交还继续的回归通过。
+- 控制器镜像和浏览器镜像在当前 Linux amd64 主机构建成功；控制器在断网、只读根、cap-drop ALL 的容器内检查依赖通过，以 uid 1000 运行，容器没有 Docker socket。
+
+证据：`output/runtime/mac-unit-test.log`、`mac-runtime-test.log`（保留首次失败与原有四项结果）、`mac-volume-test.log`（修正后的新增验收）、`mac-mcp-regression.log` 和 `mac-final-build.log`。新增测试的两处夹具修正为：用实际私有标记文件检查挂载泄漏，而非把镜像自带空 `/data` 目录当成泄漏；通过测试容器内部诊断检查 Chrome 沙箱，保持产品 API 仅接受 HTTP(S) 导航的限制。
+
+该批结束时，自动审批因缺少明确 socket 授权阻止了完整 Compose 部署；用户后续明确授权，本页最新追加已记录实际完成的部署验收。真实 M 系列上的架构模拟、Chrome 沙箱与扩展性能仍需在 Mac 上验证。
+
 ## 本轮结果
 
 已经实现并验证“外部 Agent → 独立容器 Chrome → 成员接管远程镜像 → 虚构登录 → 交还 → Agent 继续”的完整链路。同一 Session 内复用浏览器，不是每个工具调用都新建环境。Session 关闭后回收临时容器；主动保存的 Profile 独立保留，并按成员和具体 Agent 凭据授权。
@@ -25,7 +56,7 @@
 | E2 运行模板 | 实例级镜像 ID 固定、每 Session 扩展启动检查通过 | 未提供 Session 任意选镜像或模板市场。 |
 | E3 制作与发布 | 干净 Docker 构建及本地源码预览包 | 跨版本回退与正式发行。 |
 
-## 最终自动验收
+## 前一批全套自动验收
 
 本轮最终镜像构建后执行 `npm run verify`，类型检查及 **46 项测试全部通过**。记录位于 `output/acceptance/20261013T060600Z/results.tsv`，各项日志保存在同目录。输出目录不进入版本库；可复现证据是下列测试代码及验收脚本。
 
@@ -45,7 +76,7 @@ Docker + MCP 命令：`AGENTIC_TEST_DOCKER=1 AGENTIC_TEST_MCP=1 npx tsx --test t
 
 部署只读检查 `BROWSER_AUTH_MODE=team BROWSER_MODE=docker npm run doctor` 已通过。源码预览归档已经在全新临时目录完成允许清单与全部 83 个源文件摘要核对、`npm ci --offline`、类型检查和 33 项单元/API 测试，全部通过；测试目录已删除。证据在 `output/runtime/preview-install-test.log`。这不等于另一台干净主机的安装验收。
 
-镜像：`agentic-browser:zkpass-prototype`，最终 ID 为 `sha256:1f1f217bc20c4f46f43ef654b92f3a96ad70cb5cc5edcfbf7d54c1f9db13263e`。锁定 Chrome `155.0.8059.39`、TransGate `0.5.5`、Schema Validator `0.1.3`；包摘要见 [锁文件](../runtime/assets.lock.json)。Debian 软件源未固定到快照，不能声称逐字节可复现构建。
+上一批验收时的镜像：`agentic-browser:zkpass-prototype`，当时 ID 为 `sha256:1f1f217bc20c4f46f43ef654b92f3a96ad70cb5cc5edcfbf7d54c1f9db13263e`。锁定 Chrome `155.0.8059.39`、TransGate `0.5.5`、Schema Validator `0.1.3`；包摘要见 [锁文件](../runtime/assets.lock.json)。Debian 软件源未固定到快照，不能声称逐字节可复现构建。
 
 验收后本项目测试用浏览器/代理/扩展容器均已清理。其他项目的容器不在操作范围内。
 
@@ -93,7 +124,7 @@ Docker + MCP 命令：`AGENTIC_TEST_DOCKER=1 AGENTIC_TEST_MCP=1 npx tsx --test t
 
 下一批建议按以下顺序推进：
 
-1. 在另一台干净 Linux 主机按指南部署预览版，设置实际成员账号与 HTTPS/转发入口，完成双成员流程。
+1. 优先在用户 M 系列、32 GiB Mac 按 [Mac 指南](MAC_DEPLOYMENT.md) 部署，验证实际架构模拟、Chrome 沙箱、两项扩展及完整人机流程；另一台干净 Linux 主机仍可按自部署指南验收。
 2. 用户在保存配置中登录真实网站，验证新 Session 和正常重启后的复用。
 3. 提供 zkPass 测试应用/Schema 与数据源，完成真实证明和失败/取消路径，记录所需网络协议。
 4. 依据结果决定首个正式版本及发布渠道，再验收升级、私有数据备份恢复和回退。
@@ -102,6 +133,7 @@ Docker + MCP 命令：`AGENTIC_TEST_DOCKER=1 AGENTIC_TEST_MCP=1 npx tsx --test t
 
 | 日期 | 事项 | 结果 |
 | --- | --- | --- |
+| 2026-10-13 | 仅控制器 Docker socket 明确授权与 Compose 部署 | 非 root 容器控制器、专属卷及默认单会话落地；类型检查、35 项单元/API 和完整 Compose 协作/保存/回收验收通过。Mac 实机待验收。 |
 | 2026-10-13 | 远程 Chrome 人机交接与稳定性 | 真实 Google/Gmail 协作通过一次；保存配置、重连、续期初版 22 项自动测试通过。 |
 | 2026-10-13 | 确认产品与部署方向 | 外部 Agent 优先；公共部署只演示，真实使用自部署；团队成员隔离；固定两项 zkPass 扩展。 |
 | 2026-10-13 | 扩展 E0/E1 原型 | 离线安装、沙箱、原版 Validator 合成捕获与交还通过。 |

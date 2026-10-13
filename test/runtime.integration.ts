@@ -11,6 +11,57 @@ import { randomUUID } from 'node:crypto';
 import { DockerEngine } from '../src/docker-runtime.js';
 
 const exec = promisify(execFile);
+test('Docker volume subpaths: only the authorised profile and proxy directory are mounted', { timeout: 90000 }, async t => {
+  const root = await mkdtemp(join(tmpdir(), 'agentic-volume-acceptance-'));
+  const volumeName = `agentic-test-${randomUUID()}`;
+  await writeFile(join(root, 'controller-only-fixture'), 'must-not-be-mounted');
+  // A test-only local volume backed by our own disposable directory lets the
+  // host controller verify real Docker volume subpaths without granting any
+  // container access to the Docker daemon or unrelated host paths.
+  await exec('docker', ['volume', 'create', '--driver', 'local', '--opt', 'type=none', '--opt', 'o=bind', '--opt', `device=${root}`, volumeName]);
+  const engine = new DockerEngine({ dataDirectory: root, volume: { name: volumeName, root }, network: 'public' });
+  t.after(async () => { await engine.close(); await exec('docker', ['volume', 'rm', volumeName]); await rm(root, { recursive: true, force: true }); });
+  const alice = randomUUID(), bob = randomUUID();
+  const profile = await engine.profiles.create('Volume fixture', alice);
+  const bProfile = await engine.profiles.create('Other member', bob);
+  const bLease = await engine.profiles.acquire(bProfile.id, bob);
+  await writeFile(join(bLease.directory, 'private-other-member'), 'fixture'); await bLease.release();
+  const workspace = await engine.create({ ownerId: alice, profileId: profile.id });
+  const details = JSON.parse((await exec('docker', ['inspect', workspace.record.name])).stdout)[0];
+  assert.deepEqual(details.Mounts.filter((mount: any) => mount.Type === 'volume').map((mount: any) => mount.Destination).sort(), ['/egress', '/profile']);
+  for (const mount of details.HostConfig.Mounts) {
+    assert.equal(mount.Type, 'volume'); assert.equal(mount.Source, volumeName);
+    assert.ok(mount.VolumeOptions.Subpath && mount.VolumeOptions.Subpath !== '.');
+    assert.ok(!mount.VolumeOptions.Subpath.includes('..'));
+  }
+  const inside = async (source: string) => (await exec('docker', ['exec', workspace.record.name, 'node', '-e', source])).stdout.trim();
+  assert.equal(await inside("const fs=require('fs'); console.log(fs.existsSync('/data/controller-only-fixture') || fs.existsSync('/profile/controller-only-fixture') || fs.existsSync('/profile/private-other-member') || fs.existsSync('/var/run/docker.sock'))"), 'false');
+  // Product navigation intentionally accepts HTTP(S) only. The fixture uses
+  // container-local CDP to inspect Chrome's own diagnostic page, never an API.
+  const sandbox = await inside(`(async()=>{const fs=require('fs'),{chromium}=require('playwright');
+    let port; for(const id of fs.readdirSync('/proc')) {try {const m=fs.readFileSync('/proc/'+id+'/cmdline','utf8').match(/--remote-debugging-port=(\\d+)/); if(m) {port=m[1];break;}}catch{}}
+    const browser=await chromium.connectOverCDP('http://127.0.0.1:'+port,{noDefaults:true});
+    const page=await browser.contexts()[0].newPage(); await page.goto('chrome://sandbox');
+    console.log(await page.locator('body').innerText()); await page.close(); await browser.close();
+  })().catch(()=>process.exit(1));`);
+  assert.match(sandbox, /Layer 1 Sandbox\s+Namespace/i);
+  assert.match(sandbox, /PID namespaces\s+Yes/i);
+  assert.match(sandbox, /Seccomp-BPF[\s\S]*Yes/i);
+  await workspace.perform({ type: 'navigate', url: 'http://169.254.169.254/' });
+  assert.match((await workspace.perform({ type: 'snapshot' }) as { text: string }).text, /Network target is not allowed/);
+  await workspace.perform({ type: 'navigate', url: 'https://agentic-browser.invalid/demo' });
+  await workspace.setControl('human');
+  const stream = workspace.openDesktop(); assert.match((await once(stream, 'data'))[0].toString(), /^RFB /);
+  const closed = once(stream, 'close'); await workspace.setControl('agent'); await closed;
+  assert.match((await workspace.perform({ type: 'snapshot' }) as { text: string }).text, /演示用户名/);
+  await inside("require('fs').writeFileSync('/profile/volume-fixture','saved')");
+  await workspace.close();
+  const reopened = await engine.create({ ownerId: alice, profileId: profile.id });
+  assert.equal((await exec('docker', ['exec', reopened.record.name, 'node', '-e', "console.log(require('fs').readFileSync('/profile/volume-fixture','utf8'))"])).stdout.trim(), 'saved');
+  await reopened.close();
+  assert.equal((await readdir(join(root, 'runtimes'))).filter(file => file.endsWith('.json')).length, 0);
+});
+
 test('Docker Runtime: separate processes/files/network, scoped profile mount, handoff, reuse and cleanup', { timeout: 90000 }, async t => {
   const root = await mkdtemp(join(tmpdir(), 'agentic-runtime-acceptance-'));
   const engine = new DockerEngine({ dataDirectory: root });
