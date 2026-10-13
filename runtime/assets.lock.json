@@ -1,0 +1,42 @@
+{
+  "format": 1,
+  "chrome": {
+    "version": "155.0.8059.39-1",
+    "url": "https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb",
+    "sha256": "c58aa0f2cd66179c9f050e062c882d27aa9b9f8c2b7c73fee3498560b5ed0b38"
+  },
+  "extensions": [
+    {
+      "id": "afkoofjocpbclhnldmmaphappihehpma",
+      "name": "zkPass TransGate",
+      "version": "0.5.5",
+      "sha256": "a07463f46c4878667ecee09e51bc1e86501c4d1f1f3d657ecf695d048c5ac93b",
+      "manifestVersion": 3,
+      "permissions": [
+        "activeTab",
+        "tabs",
+        "storage",
+        "scripting",
+        "webRequest",
+        "offscreen"
+      ],
+      "popup": "index.html",
+      "source": "https://chromewebstore.google.com/detail/afkoofjocpbclhnldmmaphappihehpma"
+    },
+    {
+      "id": "kpcbjghknfclbkejkdllpjhhheppaoca",
+      "name": "zkPass Schema Validator",
+      "version": "0.1.3",
+      "sha256": "1ec1cb67872bee91935270c55c09e91f4c297ffc1cd134aa8727438ef9f8c2cc",
+      "manifestVersion": 3,
+      "permissions": [
+        "debugger",
+        "activeTab",
+        "tabs",
+        "scripting"
+      ],
+      "popup": "popup.html",
+      "source": "https://chromewebstore.google.com/detail/kpcbjghknfclbkejkdllpjhhheppaoca"
+    }
+  ]
+}

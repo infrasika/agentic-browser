@@ -1,0 +1,44 @@
+{
+  "name": "agentic-browser",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "setup": "node scripts/setup.mjs",
+    "dev": "tsx watch src/main.ts",
+    "start": "tsx src/main.ts",
+    "mcp": "tsx src/mcp.ts",
+    "check": "tsc --noEmit",
+    "test": "tsx --test test/*.test.ts",
+    "test:browser": "tsx --test test/browser.integration.ts",
+    "test:desktop": "tsx --test test/desktop.integration.ts test/persistence.integration.ts",
+    "browser:install": "playwright install chromium",
+    "desktop:install": "bash scripts/install-desktop.sh",
+    "runtime:fetch": "python3 scripts/fetch-runtime-assets.py",
+    "runtime:build": "npm run runtime:fetch && docker build -f runtime/Dockerfile -t agentic-browser:zkpass-prototype .",
+    "test:extensions": "bash scripts/test-extensions.sh",
+    "members": "tsx src/members-cli.ts",
+    "test:team": "tsx --test test/team-browser.integration.ts test/team-desktop.integration.ts",
+    "test:runtime": "tsx --test test/runtime.integration.ts",
+    "test:demo": "tsx --test test/public-demo.integration.ts",
+    "doctor": "tsx src/doctor.ts",
+    "package:preview": "python3 scripts/package-preview.py",
+    "verify": "bash scripts/acceptance.sh"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.32.1",
+    "@novnc/novnc": "1.7.0",
+    "playwright": "1.64.0",
+    "tsx": "4.21.0",
+    "ws": "8.22.0",
+    "zod": "3.25.76"
+  },
+  "devDependencies": {
+    "@types/node": "24.10.1",
+    "@types/ws": "8.18.2",
+    "typescript": "5.9.3"
+  }
+}

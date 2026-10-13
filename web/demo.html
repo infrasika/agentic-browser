@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>接管演示</title>
+    <link rel="stylesheet" href="/app.css" />
+    <script type="module" src="/demo.js"></script>
+  </head>
+  <body class="demo-body">
+    <main class="panel demo-card">
+      <div class="eyebrow">HANDOFF DEMO</div>
+      <h1 class="viewer-title">欢迎回来。</h1>
+      <p class="intro small">
+        这是本地演示页。使用任意虚构用户名和密码体验登录，请勿填写真实密码。
+      </p>
+      <form id="login">
+        <label for="username">演示用户名</label
+        ><input
+          id="username"
+          name="username"
+          autocomplete="off"
+          required
+        /><label for="password">演示密码</label
+        ><input
+          id="password"
+          name="password"
+          type="password"
+          autocomplete="off"
+          required
+        /><button class="primary wide">登录演示</button>
+      </form>
+      <section id="account" hidden>
+        <h2 id="welcome"></h2>
+        <p>登录状态已保留。现在可以交还给 Agent。</p>
+        <button id="continue" class="primary wide">继续任务</button>
+        <p id="result" role="status"></p>
+      </section>
+    </main>
+  </body>
+</html>

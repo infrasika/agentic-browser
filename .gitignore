@@ -147,3 +147,10 @@ vite.config.ts.timestamp-*
 
 # Turbo Repo
 .turbo
+
+# Local browser validation artifacts
+output/
+.playwright-cli/
+
+# Opt-in browser profiles contain private login state
+.data/

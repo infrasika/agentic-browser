@@ -1,0 +1,17 @@
+**
+!package.json
+!package-lock.json
+!tsconfig.json
+!src/
+!src/**
+!web/
+!web/**
+!test/
+!test/**
+!runtime/
+!runtime/**
+!output/
+!output/runtime/
+!output/runtime/packages/
+!output/runtime/packages/*.crx
+!output/runtime/packages/chrome.deb
