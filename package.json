@@ -25,6 +25,7 @@
     "test:runtime": "tsx --test test/runtime.integration.ts",
     "test:controller": "tsx --test test/controller.integration.ts",
     "test:demo": "tsx --test test/public-demo.integration.ts",
+    "test:public-mcp": "tsx --test test/public-mcp.integration.ts",
     "doctor": "tsx src/doctor.ts",
     "package:preview": "python3 scripts/package-preview.py",
     "verify": "bash scripts/acceptance.sh"

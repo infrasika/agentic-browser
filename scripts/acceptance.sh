@@ -26,4 +26,5 @@ run_check runtime npm run test:runtime
 run_check controller npm run test:controller
 run_check mcp-docker env AGENTIC_TEST_DOCKER=1 AGENTIC_TEST_MCP=1 npx tsx --test test/team-desktop.integration.ts
 run_check demo npm run test:demo
+run_check public-mcp npm run test:public-mcp
 printf 'All acceptance steps passed: %s\n' "$acceptance_dir/results.tsv"

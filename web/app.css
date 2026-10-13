@@ -498,3 +498,5 @@ footer {
 
 #account { margin-bottom: 24px; }
 #credential-secret { width: 100%; overflow-wrap: anywhere; }
+#mcp-config, #codex-command, #claude-command, #install-prompt { white-space: pre-wrap; overflow-wrap: anywhere; padding: 16px; background: #eef2e9; border-radius: 8px; }
+#prompt-preview summary { cursor: pointer; color: var(--green); }

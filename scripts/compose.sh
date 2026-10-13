@@ -36,6 +36,9 @@ case "$AB_DOCKER_SOCKET" in
 esac
 export AB_DOCKER_SOCKET
 compose=(docker compose --env-file "$config_file" -f compose.yaml)
+if [ "${AB_COMPOSE_VARIANT:-}" = public ]; then
+  compose+=(-f compose.public.yaml)
+fi
 if [ -z "${AB_DOCKER_GID:-}" ]; then
   # Only the controller image receives the socket, including this short probe.
   # Read its Linux-side group; macOS host stat can report a different group.

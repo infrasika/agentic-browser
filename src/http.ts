@@ -22,10 +22,14 @@ import { waitForSession } from "./session-wait.js";
 import type { IdentityStore, Principal } from "./identity.js";
 import { checkBrowserRequest, teamAuthRoute } from "./team-http.js";
 import { attachDesktopGateway } from "./desktop-gateway.js";
+import { RemoteMcp } from "./remote-mcp.js";
 
 const assets = new Map([
   ["/", ["index.html", "text/html; charset=utf-8"]],
   ["/public-demo.js", ["public-demo.js", "text/javascript; charset=utf-8"]],
+  ["/public-browser.js", ["public-browser.js", "text/javascript; charset=utf-8"]],
+  ["/connect", ["connect.html", "text/html; charset=utf-8"]],
+  ["/connect.js", ["connect.js", "text/javascript; charset=utf-8"]],
   ["/login", ["login.html", "text/html; charset=utf-8"]],
   ["/login.js", ["login.js", "text/javascript; charset=utf-8"]],
   ["/team-client.js", ["team-client.js", "text/javascript; charset=utf-8"]],
@@ -79,9 +83,12 @@ function bearer(request: IncomingMessage) {
 
 export function createHttpServer(
   registry: SessionRegistry,
-  options: { token?: string; publicUrl: string; identity?: IdentityStore; defaultStartUrl?: string; demo?: boolean },
+  options: { token?: string; publicUrl: string; identity?: IdentityStore; defaultStartUrl?: string; demo?: boolean; publicBrowser?: boolean; publicMaxSessionsPerIp?: number; trustProxy?: boolean },
 ) {
   const publicDemo = options.demo && options.identity ? new PublicDemo(options.identity, registry) : undefined;
+  const guestMode = options.demo || options.publicBrowser;
+  const remoteMcp = options.publicBrowser && options.identity ? new RemoteMcp(registry, options.identity, { maxSessionsPerIp: options.publicMaxSessionsPerIp, trustProxy: options.trustProxy }) : undefined;
+  const remoteReaper = remoteMcp ? setInterval(() => { void remoteMcp.reap().catch(() => {}); }, 5000).unref() : undefined;
   const mirrorGrants = options.identity ? new MirrorGrants() : undefined;
   const pendingWaits = new Map<string, number>();
   const server = createServer(async (request, response) => {
@@ -104,6 +111,15 @@ export function createHttpServer(
       const origin = requestOrigin(request, options.publicUrl);
       const url = new URL(request.url ?? "/", origin);
       const method = request.method;
+      if (remoteMcp && url.pathname === '/mcp') {
+        if (url.search) throw new ServiceError(400, 'invalid_request', 'MCP credentials must not be placed in URLs.');
+        return await remoteMcp.handle(request, response, origin);
+      }
+      if (remoteMcp && url.pathname === '/api/public/claim' && method === 'POST') {
+        checkBrowserRequest(request, origin);
+        const { sessionId, ticket } = z.object({ sessionId: z.string().uuid(), ticket: z.string().regex(/^[A-Za-z0-9_-]{43}$/) }).strict().parse(await readJson(request));
+        return respond(response, 200, await remoteMcp.claim(sessionId, ticket, origin, response));
+      }
       if (method === "GET" && url.pathname === "/health")
         return respond(response, 200, { status: "ok" });
       if (method === "GET" && url.pathname === "/favicon.ico") {
@@ -132,7 +148,7 @@ export function createHttpServer(
           throw new ServiceError(404, "not_found", "Asset not found");
         }
       }
-      const asset = options.demo && ["/", "/login"].includes(url.pathname) ? ["public-demo.html", "text/html; charset=utf-8"] : assets.get(url.pathname);
+      const asset = guestMode && ["/", "/login"].includes(url.pathname) ? [options.publicBrowser ? "public-browser.html" : "public-demo.html", "text/html; charset=utf-8"] : assets.get(url.pathname);
       if (method === "GET" && asset) {
         const body = await readFile(
           new URL(`../web/${asset[0]}`, import.meta.url),
@@ -142,13 +158,13 @@ export function createHttpServer(
         return;
       }
       if (url.pathname === "/api/auth/config" && method === "GET")
-        return respond(response, 200, { mode: options.demo ? "demo" : options.identity ? "team" : "legacy", defaultStartUrl: options.defaultStartUrl ?? `${origin}/demo` });
+        return respond(response, 200, { mode: options.publicBrowser ? "public" : options.demo ? "demo" : options.identity ? "team" : "legacy", defaultStartUrl: options.defaultStartUrl ?? `${origin}/demo`, ...(options.publicBrowser ? { mcpUrl: `${origin}/mcp` } : {}) });
       if (publicDemo && url.pathname === '/api/demo/start' && method === 'POST') {
         checkBrowserRequest(request, origin);
         z.object({}).strict().parse(await readJson(request));
         return respond(response, 201, await publicDemo.start(request, response, origin));
       }
-      if (options.demo && (url.pathname === '/api/auth/login' || url.pathname.startsWith('/api/credentials')))
+      if (guestMode && (url.pathname === '/api/auth/login' || url.pathname.startsWith('/api/credentials')))
         throw new ServiceError(403, 'demo_restricted', '公共演示不提供成员登录或 Agent 凭据。');
       if (options.identity) {
         const result = await teamAuthRoute(options.identity, request, response, url.pathname, origin, readJson, registry.profiles);
@@ -158,7 +174,7 @@ export function createHttpServer(
       const token = bearer(request);
       if (options.identity) {
         principal = options.identity.request(request, isHuman);
-        if (options.demo && !principal.guest) throw new ServiceError(403, "demo_restricted", "演示只允许临时访客。");
+        if (guestMode && !principal.guest) throw new ServiceError(403, "demo_restricted", "演示只允许临时访客。");
         if (principal.kind === "human" && method !== "GET") checkBrowserRequest(request, origin);
       }
       const ownerId = principal?.ownerId;
@@ -171,7 +187,7 @@ export function createHttpServer(
           "A valid agent bearer token is required",
         );
       }
-      if (options.demo && url.pathname.startsWith('/api/profiles')) {
+      if (guestMode && url.pathname.startsWith('/api/profiles')) {
         if (method === 'GET' && url.pathname === '/api/profiles') return respond(response, 200, { available: false, profiles: [] });
         throw new ServiceError(403, 'demo_restricted', '公共演示不保存或复用登录配置。');
       }
@@ -198,7 +214,7 @@ export function createHttpServer(
         if (method === "GET")
           return respond(response, 200, { sessions: registry.list(ownerId, agentHash) });
         if (method === "POST") {
-          if (options.demo) throw new ServiceError(403, "demo_restricted", "请从演示页面开始固定流程。");
+          if (guestMode) throw new ServiceError(403, "demo_restricted", "请使用当前演示模式提供的入口创建会话。");
           const body = createSessionSchema.parse(await readBody(request));
           if (agentHash && body.profileId && !principal!.profileIds!.includes(body.profileId)) throw new ServiceError(404, "profile_not_found", "登录配置不存在或未授权。");
           const session = await registry.create(body.purpose, body.profileId, ownerId, agentHash);
@@ -342,7 +358,8 @@ export function createHttpServer(
     }
   });
   attachDesktopGateway(server, registry, { ...options, mirrorGrants });
+  server.once('close', () => { clearInterval(remoteReaper); void remoteMcp?.close(); });
   server.requestTimeout = 30000;
   server.headersTimeout = 10000;
-  return server;
+  return Object.assign(server, { async closeRemoteMcp() { clearInterval(remoteReaper); await remoteMcp?.close(); } });
 }

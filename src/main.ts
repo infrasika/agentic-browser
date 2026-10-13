@@ -36,7 +36,7 @@ if (engine instanceof DockerEngine) {
 }
 const registry = new SessionRegistry(engine, config);
 const identity = config.authMode !== "legacy" ? new IdentityStore(join(config.dataDirectory, "identity")) : undefined;
-const server = createHttpServer(registry, { ...config, identity, demo: config.authMode === "demo", defaultStartUrl: config.browserMode === 'docker' ? 'https://agentic-browser.invalid/demo' : undefined });
+const server = createHttpServer(registry, { ...config, identity, demo: config.authMode === "demo", publicBrowser: config.authMode === "public", defaultStartUrl: config.browserMode === 'docker' ? 'https://agentic-browser.invalid/demo' : undefined });
 const reapTimer = setInterval(() => {
   void registry.reap();
   if (identity) { identity.reap(); void registry.closeInactiveMembers(owner => identity.isActive(owner)); }
@@ -48,6 +48,7 @@ async function shutdown() {
   stopping = true;
   clearInterval(reapTimer);
   server.close();
+  await server.closeRemoteMcp();
   await registry.close();
   server.closeAllConnections();
   identity?.close();

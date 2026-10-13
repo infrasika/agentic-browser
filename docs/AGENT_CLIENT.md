@@ -1,6 +1,10 @@
 # 外部 Agent 接入
 
-第一版提供 HTTP API 和 stdio MCP。成员先登录工作台，创建个人 Agent 凭据；需要复用登录状态时，明确勾选允许使用的 Profile。Agent 默认只创建临时会话，不能创建/删除 Profile、读取人工 Cookie 或取得镜像票据。
+公共演示现在提供 URL 形式的 Streamable HTTP `/mcp`，无需本地运行适配器，见 [Ubuntu 部署与客户端配置](UBUNTU_PUBLIC_DEMO.md)。公共模式有 9 个工具，每次 `browser_create` 返回独立 `sessionId`、`sessionKey`，后续工具都须传入二者；不提供会话/Profile 列表。接管链接是一次性临时授权，Agent 只应展示给用户。
+
+公共模式的 `browser_handoff` / `browser_human_link` 同时返回 `humanUrl`、`userMessage`、结构化结果和独立文本消息。Agent 应先把 `userMessage` 发给当前用户，包含真实可点击链接及完整 URL（保留 `#` 片段），再调用 `browser_wait`。不能只说“点击 Connect”或用首页代替会话链接；链接遗漏、已用或过期时重新签发，`sessionKey` 始终只用于工具调用。
+
+下文说明**团队自部署**的 HTTP API 和 11 个 stdio MCP 工具。成员先登录工作台，创建个人 Agent 凭据；需要复用登录状态时，明确勾选允许使用的 Profile。Agent 默认只创建临时会话，不能创建/删除 Profile、读取人工 Cookie 或取得镜像票据。
 
 MCP 启动示例（路径按实际安装位置修改）：
 

@@ -2,7 +2,7 @@
 
 一个可在本地运行的浏览器协作工具：Agent 操作网页，需要人工登录或确认时暂停，由用户接管，完成后交还同一个会话。
 
-提供 HTTP API、stdio MCP 适配器和中文接管页面。不依赖支付、x402、Kubernetes、Redis、多区域调度或云端证明；团队身份使用本地 SQLite。
+提供 HTTP API、团队 stdio MCP、公共演示远程 HTTP MCP 和中文接管页面。不依赖支付、x402、Kubernetes、Redis、多区域调度或云端证明；团队身份使用本地 SQLite。
 
 ## 项目计划与进度
 
@@ -15,9 +15,9 @@
 
 ## 自部署与演示
 
-真实使用从 [自部署指南](docs/SELF_HOST.md) 开始，使用成员身份和每 Session 独立 Docker Runtime。公共功能展示使用 [受限访客演示](docs/PUBLIC_DEMO.md)，只运行虚构登录和固定协作步骤。固定扩展、源码打包和完整自动验收也在指南中说明。
+真实使用从 [自部署指南](docs/SELF_HOST.md) 开始，使用成员身份和每 Session 独立 Docker Runtime。面向外部 Agent 的演示使用 [Ubuntu 公共 MCP 部署指南](docs/UBUNTU_PUBLIC_DEMO.md)：URL 即可连接，允许公网网页，独立临时容器，并发和时长有限额。另保留只运行虚构登录和固定步骤的 [断网访客演示](docs/PUBLIC_DEMO.md)。
 
-Apple Silicon Mac 使用容器化控制器与浏览器，启动命令见 [Mac 部署指南](docs/MAC_DEPLOYMENT.md)。Linux amd64 完整验收已通过；Mac 实机已部署并走通基础人机交接，但 Chrome Seccomp-BPF 检查失败，完整验收与性能仍待确认。
+Apple Silicon Mac 使用容器化控制器与浏览器，启动命令见 [Mac 部署指南](docs/MAC_DEPLOYMENT.md)。用户已反馈 Mac 本地部署测试通过；此前 Seccomp-BPF 检查失败的历史记录仍保留在 [进度文档](docs/PROGRESS.md)，本轮未重新验收 Mac 沙箱。
 
 ## 可信单用户快速体验
 

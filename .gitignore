@@ -70,6 +70,7 @@ web_modules/
 .env.*
 !.env.example
 !.env.compose.example
+!.env.public.example
 
 # parcel-bundler cache (https://parceljs.org/)
 .cache
@@ -155,3 +156,5 @@ output/
 
 # Opt-in browser profiles contain private login state
 .data/
+
+THIRD_PARTY_NOTICES.md

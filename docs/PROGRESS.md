@@ -1,8 +1,107 @@
 # Agentic Browser 进度记录
 
-更新日期：2026-10-13，北京时间。当前为自部署预览版，完成本轮可独立推进的开发和自动验收；没有发布公网服务。安装见 [自部署指南](SELF_HOST.md)，总体路线见 [计划](PLAN.md)。
+更新日期：2026-10-14，北京时间。当前为自部署预览版，Ubuntu 公共 MCP 已通过 Cloudflare 域名 HTTPS 入口验证；用户已明确将 Cloudflare 到源站的 TLS 配置暂缓，不作为当前功能体验的阻塞项。公共演示见 [Ubuntu 部署指南](UBUNTU_PUBLIC_DEMO.md)，真实使用见 [自部署指南](SELF_HOST.md)，总体路线见 [计划](PLAN.md)。
 
-## 最新追加：Mac 实机已部署，Chrome 沙箱验收受阻
+## 最新追加：用户确认 Claude CLI 公共体验测试成功
+
+2026-10-14，用户明确反馈“claude cli 中测试成功了”。结合本次 GitHub 人机协作体验上下文，将 Claude CLI 接入公共 MCP 的实际客户端验收记为通过；此前接管链接未展示、领取页丢失票据的问题，已在修复后得到用户复测确认。证据来源为用户实测反馈，服务端与浏览器自动验收结果见下方记录。
+
+下一步按计划推进小范围体验、配额与到期提示反馈，并补充 Codex/Cursor 的实际客户端验收；不因单个客户端成功而将其他客户端或并发容量标记为已验收。本次仅更新文档，未重启服务。
+
+## 前一批：修复领取前刷新导致接管票据丢失
+
+用户反馈 Claude 已显示完整链接，但打开后变为 `/connect` 并提示缺少链接。通过公共域名复现：旧 `connect.js` 在页面加载时立即执行 `history.replaceState` 清空片段，首次打开仍可从内存领取，但领取前刷新就稳定丢失票据。未确认用户首次加载的具体重载触发点；同时发现 Cloudflare Rocket Loader 正在改写入口模块标签。
+
+接管页现保留 URL 片段直到领取成功，再替换为镜像地址；票据不复制到浏览器存储。同一标签页的 `hashchange` 会重新解析新链接，支持从缺失/过期页面恢复；网络失败后可重试，服务端判定已用/过期时引导重新签发。初始按钮在脚本就绪前禁用。接管页与镜像页按 Cloudflare 官方方式添加 `data-cfasync="false"`，排除 Rocket Loader 改写，线上已确认原生模块标签保留。创建工具说明也明确：先调用交接工具，再展示其最新链接，不能继续使用已被交接替换的初始链接。
+
+验收：语法与类型检查通过，44 项单元/API 测试通过。扩展的真实 Compose 回归覆盖缺失链接、旧链接 410、新片段恢复、领取前刷新、临时网络故障重试、领取后去除票据，以及原有虚构登录/交还/Agent 继续/隔离与回收。正式实例无活跃访客浏览器后部署；独立 Chrome 经公共 HTTPS 域名实际点击验证刷新后领取、noVNC 连接正常、人工交还和 Agent 读取虚构站点，测试会话已关闭。没有使用截图中的票据或访问用户的 GitHub 会话。
+
+证据：`output/runtime/connect-refresh-unit.log`、`connect-refresh-compose.log`、`connect-refresh-build.log`；线上截图 `output/playwright/connect-public-ready.png`、`connect-public-mirror.png`。Ubuntu 指南已更新领取前刷新与 Cloudflare 脚本优化说明。
+
+## 前一批：修复公共 MCP 接管链接展示
+
+用户在 Claude CLI 中完成创建与交接工具调用后，仅看到“点击 Connect”，没有实际链接。服务端原先只在 JSON 中提供 `humanUrl`；Copy prompt 中“请勿分享接管链接”的措辞也可能被理解为不能向当前用户展示。现将交接约定明确为：调用 `browser_handoff` 后先向当前用户发送实际链接，再调用 `browser_wait`。
+
+`browser_handoff` 和 `browser_human_link` 新增包含可点击链接、完整原始 URL 及真实按钮文案的 `userMessage`，同时提供 `structuredContent` 和独立文本消息；保留首个 JSON 文本块，兼容已有客户端。MCP 初始化说明、交接/重新签发/等待工具说明、主页任务、Copy prompt 及客户端文档同步更新。链接仅发给当前用户并完整保留 `#` 片段，`sessionKey` 不进入用户消息；重新签发仍使旧未领取链接失效，鉴权与一次性领取逻辑不变。
+
+验收：类型检查通过；44 项单元/API 测试通过，新增回归覆盖 JSON/结构化/文本结果一致、可点击与可复制 URL、密钥不泄漏、旧链接失效、实际领取及无权限不返回链接。独立 Compose 全流程通过，使用返回消息中的链接进入真实镜像，再完成虚构登录、交还和 Agent 继续。正式实例无活跃访客浏览器后更新；公共 HTTPS MCP 实测返回消息中的链接可以领取测试会话，交还后能读取虚构站点，最后已关闭测试会话。线上主页提示词已更新，健康检查正常。证据：`output/runtime/handoff-link-unit.log`、`handoff-link-compose.log`、`handoff-link-build.log`。
+
+本轮验证了服务端返回与 SDK/浏览器链路，没有代跑用户的 Claude CLI 对话。客户端模型仍负责将工具结果展示到聊天中；遇到旧说明可重连 MCP，链接遗漏时要求调用 `browser_human_link` 并完整发送 `userMessage`，会话已结束时重新创建。
+
+## 前一批：首页 Claude Code 安装说明
+
+依据 [Claude Code 官方 MCP 文档](https://code.claude.com/docs/en/mcp)，在主页补充 `claude mcp add --transport http --scope user agentic-browser <当前 MCP 地址>`、独立复制按钮、用户范围说明，以及 `claude mcp get agentic-browser` / `/mcp` 的检查步骤。Copy prompt 同步包含 Claude Code 的安装方式；JSON 示例补齐 `type: "http"`，避免被 Claude Code 当作 stdio 配置解析。
+
+语法和差异空白检查通过；确认无活跃访客浏览器后更新线上控制器，健康检查正常。独立 Chrome 实测命令完整复制、提示词包含相同命令、JSON 的 HTTP 类型及成功提示均正确，390px 手机宽度无横向溢出。截图为 `output/playwright/claude-homepage-mobile.png`，构建日志为 `output/runtime/claude-homepage-build.log`。本机未安装 Claude CLI，本次验证范围为页面与官方命令用法，没有修改用户的 Claude 配置或声称完成 Claude 客户端连接验收。
+
+## 前一批：首页 Copy prompt 接入入口
+
+公共主页“连接 MCP”区域新增 `Copy prompt` 主按钮和可展开的完整提示词预览。提示词从当前部署配置读取 MCP 地址，包含 Streamable HTTP 接入、通用 JSON 配置、保留客户端已有配置、实际验证工具可用性，以及 HTTPS 下的 GitHub 私有仓库体验任务。提示词要求按当前客户端的能力配置；不能直接配置或需要刷新、重启时给出具体步骤，不承诺任意客户端都能自动安装。
+
+保留原有复制配置和 Codex CLI 命令。剪贴板被拒绝时，自动展开并选中完整文字，提示手动复制；配置加载失败时禁用复制按钮并提示刷新。HTTP 入口的提示词继续只使用公开网页和虚构数据，不改变既有展示条件。
+
+语法检查、`npm run check` 和差异空白检查通过。确认无活跃访客浏览器后重建控制器镜像并部署，线上健康检查正常。使用独立 Chrome 在公共 HTTPS 域名实际点击，验证剪贴板与预览逐字一致、MCP 地址及 GitHub 任务正确、原有复制配置仍可用；模拟剪贴板拒绝和配置接口 503 后，回退及错误提示正常。390px 手机宽度下展开长提示词无横向溢出。截图位于 `output/playwright/copy-prompt-desktop.png`、`output/playwright/copy-prompt-mobile.png`，构建日志位于 `output/runtime/copy-prompt-build.log`。没有修改测试者客户端配置，也没有登录真实 GitHub 账号。
+
+## 前一批：补齐直接启动的环境配置
+
+按用户要求为 `.env` 补齐 11 项原本隐含的运行时默认值，包括身份模式、数据目录、浏览器路径/无头选项、Docker 镜像与出网配置、成员和绝对期限限制、公共来源限额及代理信任。保留已有域名、端口、desktop 模式、会话参数和令牌；可选 Chromium 路径及 Docker 卷配置仅添加注释，不启用无效空值。
+
+通过配置解析器比较补齐前后的完整有效配置，确认所有原有值和实际行为一致。文件仍为 0600 且由 Git 忽略，未输出令牌或其他凭据，未重启服务。同步为 `.env.example` 和 Ubuntu 指南说明：直接运行读取 `.env` 的 `PUBLIC_URL`；公共 Compose 读取 `.env.public` 的 `AB_PUBLIC_URL` 并映射到容器内 `PUBLIC_URL`；小写 `public_url` 不生效。当前线上公共服务继续使用 `.env.public`。
+
+## 前一批：修复域名 Host 校验及 Cloudflare 镜像转发
+
+用户已将 `agentic-browser.zkpass.org` 通过 Cloudflare 指向服务器，并配置 Nginx 80 → 本机 8080。访问报 `host_rejected` 的原因是公共 Compose 实例仍配置旧 IP origin；修改旧服务的 `.env` 不会更新此实例。已在 `.env.public` 设置 `AB_PUBLIC_URL=https://agentic-browser.zkpass.org`，重建公共控制器，并将 8080 改为仅监听 `127.0.0.1`。
+
+仅更新 `/etc/nginx/conf.d/agentic-browser.conf`，补齐 HTTP/1.1、Upgrade/Connection、关闭代理响应缓冲；从 Cloudflare 官方 IPv4/IPv6 网段恢复访客 IP，拒绝信任其他来源伪造的 `CF-Connecting-IP`。Nginx 覆盖发给应用的 `X-Real-IP`，应用开启 `AB_TRUST_PROXY=true`，后端端口不对公网开放。旧配置备份为 `/var/backups/agentic-browser/agentic-browser.conf.20261013T174125Z`，语法检查后已平滑重载，未修改其他站点。
+
+实际域名验收通过：首页 200、`/health` 正常、MCP 协商与 9 个工具、HTTPS 接管 URL、Secure Cookie、Cloudflare/Nginx 的 WebSocket 与 RFB 握手、人工交还、Agent 读取虚构站点，以及关闭测试会话。没有登录真实账号或读取私人仓库。
+
+当前客户端入口为 `https://agentic-browser.zkpass.org/mcp`。本机只有 Nginx 80 监听，没有源站 443/TLS；不能把 Cloudflare 边缘 HTTPS 等同于全链路加密，也未读取或改变 Cloudflare SSL 设置。后续应配置源站证书和 443，再启用 Cloudflare Full (strict)，仍需真实 Codex 客户端人工体验。
+
+## 前一批：首页改为 GitHub 私有仓库示例
+
+用户要求用真实 GitHub 登录体验替代首页虚构账号任务，将“私有账户数量和名字”按 GitHub 私有仓库总数与名称实现。首页已展示该协作流程，HTTPS 入口会显示可交给 Agent 的任务：打开 GitHub 登录页 → 用户在远程浏览器登录 → 交还 → Agent 统计私有仓库数量和名称 → 关闭会话。
+
+自动审批拒绝了在当前明文 HTTP 入口直接引导真实账号登录，因此采用 HTTPS 条件展示：当前 8080 HTTP 首页仅展示流程说明，隐藏可执行登录任务并保留未加密提示。若继续要求在 HTTP 启用真实登录引导，需要用户明确知悉并确认该风险，再重新提交审批；也可先配置 HTTPS。
+
+已验证 HTTP/HTTPS 两种显示分支，重建控制器镜像并在确认没有运行中访客浏览器后更新服务。公网 IP 首页返回 200，旧虚构账号任务已移除，服务健康；本次没有登录真实 GitHub 账号或读取仓库数据。
+
+## 前一批：8080 端口 IP 试运行
+
+用户要求通过服务器公网 IP 的 8080 端口试用。用户原先修改的是旧服务 `.env`；现已创建独立、仅本机用户可读写且被 Git 忽略的 `.env.public`，配置公共模式监听 `0.0.0.0:8080`，入口 `http://18.140.117.155:8080`，MCP 为同地址的 `/mcp`。
+
+通过 `scripts/public-demo.sh up -d --force-recreate --wait` 启动 `agentic-browser-demo-controller-1`，状态 healthy，使用专属 `agentic-browser-demo-data` 卷。旧的 127.0.0.1:3333 服务和其他 Docker 项目未改动。全站/来源并发均为 2，未启用代理请求头信任。
+
+服务器本机回环及通过公网 IP 访问 `/health` 均返回正常；实际外部电脑的连通性仍由用户试用确认。当前为 HTTP，仅用于虚构数据测试；正式账号体验前切换 HTTPS。未修改云安全组、系统防火墙或现有 Nginx。
+
+## 前一批：Ubuntu 公共 MCP 演示实现与验收
+
+用户反馈 Mac 本地部署测试已通过，本轮按新要求推进 Ubuntu 公共演示：访客自己的 Agent 通过 URL 接入，允许公网网页，需要限额；先提供 IP 配置，以后替换域名。该反馈没有附新的 Mac 沙箱结果，本轮也未重新测试 Mac；下方较早的 Seccomp-BPF 失败记录保留为历史证据。
+
+新增 `BROWSER_AUTH_MODE=public` 和无状态 Streamable HTTP `/mcp`，提供 9 个工具。每次创建返回独立 Session 密钥，后续工具逐会话鉴权；不使用传输层 Session ID 作为身份，不提供匿名全站会话/Profile 列表。一次性人工接管链接 2 分钟有效，领取后使用临时 HttpOnly Cookie；人工阶段拒绝 Agent 观察和输入，点击交还后由访客自己的 Agent 继续。
+
+默认全站 2 个浏览器、每来源 IP 2 个；创建每分钟 6 次、MCP 请求每分钟 120 次，并限制在途请求。Session 初始 5 分钟、最长 10 分钟，禁止保存配置。浏览器和代理使用独立容器，仅挂载自己的代理子目录；公网 80/443 可用，私网/元数据与管理地址仍拦截。创建请求实际断开后回收未交付浏览器；清理失败保留配额与重试记录。
+
+新增独立 `.env.public.example`、`compose.public.yaml`、`scripts/public-demo.sh`，以及 Nginx HTTPS/WebSocket 模板；修复配置公网 IP/域名时控制器健康检查的 Host。首页直接展示 JSON MCP 配置和 Codex CLI 命令，接管页说明临时期限、运营者权限与 HTTP 试运行边界。原断网 `demo` 和团队 `team` 模式继续保留。
+
+本轮自动验收：
+
+| 检查 | 结果与范围 |
+| --- | --- |
+| `npm run check` | 通过。 |
+| `npm test` | 43 项通过，其中新增 8 项公共 MCP 测试；会话密钥/Cookie 隔离、一次性链接、期限、来源配额、HTTP 取消回收、请求限速及清理失败重试。 |
+| `npm run test:public-mcp` | 实际独立 Compose + 两个 SDK 客户端 + 两套 Chrome/代理；原生虚构登录、刷新重连、等待交还、外部 Agent 继续、HTTP 公网 IP 健康检查、公网 HTTPS、云元数据拒绝、停止回收和重启失效。 |
+| `npm run test:demo` | 原断网双访客镜像流程回归通过。 |
+| `npm run test:controller` | 原团队 Compose、双成员权限、保存配置、Chrome 沙箱、控制器重建和崩溃回收回归通过。 |
+| Nginx 配置 | 临时证书和本机高端口下 `nginx -t` 通过；未安装/替换系统站点或重载现有代理。 |
+
+证据在 `output/runtime/public-check.log`、`public-unit.log`、`public-build.log`、`public-compose.log`、`public-offline-regression.log`、`public-team-regression.log` 和 `public-nginx-check.log`。测试仅用随机项目/卷/端口和虚构数据，结束后清理测试资源。源码预览允许清单已纳入公共配置、代理模板、页面及测试；真实 `.env.public`、数据卷、Chrome 包和凭据不进入归档。
+
+尚未对公网开放 IP/端口，也未配置真实域名证书；Codex/Cursor 桌面客户端人工接入需部署后验收。SDK 1.32.1 的 HTTP 链路已验证，协商协议为 `2025-11-25`；未宣称支持之后的所有协议修订。无状态 HTTP 不按匿名请求 ID 跨连接取消操作；若客户端仅发送取消通知而不真正断开，服务端等待可继续到 25 秒上限，创建可完成后等待到期回收。文档与工具提示已说明，不把取消等同于关闭浏览器。
+
+下一步：按 Ubuntu 指南填入 IP 并开放测试者入口 → 实际 Codex 连接与人工交接 → 替换域名/HTTPS、核对代理来源限额 → 小范围邀请体验。真实日常数据继续使用个人/团队自己的部署。
+
+## 前一批：Mac 实机已部署，Chrome 沙箱验收受阻
 
 2026-10-13：在 Apple Silicon Mac 的 Docker Desktop Engine 29.8.2 上构建 arm64 控制器、amd64 Chrome 镜像，部署到 `http://127.0.0.1:3334`。显式使用 `desktop-linux` context；3333 的 Cursor 监听保持原状。控制器 healthy、doctor 全项通过，正式成员列表为空，测试仅使用虚构数据。
 
@@ -49,7 +148,7 @@
 
 两个指定扩展随运行镜像携带原始包，全新 Profile 在完全断网时也能安装。Schema Validator 已通过原版扩展实际捕获合成接口、返回校验成功再交还；真实 TransGate 证明仍待业务配置和数据源，不能用安装成功替代证明验收。
 
-公共演示使用短期访客、每人独立断网容器和固定虚构登录流程，不能保存 Profile 或签发成员/Agent 凭据。双访客的实际镜像流程已通过；这里只完成实现和本机验收，尚未对公网发布。
+公共演示包括原断网固定流程和新公网 HTTP MCP 模式，两者使用独立临时访客，均不能保存 Profile 或签发成员/Agent 凭据。新模式的任务由访客自己的 Agent 执行，具体边界见本页最新追加；这里只完成实现和本机验收，尚未对公网发布。
 
 ## 阶段状态
 
@@ -58,8 +157,8 @@
 | M0 人机协作 | 实现与基础真实使用通过 | X/GitHub 等网站逐项验收。 |
 | M1 会话稳定性 | 保存配置、重连、续期、绝对寿命与自动测试通过 | 真实 Google 保存配置重新打开及服务重启后复用。 |
 | M2 团队隔离 | S1 身份、S2 Runtime、S3 镜像权限已实现并自动验收 | 另一台部署主机、入口代理及生产策略复核。 |
-| M3 外部 Agent | 11 个 MCP 工具及真实 SDK 客户端完整协作通过 | Codex/Cursor 等具体桌面客户端的人工配置体验。 |
-| M4 自部署与演示 | 指南、只读 doctor、源码允许清单打包、双访客演示已实现 | 干净主机安装与正式公开演示部署。 |
+| M3 外部 Agent | 团队 stdio 11 工具及公共 HTTP 9 工具，实际 SDK 完整协作通过 | Codex/Cursor 等具体桌面客户端的人工配置体验。 |
+| M4 自部署与演示 | Ubuntu 公共 Compose、IP/HTTPS 指南、限额和双访客实际 Docker 链路已实现 | 干净主机安装与正式公开演示部署。 |
 | M5 版本与运维 | 已有本地镜像摘要、源码文件摘要、验收入口及运维说明 | 实际跨版本升级、Profile 兼容、备份恢复和发布渠道。 |
 | E0 扩展安装 | 两项原始 CRX、离线安装及 Chrome 沙箱通过 | 持续升级验收。 |
 | E1 扩展业务 | Validator 合成成功路径及人机交还通过 | 真实 TransGate 证明、失败/取消路径及业务网络需求。 |

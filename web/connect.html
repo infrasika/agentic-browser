@@ -1,0 +1,9 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>接管浏览器 · Agentic Browser</title><link rel="stylesheet" href="/app.css"><script data-cfasync="false" type="module" src="/connect.js"></script></head>
+<body><header><a class="brand" href="/">a<span class="brand-dot">●</span> Agentic Browser</a><span class="badge">公共体验</span></header>
+<main class="dashboard"><div class="eyebrow">HUMAN HANDOFF</div><h1>接管你的临时浏览器</h1><section class="panel">
+<p>点击后将暂停 Agent 的网页操作。完成后，你可以在接管页面交还控制权。</p>
+<p class="hint">这是公共测试环境，建议使用测试账号。部署管理员可以管理运行环境；交还后，你的 Agent 可以读取登录后的网页。会话最长 10 分钟，结束后清理本地浏览器数据。</p>
+<p id="transport-warning" class="message" hidden>当前使用 HTTP，连接未加密。请只做虚构数据测试，不要输入真实账号或密码。</p>
+<button id="connect-browser" class="primary wide" disabled>连接并接管</button><p id="connect-message" class="message" role="status"></p>
+</section></main></body></html>

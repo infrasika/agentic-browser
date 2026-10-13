@@ -1,7 +1,7 @@
 const authConfig = await (await fetch('/api/auth/config')).json();
 export const authMode = authConfig.mode;
 export const defaultStartUrl = authConfig.defaultStartUrl;
-export const team = authMode === 'team' || authMode === 'demo';
+export const team = ['team', 'demo', 'public'].includes(authMode);
 export function browserHeaders() {
   return { 'Content-Type': 'application/json', 'X-Agentic-Browser': '1' };
 }
@@ -9,7 +9,7 @@ export async function requireMember() {
   if (!team) return null;
   const response = await fetch('/api/auth/me');
   if (response.status === 401) {
-    location.replace(authMode === 'demo' ? '/' : `/login?next=${encodeURIComponent(location.pathname + location.hash)}`);
+    location.replace(['demo', 'public'].includes(authMode) ? '/' : `/login?next=${encodeURIComponent(location.pathname + location.hash)}`);
     throw new Error('请先登录。');
   }
   if (!response.ok) throw new Error('无法确认登录状态，请稍后刷新。');

@@ -4,7 +4,9 @@ export function readConfig(env: NodeJS.ProcessEnv = process.env) {
   const parsed = z
     .object({
       AGENT_BROWSER_TOKEN: z.string().min(32).optional(),
-      BROWSER_AUTH_MODE: z.enum(["legacy", "team", "demo"]).default("legacy"),
+      BROWSER_AUTH_MODE: z.enum(["legacy", "team", "demo", "public"]).default("legacy"),
+      PUBLIC_MAX_SESSIONS_PER_IP: z.coerce.number().int().min(1).max(8).default(2),
+      BROWSER_TRUST_PROXY: z.enum(["true", "false"]).default("false"),
       HOST: z.enum(["127.0.0.1", "::1", "0.0.0.0"]).default("127.0.0.1"),
       PORT: z.coerce.number().int().min(1).max(65535).default(3333),
       PUBLIC_URL: z.string().url().optional(),
@@ -46,23 +48,26 @@ export function readConfig(env: NodeJS.ProcessEnv = process.env) {
       "PUBLIC_URL must be an HTTP(S) origin without a path or credentials",
     );
   }
+  const temporary = ["demo", "public"].includes(parsed.BROWSER_AUTH_MODE);
   return {
     token: parsed.AGENT_BROWSER_TOKEN,
     authMode: parsed.BROWSER_AUTH_MODE,
     host: parsed.HOST,
     port: parsed.PORT,
     publicUrl: publicUrl.origin,
-    ttlMs: parsed.BROWSER_AUTH_MODE === "demo" ? 300000 : parsed.SESSION_TTL_SECONDS * 1000,
+    ttlMs: temporary ? 300000 : parsed.SESSION_TTL_SECONDS * 1000,
     maxSessions: parsed.MAX_SESSIONS,
-    maxSessionsPerOwner: parsed.BROWSER_AUTH_MODE === "demo" ? 1 : parsed.MAX_SESSIONS_PER_MEMBER,
-    maxLifetimeMs: parsed.BROWSER_AUTH_MODE === "demo" ? 600000 : parsed.SESSION_MAX_LIFETIME_SECONDS * 1000,
+    maxSessionsPerOwner: temporary ? 1 : parsed.MAX_SESSIONS_PER_MEMBER,
+    maxLifetimeMs: temporary ? 600000 : parsed.SESSION_MAX_LIFETIME_SECONDS * 1000,
+    publicMaxSessionsPerIp: parsed.PUBLIC_MAX_SESSIONS_PER_IP,
+    trustProxy: parsed.BROWSER_TRUST_PROXY === "true",
     executablePath: parsed.CHROMIUM_EXECUTABLE_PATH,
     headless: parsed.HEADLESS === "true",
     browserMode: parsed.BROWSER_MODE,
     runtimeImage: parsed.BROWSER_RUNTIME_IMAGE,
     runtimeNetwork: parsed.BROWSER_AUTH_MODE === "demo" ? "none" as const : parsed.BROWSER_NETWORK,
     egressDenyHosts: parsed.BROWSER_EGRESS_DENY_HOSTS.split(',').map(host => host.trim()).filter(Boolean),
-    dataDirectory: parsed.BROWSER_AUTH_MODE === "demo" ? `${parsed.BROWSER_DATA_DIR}/public-demo` : parsed.BROWSER_DATA_DIR,
+    dataDirectory: parsed.BROWSER_AUTH_MODE === "demo" ? `${parsed.BROWSER_DATA_DIR}/public-demo` : parsed.BROWSER_AUTH_MODE === "public" ? `${parsed.BROWSER_DATA_DIR}/public-browser` : parsed.BROWSER_DATA_DIR,
     runtimeVolume: parsed.BROWSER_DATA_VOLUME ? { name: parsed.BROWSER_DATA_VOLUME, root: parsed.BROWSER_DATA_VOLUME_ROOT ?? parsed.BROWSER_DATA_DIR } : undefined,
     desktopChromePath: parsed.DESKTOP_CHROME_PATH,
   };
