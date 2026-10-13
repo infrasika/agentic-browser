@@ -17,7 +17,7 @@
 
 真实使用从 [自部署指南](docs/SELF_HOST.md) 开始，使用成员身份和每 Session 独立 Docker Runtime。公共功能展示使用 [受限访客演示](docs/PUBLIC_DEMO.md)，只运行虚构登录和固定协作步骤。固定扩展、源码打包和完整自动验收也在指南中说明。
 
-Apple Silicon Mac 使用容器化控制器与浏览器，启动命令见 [Mac 部署指南](docs/MAC_DEPLOYMENT.md)。Compose 完整链路已在 Linux amd64 验收，Mac 实机兼容与性能仍待确认。
+Apple Silicon Mac 使用容器化控制器与浏览器，启动命令见 [Mac 部署指南](docs/MAC_DEPLOYMENT.md)。Linux amd64 完整验收已通过；Mac 实机已部署并走通基础人机交接，但 Chrome Seccomp-BPF 检查失败，完整验收与性能仍待确认。
 
 ## 可信单用户快速体验
 

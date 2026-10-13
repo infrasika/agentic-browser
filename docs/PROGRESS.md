@@ -2,7 +2,17 @@
 
 更新日期：2026-10-13，北京时间。当前为自部署预览版，完成本轮可独立推进的开发和自动验收；没有发布公网服务。安装见 [自部署指南](SELF_HOST.md)，总体路线见 [计划](PLAN.md)。
 
-## 最新追加：已授权仅控制器挂载 Docker socket
+## 最新追加：Mac 实机已部署，Chrome 沙箱验收受阻
+
+2026-10-13：在 Apple Silicon Mac 的 Docker Desktop Engine 29.8.2 上构建 arm64 控制器、amd64 Chrome 镜像，部署到 `http://127.0.0.1:3334`。显式使用 `desktop-linux` context；3333 的 Cursor 监听保持原状。控制器 healthy、doctor 全项通过，正式成员列表为空，测试仅使用虚构数据。
+
+实机发现并修复 `DockerEngine.prepare` 的镜像 ID 兼容问题：containerd 平台 inspect 返回的子 manifest 摘要不能直接再次作为 image ID 查询，现先固定顶层 ID，再检查目标平台，继续保留实例固定镜像与 amd64 校验。
+
+类型检查通过，Linux 控制器内 35 项单元/API 测试通过。Compose 验收完成挂载与成员隔离、配额、noVNC 刷新、原生虚构登录、交还与 Agent 读取后，在 `chrome://sandbox` 的 Seccomp-BPF 断言失败（Namespace/PID/Network 为 Yes，Seccomp-BPF/TSYNC 为 No）。后续保存配置重开、重建和崩溃恢复未执行，不能记为通过。
+
+扩展套件确认两项固定扩展的版本与启用状态，第一项在同一沙箱断言失败；第二项 Schema Validator 的断网合成捕获、结果返回、交还 Agent 通过。测试容器和随机卷已清理，正式控制器与专属数据卷保留，没有真实登录或安全配置降级。完整验收和真实使用仍受阻，原因待进一步定位。详见 [Mac 实机结果](MAC_DEPLOYMENT.md)。证据：`output/runtime/mac-build.log`、`mac-doctor.log`、`mac-controller-test.log`、`extensions-test.log`。
+
+## 前一批：已授权仅控制器挂载 Docker socket
 
 2026-10-13：用户在了解权限范围后明确授权“仅控制器容器挂载 Docker socket”。已落实 `compose.yaml`、本地配置示例和 `scripts/compose.sh`：团队认证、127.0.0.1 入口、默认单会话、专属 named volume，控制器以 uid/gid 1000 运行，附加 socket 的 Linux 组，不使用 privileged。只有控制器获得 Docker 管理权限；浏览器与代理不继承 socket 或附加组。启动步骤见 [Mac 部署指南](MAC_DEPLOYMENT.md)。
 

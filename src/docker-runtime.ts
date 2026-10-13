@@ -54,7 +54,9 @@ export class DockerEngine implements BrowserEngine {
         this.instance = randomUUID(); await writeFile(path, this.instance, { flag: 'wx', mode: 0o600 });
       }
       const inspectPlatform = process.arch === 'arm64' ? ['--platform', 'linux/amd64'] : [];
-      this.image = (await docker(['image', 'inspect', ...inspectPlatform, this.options.image ?? 'agentic-browser:zkpass-prototype', '--format', '{{.Id}}'])).stdout.trim();
+      // Pin the top-level image ID first. With containerd, platform inspection
+      // returns a child manifest digest that cannot be resolved as an image ID.
+      this.image = (await docker(['image', 'inspect', this.options.image ?? 'agentic-browser:zkpass-prototype', '--format', '{{.Id}}'])).stdout.trim();
       if (!/^sha256:[a-f0-9]{64}$/.test(this.image)) throw new Error('Runtime image is not available locally');
       if ((await docker(['image', 'inspect', ...inspectPlatform, this.image, '--format', '{{.Os}}/{{.Architecture}}'])).stdout.trim() !== 'linux/amd64')
         throw new Error('The current Chrome runtime requires a linux/amd64 image');

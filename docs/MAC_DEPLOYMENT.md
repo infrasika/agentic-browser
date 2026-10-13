@@ -1,6 +1,28 @@
 # M 系列 Mac 部署适配
 
-更新日期：2026-10-13，北京时间。目标机器：Apple Silicon Mac，32 GiB 内存。容器控制器的完整部署链路已在 Linux amd64 通过自动验收，Apple Silicon 实机验收仍未完成。
+更新日期：2026-10-13，北京时间。目标机器：Apple Silicon Mac，32 GiB 内存。Linux amd64 完整验收已通过；Apple Silicon 已完成构建、控制器部署和基础人机交接，但实机 Chrome 的 Seccomp-BPF 检查失败，完整验收未通过。
+
+## 本次 Mac 实机结果
+
+本机 Docker Desktop CLI 报告 4.95.0、Engine 29.8.2，Linux VM 为 aarch64、10 CPU、约 16 GiB 内存。原默认 context 为未运行的 `orbstack`，本次命令显式使用 `DOCKER_CONTEXT=desktop-linux`，未修改全局 context。3333 被 Cursor 占用，因此 `.env.compose` 设置 `AB_PORT=3334`；当前工作台为 `http://127.0.0.1:3334`。
+
+- arm64 控制器和 amd64 Chrome 镜像构建成功，固定 Chrome/CRX 摘要通过；控制器 healthy，`/health` 返回 `{"status":"ok"}`，doctor 全项通过。
+- 修复 Docker containerd 镜像存储兼容问题：先固定不带平台选择的顶层镜像 ID，再对该 ID 检查 amd64。平台 inspect 返回的子 manifest 摘要在本机不能作为独立镜像 ID 再次解析。
+- 独立 Compose 验收已走通双成员越权拒绝、单会话配额、挂载范围、Agent 创建 → noVNC 刷新 → 原生输入虚构登录 → 交还 → Agent 读取登录结果。
+- Chrome `chrome://sandbox` 显示 Namespace、PID/Network namespaces 为 Yes，但 **Seccomp-BPF sandbox / TSYNC 为 No**。Compose 验收在此失败，后续保存配置重开、控制器重建和崩溃恢复未执行。尚未确定具体模拟器或内核原因。
+- 两个固定扩展在断网环境中通过版本与 ENABLED 状态断言；扩展套件第一项同样在沙箱断言失败，后续弹窗与扩展存储隔离断言未执行。第二项 Schema Validator 合成接口捕获、返回成功和交还 Agent 通过。未测试真实 TransGate 证明。
+- `npm run check` 通过；Linux 控制器内 `npm test` 35/35 通过。直接在 macOS 跑单元测试因缺少 Linux `flock` 有失败，不能据此要求 Mac 安装 Linux 工具。
+
+日志：`output/runtime/mac-build.log`、`mac-doctor.log`、`mac-controller-test.log`、`extensions-test.log`；测试源码保留严格沙箱断言。随机测试项目、容器和卷均已清理；正式部署保留 `agentic-browser-data`，成员列表为空。正式账号仍由用户按下方命令交互设置密码。未使用真实账号，未关闭沙箱或放宽容器权限。
+
+当前状态为“已部署，可验证虚构流程，完整验收受阻”，不能标注为 Mac 安全验收通过。需解决上述 Chrome 沙箱问题后重新执行完整验收，再用于真实登录。
+
+本机后续管理命令显式选择同一引擎：
+
+```sh
+DOCKER_CONTEXT=desktop-linux bash scripts/compose.sh ps
+DOCKER_CONTEXT=desktop-linux bash scripts/compose.sh exec controller node --import tsx src/members-cli.ts create mars
+```
 
 ## 目标结构
 
@@ -97,6 +119,6 @@ bash scripts/compose.sh up -d --wait --wait-timeout 120
 
 `npm run test:controller` 已在当前 Linux amd64 主机通过：真实 Compose 控制器以 uid 1000 运行，只有控制器挂载 socket；浏览器/代理只挂载卷内所需子目录；跨成员访问被拒绝；人工镜像刷新、原生虚构登录、交还和 Agent 读取成功；Chrome namespace/seccomp 沙箱启用；控制器重建后虚构 Cookie 保留；SIGKILL 后恢复和正常停止均清理所属浏览器/代理。测试使用单独的随机命名卷，结束后全部删除，不操作真实登录配置。它也已加入 `npm run verify`，执行前需构建控制器镜像。
 
-Apple Silicon 的实际构建/运行、Chrome 沙箱、两个扩展、镜像输入、保存配置再开及性能，仍需在用户 Mac 上验收。初次验收先使用内置虚构登录页完成同样流程，再选择是否保存真实登录状态。
+Apple Silicon 首次实机结果见本页开头：构建和基础流程已验证，Chrome 沙箱失败，保存配置再开、完整恢复流程及性能仍待验收。初次验收先使用内置虚构登录页完成同样流程，再选择是否保存真实登录状态。
 
 最后以 [进度记录](PROGRESS.md) 中的实际执行结果为准；不将 amd64 Linux 的成功结果标注为 Mac 或 ARM 成功。
