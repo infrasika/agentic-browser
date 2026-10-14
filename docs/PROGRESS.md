@@ -33,6 +33,14 @@ Published **v0.1.0-preview.2** from `5954bb3411d9282bfa4068ea0af98cac877b43e4`. 
 
 The [v0.1.0-preview.2 verification receipt](../deploy/releases/v0.1.0-preview.2-public-verification.json) is also attached to the private GitHub Release as `PUBLIC-VERIFICATION.json`. The source repository remains private and both GHCR packages remain public. Earlier immutable image digests, bundles, and checksums are retained. Source and deployment packaging include archived public verification receipts so progress-guide links remain valid.
 
+## Simpler homepage prompts — 2026-10-14
+
+Replaced the GitHub example with a plain-language task: open GitHub, send a sign-in link, wait for handback, count and list all owned private repositories, then close the browser. Added **Copy task**, shortened the setup prompt, and moved manual Codex/Claude/JSON configuration into a collapsed section. Tool identifiers and response-field names stay in the MCP contract instead of the user-facing prompts. README and client-guide examples match the homepage.
+
+JavaScript syntax and Playwright checks passed for task/setup copying, the Claude command, clipboard-denial fallback, and a 390-pixel mobile layout. The real HTTPS homepage and its Copy task button were verified after deployment.
+
+The official demo uses the locally built controller `agentic-browser:homepage-c1abc10d262f` for this frontend update. Its published runtime, five-browser capacity, and release `v0.1.0-preview.2` image pins are unchanged. A future image release will include this homepage update; running the pinned release deployment command restores the published controller version.
+
 ## Validation still required
 
 - The user previously verified Mac deployment, but the newly published native arm64 image still needs its own physical Mac acceptance run. Linux ARM CI is not a substitute.
