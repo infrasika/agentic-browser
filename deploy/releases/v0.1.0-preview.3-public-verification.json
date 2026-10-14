@@ -48,5 +48,29 @@
   "remainingAcceptance": [
     "Physical Apple Silicon Mac run of this release",
     "Independent fresh Ubuntu host"
-  ]
+  ],
+  "officialDemo": {
+    "passed": true,
+    "verifiedAt": "2026-10-14T19:22:09.389Z",
+    "origin": "https://agentic-browser.zkpass.org",
+    "tools": 9,
+    "checks": [
+      "HTTPS MCP connection",
+      "isolated synthetic browser creation",
+      "page snapshot",
+      "complete human handoff link",
+      "own temporary session closed"
+    ],
+    "capacity": {
+      "currentSessions": 0,
+      "maxSessions": 5,
+      "availableSessions": 5,
+      "full": false
+    },
+    "controllerImage": "agentic-browser:unified-setup-5528a8761d09",
+    "configurationFiles": [
+      ".env",
+      "compose.yaml"
+    ]
+  }
 }
