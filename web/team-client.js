@@ -36,7 +36,7 @@ export async function mountAccount(api) {
   copy.onclick = async () => {
     if (!output.value) return;
     const value = JSON.stringify({ mcpServers: { 'agentic-browser-local': {
-      url: `${location.origin}/mcp`, headers: { Authorization: `Bearer ${output.value}` },
+      type: 'http', url: `${location.origin}/mcp`, headers: { Authorization: `Bearer ${output.value}` },
     } } }, null, 2);
     try { await navigator.clipboard.writeText(value); message.textContent = 'MCP configuration copied. Keep it private; it includes your personal token.'; }
     catch { config.value = value; config.hidden = false; config.focus(); config.select(); message.textContent = 'Copy the selected configuration into your MCP client.'; }

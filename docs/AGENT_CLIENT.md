@@ -79,6 +79,7 @@ For clients with JSON MCP settings:
 {
   "mcpServers": {
     "agentic-browser-local": {
+      "type": "http",
       "url": "http://127.0.0.1:3333/mcp",
       "headers": { "Authorization": "Bearer YOUR_PERSONAL_AGENT_CREDENTIAL" }
     }
