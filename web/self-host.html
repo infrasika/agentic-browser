@@ -10,108 +10,72 @@
 <main class="dashboard self-host">
   <div class="eyebrow">YOUR INFRASTRUCTURE / YOUR WORKSPACE</div>
   <h1>Run your own<br><span class="muted">Agentic Browser.</span></h1>
-  <p class="intro">Run our public Docker images with one configuration file. No source checkout or build is required.</p>
+  <p class="intro">Two public Docker images. One settings file. Connect your Agent with a URL and a personal token.</p>
   <p>Requires Docker Engine 26+, Compose 2.24.4+, and Bash. Supports Linux amd64/arm64 and Docker Desktop on Apple Silicon.</p>
   <section class="panel">
-    <h2>1. Prepare</h2>
+    <h2>1. Install</h2>
     <pre tabindex="0">curl -fsSL https://agentic-browser.zkpass.org/install.sh | bash
 cd agentic-browser</pre>
-    <p>The installer pulls both public images and creates only <code>compose.yaml</code> and <code>.env</code>. It detects Docker socket permissions and does not start the service. No project download is needed.</p>
-    <details>
-      <summary>Inspect the installer or use another directory</summary>
-      <pre tabindex="0">curl -fsSL https://agentic-browser.zkpass.org/install.sh -o install.sh
-bash install.sh my-browser</pre>
-      <p>Existing files are never overwritten. Use a new directory for a new installation. The <a href="/self-host/download/agentic-browser-self-host.tar.gz">compatibility setup bundle</a> remains available for existing helper-based installations.</p>
-    </details>
+    <p>The installer pulls both pinned images and creates <code>compose.yaml</code> and <code>.env</code>. No source checkout or build is required. Existing files are never overwritten.</p>
   </section>
   <section class="panel">
-    <h2>2. Configure</h2>
-    <p>Edit <strong><code>.env</code></strong>. The defaults work locally; change the total browser limit to suit your server:</p>
-    <pre tabindex="0">AB_PROJECT_NAME=agentic-browser
+    <h2>2. Configure and start</h2>
+    <p>Edit <strong><code>.env</code></strong>. Choose your own initial account password of at least 12 characters:</p>
+    <pre tabindex="0">AB_MODE=authenticated
+AB_ADMIN_USERNAME=admin
+AB_ADMIN_PASSWORD='your-own-long-password'
 AB_PORT=3333
 AB_MAX_SESSIONS=1</pre>
-    <p>For a remote team, set <code>AB_PUBLIC_URL=https://browser.example.com</code> and configure an HTTPS reverse proxy. Otherwise, the address defaults to <code>http://127.0.0.1:3333</code>.</p>
-    <table>
-      <thead><tr><th scope="col">Setting</th><th scope="col">Manage it in</th></tr></thead>
-      <tbody>
-        <tr><td>Server address, limits, session lifetimes</td><td><code>.env</code>, applied at startup</td></tr>
-        <tr><td>Member accounts and passwords</td><td><code>docker compose exec controller npm run members</code></td></tr>
-        <tr><td>Personal Agent credentials and saved profiles</td><td>The signed-in dashboard</td></tr>
-      </tbody>
-    </table>
-    <p>Docker Compose reads this <code>.env</code> file when it creates the controller. The dashboard does not change server settings.</p>
+    <pre tabindex="0">docker compose up -d --wait</pre>
+    <p>Open <code>http://127.0.0.1:3333</code> and sign in with that account. The account is created only on an empty workspace; restarts never reset existing passwords.</p>
     <details id="server-options">
-      <summary>Limits and optional settings</summary>
-      <pre tabindex="0">AB_MAX_SESSIONS_PER_MEMBER=1
+      <summary>Modes and optional settings</summary>
+      <table>
+        <thead><tr><th scope="col">Mode</th><th scope="col">Access</th></tr></thead>
+        <tbody>
+          <tr><td><code>authenticated</code> (default)</td><td>Member sign-in and personal Agent tokens; private member resources</td></tr>
+          <tr><td><code>public</code></td><td>No registration or Agent token; temporary sessions with individual secret keys</td></tr>
+        </tbody>
+      </table>
+      <p>Use a separate directory and project name for a public demo. Both modes use the same <code>.env</code> and <code>compose.yaml</code>. Public sessions last 5 minutes initially, up to 10 minutes.</p>
+      <pre tabindex="0"># For remote access, configure an HTTPS proxy and set:
+# AB_PUBLIC_URL=https://browser.example.com
+AB_MAX_SESSIONS_PER_MEMBER=1
 AB_SESSION_TTL_SECONDS=1800
-AB_SESSION_MAX_LIFETIME_SECONDS=14400
-# AB_EGRESS_DENY_HOSTS=other-management.example.com</pre>
-      <p>Each member can use one browser by default, within the total limit. The initial lease is 30 minutes; renewals cannot exceed a 4-hour total lifetime. Limits allow 1–32 browsers. See the <a href="/self-host/download/SELF_HOST.md">full guide</a> for supported values.</p>
-      <p>Only supported settings are passed into the container. For example, <code>AB_PUBLIC_URL</code> becomes <code>PUBLIC_URL</code>. Image digests are fixed in <code>compose.yaml</code>. Keep the project name stable to retain the same data volume.</p>
-    </details>
-    <details id="apply-settings">
-      <summary>Apply changes after installation</summary>
-      <p>Edit <code>.env</code>, finish active sessions, then recreate the controller:</p>
-      <pre tabindex="0">docker compose up -d --force-recreate --wait</pre>
-      <p>No image rebuild is needed. A plain restart does not reload these settings. Accounts and saved profiles remain in the data volume.</p>
+AB_SESSION_MAX_LIFETIME_SECONDS=14400</pre>
+      <p>Server settings live in <code>.env</code>; personal tokens and saved profiles live in the dashboard. Keep the project name stable to retain your volume. See the <a href="/self-host/download/SELF_HOST.md">full guide</a> for supported settings and public deployment.</p>
     </details>
   </section>
   <section class="panel">
-    <h2>3. Start and sign in</h2>
-    <pre tabindex="0">docker compose up -d --wait
-docker compose exec controller npm run members -- create alice</pre>
-    <p>The account command runs inside the image; Node.js and npm are not needed on your host. Enter a password of at least 12 characters. Open <code>http://127.0.0.1:3333</code> or your configured address, sign in, and create a personal Agent credential. Add a separate member for each teammate.</p>
-  </section>
-  <section class="panel">
-    <h2>4. Connect your Agent</h2>
-    <p>Choose where your Agent runs. Replace the installation folder path and personal credential in the configuration, then reconnect your MCP client.</p>
-    <details id="local-client">
-      <summary>Agent on the same machine</summary>
-      <p>Run <code>pwd</code> in the installation folder to find its full path. Keep the controller running.</p>
-      <pre tabindex="0">{
+    <h2>3. Connect your Agent</h2>
+    <p>In the dashboard, create a <strong>personal Agent credential</strong> and click <strong>Copy MCP configuration</strong>. Add it to your Agent and reconnect.</p>
+    <pre tabindex="0">{
   "mcpServers": {
-    "agentic-browser": {
-      "command": "docker",
-      "args": ["compose", "--project-directory", "/ABSOLUTE/PATH/agentic-browser", "exec", "-T", "-e", "AGENT_BROWSER_TOKEN", "-e", "AGENT_BROWSER_URL", "-e", "AGENT_BROWSER_VIEW_URL", "controller", "npm", "run", "--silent", "mcp"],
-      "env": {
-        "AGENT_BROWSER_URL": "http://127.0.0.1:3333",
-        "AGENT_BROWSER_TOKEN": "YOUR_PERSONAL_AGENT_CREDENTIAL",
-        "AGENT_BROWSER_VIEW_URL": "http://127.0.0.1:3333"
-      }
+    "agentic-browser-local": {
+      "url": "http://127.0.0.1:3333/mcp",
+      "headers": { "Authorization": "Bearer YOUR_PERSONAL_AGENT_CREDENTIAL" }
     }
   }
 }</pre>
-      <p>For local deployments, the API uses internal port 3333; the view URL is the address you open. If you configured a public domain, use that origin for both URLs and ensure the controller can reach it.</p>
-    </details>
-    <details id="remote-client">
-      <summary>Agent on another machine</summary>
-      <p>Install Docker on the Agent's machine. Pull the controller image, which also contains the client. No installation files or server Docker access are needed:</p>
-      <pre tabindex="0">docker pull ghcr.io/infrasika/agentic-browser-controller@sha256:dcf96a174264c80ad4f44a71ad762cb059db98e33dcdfb2e7620aaa412679515</pre>
-      <pre tabindex="0">{
-  "mcpServers": {
-    "agentic-browser": {
-      "command": "docker",
-      "args": ["run", "--rm", "-i", "--init", "--read-only", "--cap-drop", "ALL", "--security-opt", "no-new-privileges", "--memory", "256m", "--cpus", "0.5", "--pids-limit", "64", "--tmpfs", "/tmp:rw,nosuid,nodev,size=64m,mode=1777", "-e", "AGENT_BROWSER_TOKEN", "-e", "AGENT_BROWSER_URL", "-e", "AGENT_BROWSER_VIEW_URL", "ghcr.io/infrasika/agentic-browser-controller@sha256:dcf96a174264c80ad4f44a71ad762cb059db98e33dcdfb2e7620aaa412679515", "npm", "run", "--silent", "mcp"],
-      "env": {
-        "AGENT_BROWSER_URL": "https://YOUR_PRIVATE_BROWSER_DOMAIN",
-        "AGENT_BROWSER_TOKEN": "YOUR_PERSONAL_AGENT_CREDENTIAL",
-        "AGENT_BROWSER_VIEW_URL": "https://YOUR_PRIVATE_BROWSER_DOMAIN"
-      }
-    }
-  }
-}</pre>
-      <p>This client uses the same published image and connects to your private service over HTTPS. It receives no server Docker permissions. The image reference above matches the current pinned release. See the <a href="/self-host/download/AGENT_CLIENT.md">client guide</a> for details.</p>
-    </details>
-    <p>Ask your Agent to open a website and send you a sign-in link. Complete your steps in that browser, then click <strong>Hand back to Agent</strong>.</p>
-  </section>
-  <section class="panel">
-    <h2>Operation and upgrades</h2>
+    <p>The website and MCP use the same host port. If you set <code>AB_PORT=4444</code>, use <code>http://127.0.0.1:4444/mcp</code>. Remote Agents use your HTTPS origin. Their machines do not need Docker or source files.</p>
     <details>
-      <summary>Images, storage, and remote access</summary>
-      <p>The controller creates one isolated browser per session from the runtime image, which includes Chrome and both zkPass extensions. Only the trusted controller mounts the Docker socket. Start with one browser; each runtime has a 2 GiB memory and 2 CPU limit, plus service overhead.</p>
-      <p>Temporary browser data is cleared on close. Saved profiles persist in your private data volume; the server administrator can access that data.</p>
-      <p>For an Ubuntu website tunnel, run <code>ssh -N -L 3333:127.0.0.1:3333 ubuntu@SERVER_IP</code>. For team access, configure an HTTPS reverse proxy with WebSocket support. Setting the public URL alone does not configure DNS, TLS, or port exposure.</p>
-      <p>Before upgrading, finish sessions and back up the data volume. Retain your settings and project name. Do not use <code>down --volumes</code> for routine changes. See the <a href="/self-host/download/SELF_HOST.md">full guide</a> for operations and platform notes.</p>
+      <summary>Codex CLI</summary>
+      <p>Set <code>AGENT_BROWSER_TOKEN</code> in the environment used to launch Codex, then run:</p>
+      <pre tabindex="0">codex mcp add agentic-browser-local --url http://127.0.0.1:3333/mcp --bearer-token-env-var AGENT_BROWSER_TOKEN</pre>
+    </details>
+    <p>Try: “Use agentic-browser-local to open GitHub and send me a sign-in link. Wait until I hand control back, then count my private repositories and list their names. Check every page and close the browser when finished.”</p>
+    <p>Open the link while signed in to your workspace account, complete the website login, then click <strong>Hand back to Agent</strong>. See the <a href="/self-host/download/AGENT_CLIENT.md">client guide</a> for details.</p>
+  </section>
+  <section class="panel">
+    <h2>Changes and maintenance</h2>
+    <details id="apply-settings">
+      <summary>Apply settings, add teammates, or upgrade</summary>
+      <p>After editing <code>.env</code>, finish active sessions and recreate the controller:</p>
+      <pre tabindex="0">docker compose up -d --force-recreate --wait</pre>
+      <p>A plain restart does not reload settings. Accounts and saved profiles remain in the data volume. After initial setup, you may remove both bootstrap username and password settings; changing them never resets an existing account.</p>
+      <p>Add teammates with <code>docker compose exec controller npm run members -- create alice</code>. Each member creates their own token. The initial account has the same private resource scope as other members.</p>
+      <p>Only the controller mounts the Docker socket. Browser sessions use isolated runtime containers. Temporary data is removed on close; saved profiles persist. The host administrator controls stored data.</p>
+      <p>Back up the volume before upgrading. Preserve the project name, and never run two controllers against one volume. Older images need an image upgrade to support the new account bootstrap and authenticated HTTP MCP flow. See the <a href="/self-host/download/SELF_HOST.md">full guide</a> for migration and platform notes.</p>
     </details>
   </section>
 </main>

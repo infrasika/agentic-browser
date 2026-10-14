@@ -2,8 +2,13 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-# Deliberately do not source shell code or inherit the host-service .env file.
-config_file="${AB_COMPOSE_ENV_FILE:-.env.compose}"
+# Docker Compose parses settings; never execute the file as shell code.
+config_file="${AB_COMPOSE_ENV_FILE:-.env}"
+if [ -z "${AB_COMPOSE_ENV_FILE:-}" ] && [ -f .env.compose ]; then
+  if [ ! -f .env ] || ! grep -Eq '^AB_MODE=' .env; then
+    config_file=.env.compose # Compatibility for older downloaded bundles.
+  fi
+fi
 if [ ! -f "$config_file" ]; then
   if [ -n "${AB_COMPOSE_ENV_FILE:-}" ]; then
     printf 'Missing AB_COMPOSE_ENV_FILE: %s\n' "$config_file" >&2; exit 1

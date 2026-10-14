@@ -4,15 +4,12 @@ The official deployment is **https://agentic-browser.zkpass.org/**, with remote 
 
 ## Deploy published images
 
-Install Docker Engine 26+ and Compose 2.24.4+, then obtain and verify the deployment bundle as described in [Self-hosting](SELF_HOST.md). Create a separate environment file and project name so the public demo never uses a team's private volume:
-
-```sh
-cp .env.public.example .env.public
-```
+Run the [standalone installer](SELF_HOST.md#1-install) in a separate installation directory. Both private and public deployments use one `.env` file and the same `compose.yaml`. Give the public demo its own project name and volume.
 
 For a server behind Nginx, use:
 
 ```dotenv
+AB_MODE=public
 AB_PROJECT_NAME=agentic-browser-demo
 AB_PORT=8080
 AB_BIND_ADDRESS=127.0.0.1
@@ -25,14 +22,13 @@ AB_TRUST_PROXY=true
 Replace `YOUR_DEMO_DOMAIN`; the official deployment uses `agentic-browser.zkpass.org`. `AB_TRUST_PROXY=true` is only appropriate when the service is reachable through a trusted proxy that overwrites `X-Real-IP`.
 
 ```sh
-AB_COMPOSE_VARIANT=public bash scripts/release-compose.sh pull
-AB_COMPOSE_VARIANT=public bash scripts/release-compose.sh up -d --wait --wait-timeout 90
-AB_COMPOSE_VARIANT=public bash scripts/release-compose.sh doctor
+docker compose up -d --wait --wait-timeout 90
+docker compose exec controller npm run doctor
 ```
 
 Only the controller mounts the Docker socket. A session creates its own browser and egress proxy; no VNC, CDP, or Docker TCP port needs to be exposed.
 
-For source development, run `bash scripts/build-container-images.sh` and `bash scripts/public-demo.sh up -d --wait` instead. `public-demo.sh` selects `.env.public`; `compose.sh` normally selects `.env.compose`. They do not source the host-process `.env`.
+Bootstrap account settings are ignored in public mode. For source development, build with `bash scripts/build-container-images.sh`, copy `.env.example` to `.env`, select `AB_MODE=public`, then use `bash scripts/compose.sh up -d --wait` to detect the socket permissions.
 
 ## Domain, proxy, and origin
 
@@ -44,7 +40,7 @@ For Cloudflare, preserve the browser's external HTTPS origin in `AB_PUBLIC_URL`.
 
 The web scripts use `data-cfasync="false"` so Rocket Loader does not rewrite the module bootstrap. Handoff credentials use URL fragments; preserve the full link when displaying or copying it. Do not rewrite `/connect#...` to a bare `/connect`.
 
-An origin error such as `host_rejected` usually means the public URL was changed in the wrong file, the controller was not recreated, or the proxy sends the wrong Host. Configure `AB_PUBLIC_URL` in `.env.public`; Compose passes it to the application's `PUBLIC_URL`. A lowercase `public_url` setting has no effect.
+An origin error such as `host_rejected` usually means the public URL was changed in the wrong file, the controller was not recreated, or the proxy sends the wrong Host. Configure `AB_PUBLIC_URL` in `.env`; Compose passes it to the application's `PUBLIC_URL`. A lowercase `public_url` setting has no effect.
 
 ## Temporary IP-only check
 
@@ -75,11 +71,11 @@ Browser networking goes through a restricted proxy. Private, loopback, link-loca
 ```sh
 curl --fail https://YOUR_DEMO_DOMAIN/health
 curl --fail https://YOUR_DEMO_DOMAIN/api/public/capacity
-AB_COMPOSE_VARIANT=public bash scripts/release-compose.sh ps
-AB_COMPOSE_VARIANT=public bash scripts/release-compose.sh logs --tail 100 controller
+docker compose ps
+docker compose logs --tail 100 controller
 ```
 
-Before an update, wait for active sessions to finish. Pull the new pinned images and recreate the controller with the new bundle, retaining the project name and `.env.public`. Do not delete a shared Docker volume or run a global prune.
+Before an update, wait for active sessions to finish. Pull the new pinned images and recreate the controller with the new bundle, retaining the project name and `.env`. Do not delete a shared Docker volume or run a global prune.
 
 Verify the homepage, **Copy prompt**, `/self-host`, and both CLI clients. A complete smoke test is create → open returned link → human input → handback → Agent reads result → close. Use separate browser profiles when testing two users: tabs in one browser normally share a guest cookie. Confirm the aggregate session count returns to its initial value.
 

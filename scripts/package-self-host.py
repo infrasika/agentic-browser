@@ -37,7 +37,7 @@ def build(root, output):
     compose = compose.replace('Use bash scripts/compose.sh to detect the socket group', 'Run the standalone installer to detect the socket group')
     compose = compose.replace('Use bash scripts/compose.sh', 'Run the standalone installer')
     installer = contents['scripts/install.sh.in'].decode()
-    for marker, value in [('CONTROLLER_IMAGE', images['controller']), ('RUNTIME_IMAGE', images['runtime']), ('COMPOSE', compose.rstrip())]:
+    for marker, value in [('CONTROLLER_IMAGE', images['controller']), ('RUNTIME_IMAGE', images['runtime']), ('COMPOSE', compose.rstrip()), ('SETTINGS', contents['.env.example'].decode().rstrip())]:
         if installer.count(f'@@{marker}@@') != 1:
             raise SystemExit(f'Expected exactly one installer marker: {marker}')
         installer = installer.replace(f'@@{marker}@@', value)

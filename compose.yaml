@@ -21,7 +21,12 @@ services:
       HOST: 0.0.0.0
       PORT: "3333"
       PUBLIC_URL: ${AB_PUBLIC_URL:-http://127.0.0.1:${AB_PORT:-3333}}
-      BROWSER_AUTH_MODE: team
+      BROWSER_AUTH_MODE: ${AB_MODE:-authenticated}
+      AB_MODE: ${AB_MODE:-authenticated}
+      AB_ADMIN_USERNAME: ${AB_ADMIN_USERNAME:-}
+      AB_ADMIN_PASSWORD: ${AB_ADMIN_PASSWORD:-}
+      PUBLIC_MAX_SESSIONS_PER_IP: ${AB_MAX_SESSIONS_PER_IP:-2}
+      BROWSER_TRUST_PROXY: ${AB_TRUST_PROXY:-false}
       BROWSER_MODE: docker
       BROWSER_RUNTIME_IMAGE: ${AB_RUNTIME_IMAGE:-agentic-browser:zkpass-prototype}
       BROWSER_RUNTIME_PLATFORM: ${AB_RUNTIME_PLATFORM:-auto}
@@ -36,7 +41,7 @@ services:
       SESSION_MAX_LIFETIME_SECONDS: ${AB_SESSION_MAX_LIFETIME_SECONDS:-14400}
       DOCKER_HOST: unix:///var/run/docker.sock
     ports:
-      - "127.0.0.1:${AB_PORT:-3333}:3333"
+      - "${AB_BIND_ADDRESS:-127.0.0.1}:${AB_PORT:-3333}:3333"
     volumes:
       # Trusted controller only: this is daemon-wide management permission.
       - type: bind

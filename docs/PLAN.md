@@ -17,6 +17,7 @@ The first supported deployment targets are Ubuntu amd64/arm64 and Docker Desktop
 | Multi-platform image delivery | Released preview | Native amd64/arm64 CI, pinned public images, anonymous pulls |
 | English product and documentation | Complete | All first-party UI/messages/docs in English; consolidated guides |
 | Public self-hosting setup files | Complete | Standalone installer, native Compose commands, fixed public images, no repository access required |
+| Unified setup and authenticated HTTP MCP | Implemented; release acceptance in progress | One .env, first-start account, URL-plus-token MCP, preserved member isolation |
 | Fresh-host and Mac acceptance | Next | Native arm64 release on a physical Mac; independent fresh Ubuntu host |
 | Upgrade and sustained-load acceptance | Planned | Profile migration/rollback and longer-running quota/recovery checks |
 | Live zkPass proof acceptance | Planned | Real external proof flow, cancellation and failure reporting |
@@ -27,7 +28,7 @@ The first supported deployment targets are Ubuntu amd64/arm64 and Docker Desktop
 2. Exercise a saved profile across a controlled Chrome/extension upgrade and rollback with synthetic data. Document when restoring a backup is necessary.
 3. Run sustained multi-user tests at the configured capacity, including disconnects, expiry, revocation, controller interruption, and failed resource cleanup. Confirm capacity recovers without cross-user access.
 4. Validate a live TransGate proof and Schema Validator workflow, including cancellation and unavailable external services. Keep real-account results separate from synthetic CI tests.
-5. Validate the image-based remote MCP client on users' machines. The standalone installer covers server deployment; remote clients run the published image directly without source access.
+5. Validate the image-based remote MCP client on users' machines. The standalone installer covers server deployment; remote clients connect over HTTP MCP with a personal token.
 
 ## Scope boundaries
 

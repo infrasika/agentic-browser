@@ -43,6 +43,17 @@ export class IdentityStore extends EventEmitter {
   }
   close() { this.db.close(); }
   listMembers() { return this.db.prepare('SELECT id, username, active FROM members ORDER BY username').all(); }
+  async bootstrapAdmin(username: string, password: string) {
+    // Bootstrap an empty workspace only. Never reset, reactivate, or replace an
+    // existing account. The deployment administrator has ordinary member data scope.
+    username = usernameSchema.parse(username); passwordSchema.parse(password);
+    if (this.db.prepare('SELECT id FROM members LIMIT 1').get()) return false;
+    const salt = secret(), hash = (await derive(password, salt)).toString('hex');
+    // Recheck atomically after hashing, including simultaneous startup attempts.
+    const result = this.db.prepare('INSERT INTO members(id,username,password,salt) SELECT ?,?,?,? WHERE NOT EXISTS (SELECT 1 FROM members)')
+      .run(randomUUID(), username, hash, salt);
+    return result.changes === 1;
+  }
   async createMember(username: string, password: string) {
     username = usernameSchema.parse(username); passwordSchema.parse(password);
     const id = randomUUID(), salt = secret();

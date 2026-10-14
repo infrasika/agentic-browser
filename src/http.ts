@@ -23,6 +23,7 @@ import type { IdentityStore, Principal } from "./identity.js";
 import { checkBrowserRequest, teamAuthRoute } from "./team-http.js";
 import { attachDesktopGateway } from "./desktop-gateway.js";
 import { RemoteMcp } from "./remote-mcp.js";
+import { PrivateMcp } from "./private-mcp.js";
 
 const assets = new Map([
   ["/", ["index.html", "text/html; charset=utf-8"]],
@@ -93,6 +94,7 @@ export function createHttpServer(
 ) {
   const publicDemo = options.demo && options.identity ? new PublicDemo(options.identity, registry) : undefined;
   const guestMode = options.demo || options.publicBrowser;
+  const privateMcp = options.identity && !guestMode ? new PrivateMcp(options.identity) : undefined;
   const remoteMcp = options.publicBrowser && options.identity ? new RemoteMcp(registry, options.identity, { maxSessionsPerIp: options.publicMaxSessionsPerIp, trustProxy: options.trustProxy }) : undefined;
   const remoteReaper = remoteMcp ? setInterval(() => { void remoteMcp.reap().catch(() => {}); }, 5000).unref() : undefined;
   const mirrorGrants = options.identity ? new MirrorGrants() : undefined;
@@ -117,6 +119,13 @@ export function createHttpServer(
       const origin = requestOrigin(request, options.publicUrl);
       const url = new URL(request.url ?? "/", origin);
       const method = request.method;
+      if (privateMcp && url.pathname === '/mcp') {
+        if (url.search) throw new ServiceError(400, 'invalid_request', 'MCP credentials must not be placed in URLs.');
+        const address = server.address();
+        if (!address || typeof address === 'string') throw new ServiceError(503, 'not_ready', 'The service is not ready.');
+        const host = address.family === 'IPv6' ? '[::1]' : '127.0.0.1';
+        return await privateMcp.handle(request, response, origin, `http://${host}:${address.port}`);
+      }
       if (remoteMcp && url.pathname === '/mcp') {
         if (url.search) throw new ServiceError(400, 'invalid_request', 'MCP credentials must not be placed in URLs.');
         return await remoteMcp.handle(request, response, origin);
@@ -366,8 +375,8 @@ export function createHttpServer(
     }
   });
   attachDesktopGateway(server, registry, { ...options, mirrorGrants });
-  server.once('close', () => { clearInterval(remoteReaper); void remoteMcp?.close(); });
+  server.once('close', () => { clearInterval(remoteReaper); void remoteMcp?.close(); void privateMcp?.close(); });
   server.requestTimeout = 30000;
   server.headersTimeout = 10000;
-  return Object.assign(server, { async closeRemoteMcp() { clearInterval(remoteReaper); await remoteMcp?.close(); } });
+  return Object.assign(server, { async closeRemoteMcp() { clearInterval(remoteReaper); await remoteMcp?.close(); await privateMcp?.close(); } });
 }

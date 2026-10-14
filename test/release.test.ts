@@ -64,4 +64,23 @@ test('private image settings map from the deployment file with documented defaul
   const unmapped = readConfig((await render()).services.controller.environment);
   assert.equal(unmapped.maxSessions, 1);
   assert.equal(unmapped.publicUrl, 'http://127.0.0.1:3333');
+  await writeFile(settings, "AB_MODE=authenticated\nAB_ADMIN_USERNAME=alice\nAB_ADMIN_PASSWORD='synthetic-$literal-#password'\nAB_PORT=4444\n");
+  const authenticated = readConfig((await render()).services.controller.environment);
+  assert.equal(authenticated.authMode, 'team');
+  // Compose config escapes dollars for round-tripping; container acceptance checks the actual value.
+  assert.equal(authenticated.bootstrapAdmin?.password, 'synthetic-$$literal-#password');
+  assert.equal(authenticated.publicUrl, 'http://127.0.0.1:4444');
+  await writeFile(settings, 'AB_MODE=public\nAB_MAX_SESSIONS=5\nAB_MAX_SESSIONS_PER_IP=3\nAB_TRUST_PROXY=true\nAB_BIND_ADDRESS=0.0.0.0\n');
+  const publicService = (await render()).services.controller;
+  const publicConfig = readConfig(publicService.environment);
+  assert.equal(publicConfig.authMode, 'public');
+  assert.equal(publicConfig.bootstrapAdmin, undefined);
+  assert.equal(publicConfig.maxSessions, 5);
+  assert.equal(publicConfig.publicMaxSessionsPerIp, 3);
+  assert.equal(publicConfig.trustProxy, true);
+  assert.equal(publicConfig.maxLifetimeMs, 600000);
+  assert.equal(publicService.ports[0].host_ip, '0.0.0.0');
+  await writeFile(settings, 'AB_MODE=team\n');
+  const invalidMode = (await render()).services.controller.environment;
+  assert.throws(() => readConfig(invalidMode));
 });

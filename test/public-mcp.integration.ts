@@ -22,8 +22,8 @@ test('public Compose MCP: five-browser capacity, isolated visitors, human handba
   const port = (probe.address() as { port: number }).port; await new Promise<void>(resolve => probe.close(() => resolve()));
   const base = `http://127.0.0.1:${port}`;
   const env = { ...process.env, AB_PROJECT_NAME: project, AB_PORT: String(port), AB_PUBLIC_URL: base,
-    AB_BIND_ADDRESS: '127.0.0.1', AB_TRUST_PROXY: 'true', AB_MAX_SESSIONS: '5', AB_MAX_SESSIONS_PER_IP: '2', AB_COMPOSE_ENV_FILE: configFile };
-  const compose = async (...args: string[]) => (await exec('bash', ['scripts/public-demo.sh', ...args], { env, timeout: 120000, maxBuffer: 2 ** 20 })).stdout.trim();
+    AB_MODE: 'public', AB_BIND_ADDRESS: '127.0.0.1', AB_TRUST_PROXY: 'true', AB_MAX_SESSIONS: '5', AB_MAX_SESSIONS_PER_IP: '2', AB_COMPOSE_ENV_FILE: configFile };
+  const compose = async (...args: string[]) => (await exec('bash', ['scripts/compose.sh', ...args], { env, timeout: 120000, maxBuffer: 2 ** 20 })).stdout.trim();
   const docker = async (...args: string[]) => (await exec('docker', args, { timeout: 30000, maxBuffer: 2 ** 20 })).stdout.trim();
   const clients: Client[] = []; let browser: Browser | undefined, instance = '';
   const owned = async () => (await docker('ps', '-aq', '--filter', `label=dev.agentic-browser.instance=${instance}`)).split(/\s+/).filter(Boolean);
@@ -96,7 +96,8 @@ test('public Compose MCP: five-browser capacity, isolated visitors, human handba
   browser = await chromium.launch({ headless: true });
   const human = await browser.newContext(), other = await browser.newContext();
   const page = await human.newPage(); await page.goto(base);
-  assert.match(await page.locator('#mcp-config').innerText(), /\/mcp/);
+  await page.waitForFunction(() => document.getElementById('mcp-config')?.textContent?.includes('/mcp'));
+  assert.match((await page.locator('#mcp-config').textContent()) ?? '', /\/mcp/);
   await page.waitForFunction(() => document.getElementById('capacity-status')?.textContent?.includes('All browser slots are in use'));
   assert.match(await page.locator('#capacity-status').innerText(), /5 \/ 5/);
   await extraClients[0].callTool({ name: 'browser_close', arguments: { sessionId: extras[0].id, sessionKey: extras[0].sessionKey } });

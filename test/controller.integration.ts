@@ -9,6 +9,8 @@ import { join } from 'node:path';
 import { createServer } from 'node:net';
 import { once } from 'node:events';
 import { chromium, type Browser } from 'playwright';
+import { Client } from '@modelcontextprotocol/sdk/client/index.js';
+import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 
 const exec = promisify(execFile);
 test('container controller: scoped mounts, native handoff, saved profile, restart and crash recovery', { timeout: 240000 }, async t => {
@@ -20,7 +22,7 @@ test('container controller: scoped mounts, native handoff, saved profile, restar
   await new Promise<void>(resolve => portProbe.close(() => resolve()));
   const base = `http://127.0.0.1:${port}`;
   const env = { ...process.env, AB_PROJECT_NAME: project, AB_PORT: String(port), AB_PUBLIC_URL: base,
-    AB_COMPOSE_ENV_FILE: configFile, AB_MAX_SESSIONS: '1' };
+    AB_COMPOSE_ENV_FILE: configFile, AB_MAX_SESSIONS: '1', AB_MODE: 'authenticated', AB_ADMIN_USERNAME: 'alice', AB_ADMIN_PASSWORD: 'synthetic-compose-$password#fixture' };
   const compose = async (...args: string[]) => (await exec('bash', ['scripts/compose.sh', ...args], { env, timeout: 120000, maxBuffer: 2 ** 20 })).stdout.trim();
   const docker = async (...args: string[]) => (await exec('docker', args, { timeout: 30000, maxBuffer: 2 ** 20 })).stdout.trim();
   let controller = '', instance = '', browser: Browser | undefined;
@@ -51,14 +53,14 @@ test('container controller: scoped mounts, native handoff, saved profile, restar
   instance = await inside("import {readFile} from 'node:fs/promises';console.log(await readFile('/data/runtimes/instance-id','utf8'))");
   await inside(`import {IdentityStore} from './src/identity.ts';
     const s=new IdentityStore('/data/identity');
-    await s.createMember('alice','synthetic-compose-password'); await s.createMember('bob','synthetic-compose-password'); s.close();
+    await s.createMember('bob','synthetic-compose-$password#fixture'); s.close();
     await (await import('node:fs/promises')).writeFile('/data/controller-only-fixture','private fixture');`);
   browser = await chromium.launch({ headless: true });
   const human = await browser.newContext();
   const other = await browser.newContext();
   const headers = { Origin: base, 'X-Agentic-Browser': '1' };
   for (const [context, username] of [[human, 'alice'], [other, 'bob']] as const) {
-    assert.equal((await context.request.post(base + '/api/auth/login', { headers, data: { username, password: 'synthetic-compose-password' } })).status(), 200);
+    assert.equal((await context.request.post(base + '/api/auth/login', { headers, data: { username, password: 'synthetic-compose-$password#fixture' } })).status(), 200);
   }
   const profile = await (await human.request.post(base + '/api/profiles', { headers, data: { name: 'Compose fixture' } })).json();
   const key = await (await human.request.post(base + '/api/credentials', { headers, data: { name: 'Compose Agent', profileIds: [profile.id] } })).json();
@@ -67,9 +69,15 @@ test('container controller: scoped mounts, native handoff, saved profile, restar
     const response = await fetch(base + path, { method, headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: body === undefined ? undefined : JSON.stringify(body) });
     return { status: response.status, data: await response.json() };
   }
+  const mcp = new Client({ name: 'container-private-mcp', version: '1' });
+  t.after(() => mcp.close());
+  await mcp.connect(new StreamableHTTPClientTransport(new URL(base + '/mcp'), { requestInit: { headers: { Authorization: `Bearer ${key.token}` } } }));
+  assert.equal((await mcp.listTools()).tools.length, 11);
   const create = () => agent('/api/sessions', 'POST', { purpose: 'Synthetic container-controller test', profileId: profile.id, url: 'https://agentic-browser.invalid/demo' });
   assert.equal((await agent('/api/sessions', 'POST', { profileId: profile.id }, otherKey.token)).status, 404);
-  const session = await create(); assert.equal(session.status, 201);
+  const creation = await mcp.callTool({ name: 'browser_create', arguments: { purpose: 'Authenticated HTTP container test', profileId: profile.id, url: 'https://agentic-browser.invalid/demo' } });
+  assert.notEqual(creation.isError, true);
+  const session = { status: 201, data: JSON.parse((creation.content as { text: string }[])[0].text) };
   const id = session.data.id;
   assert.equal((await agent(`/api/sessions/${id}`, 'GET', undefined, otherKey.token)).status, 404);
   assert.equal((await create()).status, 429, 'Default single-session quota applies');
@@ -118,6 +126,7 @@ test('container controller: scoped mounts, native handoff, saved profile, restar
   assert.deepEqual(await owned(), []);
   // Recreate the controller (new hostname/PID) while retaining its named volume.
   const oldController = controller;
+  env.AB_ADMIN_PASSWORD = 'changed-bootstrap-must-not-reset';
   await compose('up', '-d', '--force-recreate', '--wait', '--wait-timeout', '90');
   controller = await compose('ps', '-q', 'controller'); assert.notEqual(controller, oldController);
   assert.equal((await human.request.get(base + '/api/auth/me')).status(), 200);

@@ -85,6 +85,14 @@ TypeScript and all 55 unit/API tests passed. Installer tests cover pinned config
 
 Deployed `1aa7e86873a2` as `agentic-browser:native-compose-1aa7e86873a2` with zero active demo sessions. The anonymous installer, guides, and compatibility archive matched the tested files. The exact public `curl … | bash` command passed with empty registry credentials and produced only the two expected files; native Compose rendered them successfully. Playwright verified the direct update command, both Docker client examples, and desktop/mobile layouts without overflow. Service health passed and capacity remained 0 / 5. Published image pins are unchanged.
 
+## Unified configuration and authenticated HTTP MCP — 2026-10-15
+
+Implemented one `.env` template for both `AB_MODE=authenticated` and `public`, with a shared Compose file. The installer now asks for an initial username/password before startup. Bootstrap creates only an empty workspace's first account, uses the existing password hashing, and never resets or enables an existing member. Public mode ignores bootstrap credentials and retains its separate temporary storage and limits. Historical helper filenames remain migration-compatible; the redundant example files were removed.
+
+Private deployments now accept personal Bearer tokens on `/mcp`. HTTP and stdio share tool definitions and the existing authenticated API, preserving member/credential ownership and human-control guards. The dashboard copies URL-plus-token MCP configuration. Updated the English self-hosting page, client guide, deployment guide, and architecture notes.
+
+All 58 unit/API tests and TypeScript passed. Tests cover concurrent bootstrap, restart/disabled-account preservation, secret hashing, missing/invalid/cookie credentials, per-member and per-credential isolation, handoff, cancellation, revocation, custom-domain proxying, and actual Compose mode/settings rendering. Disposable Docker controller acceptance passed with automatic first-account creation (including literal password punctuation), authenticated HTTP MCP creation, native human handoff, saved-profile recovery, and unchanged credentials after recreation. Playwright verified the configuration copy/revoke flow and desktop/mobile layout. Evidence is in `output/unified-setup/`. Public Docker acceptance also passed through the single Compose file: five-browser capacity, visitor isolation, native handback, network restrictions, cleanup, and restart. Its configuration assertion now waits for the loaded text inside the collapsed panel. Multi-platform image publication and final installer acceptance are being completed before updating the official download.
+
 ## Validation still required
 
 - The user previously verified Mac deployment, but the newly published native arm64 image still needs its own physical Mac acceptance run. Linux ARM CI is not a substitute.

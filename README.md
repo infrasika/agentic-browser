@@ -40,12 +40,11 @@ Requirements: Docker Engine 26+, Compose 2.24.4+, and Bash. Apple Silicon Macs u
 ```sh
 curl -fsSL https://agentic-browser.zkpass.org/install.sh | bash
 cd agentic-browser
-# Edit .env to change the port, public URL, or session limits.
+# Set AB_ADMIN_USERNAME and AB_ADMIN_PASSWORD (at least 12 characters) in .env.
 docker compose up -d --wait
-docker compose exec controller npm run members -- create alice
 ```
 
-Open `http://127.0.0.1:3333`, sign in with the member account you just created, and create a personal Agent credential. See [Self-hosting](docs/SELF_HOST.md) for configuration, remote access, members, upgrades, and recovery; see [Agent clients](docs/AGENT_CLIENT.md) for the private MCP configuration.
+Open `http://127.0.0.1:3333`, sign in with the account configured in .env, and create a personal Agent credential. See [Self-hosting](docs/SELF_HOST.md) for configuration, remote access, members, upgrades, and recovery; see [Agent clients](docs/AGENT_CLIENT.md) for the private MCP configuration.
 
 The controller stays running and creates separate browser containers from the runtime image on demand. You do not need to start a shared browser container yourself.
 
@@ -71,7 +70,8 @@ npm ci
 npm run check
 npm test
 bash scripts/build-container-images.sh
-cp .env.compose.example .env.compose
+cp .env.example .env
+# Set AB_ADMIN_PASSWORD before starting.
 bash scripts/compose.sh up -d --wait
 ```
 

@@ -21,10 +21,13 @@
       </p>
       <section id="account" class="panel" hidden>
         <p>Signed-in member: <strong id="member-name"></strong> <button id="logout" class="quiet">Sign out</button></p>
-        <details><summary>Manage personal Agent credentials</summary>
+        <details open><summary>Connect your Agent</summary>
           <p class="hint">Agent credentials grant access to your browser resources. Sign in separately to take control as a person.</p>
           <form id="credential-form"><label for="credential-name">Credential name</label><input id="credential-name" required maxlength="80" placeholder="For example: Development Agent"><label for="credential-profiles">Allowed saved profiles (select multiple, or none for temporary sessions only)</label><select id="credential-profiles" multiple></select><button class="secondary">Create credential</button></form>
           <p id="credential-message" role="status"></p><textarea id="credential-secret" readonly hidden aria-label="New Agent credential"></textarea>
+          <p>MCP URL: <code id="private-mcp-url"></code></p>
+          <button id="copy-private-mcp" class="secondary" type="button" disabled>Copy MCP configuration</button>
+          <textarea id="private-mcp-config" readonly hidden aria-label="MCP configuration"></textarea>
           <div id="credentials"></div>
         </details>
       </section>

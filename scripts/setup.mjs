@@ -1,14 +1,16 @@
 import { randomBytes } from "node:crypto";
-import { readFile, writeFile } from "node:fs/promises";
+import { writeFile } from "node:fs/promises";
 
-const template = await readFile(
-  new URL("../.env.example", import.meta.url),
-  "utf8",
-);
-const content = template.replace(
-  "replace-with-a-random-token-at-least-32-characters",
-  randomBytes(32).toString("base64url"),
-);
+// Native development only; image deployments use the unified Compose installer.
+const content = `# Native development; do not use this file for image deployment.
+AGENT_BROWSER_TOKEN=${randomBytes(32).toString("base64url")}
+HOST=127.0.0.1
+PORT=3333
+PUBLIC_URL=http://127.0.0.1:3333
+BROWSER_AUTH_MODE=legacy
+BROWSER_MODE=playwright
+BROWSER_DATA_DIR=.data
+`;
 try {
   await writeFile(new URL("../.env", import.meta.url), content, {
     flag: "wx",

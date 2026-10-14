@@ -5,6 +5,7 @@ services:
     environment:
       PUBLIC_URL: ${AB_PUBLIC_URL:-http://127.0.0.1:3334}
       BROWSER_AUTH_MODE: public
+      AB_MODE: public
       BROWSER_NETWORK: public
       BROWSER_DATA_VOLUME: ${AB_PROJECT_NAME:-agentic-browser-demo}-data
       MAX_SESSIONS: ${AB_MAX_SESSIONS:-2}

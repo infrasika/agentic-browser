@@ -20,8 +20,7 @@
 !scripts/release-compose.sh
 !compose.yaml
 !compose.public.yaml
-!.env.compose.example
-!.env.public.example
+!.env.example
 !README.md
 !docs/
 !docs/*.md

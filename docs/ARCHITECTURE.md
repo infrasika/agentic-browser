@@ -2,7 +2,7 @@
 
 ## Product boundary
 
-Agentic Browser provides browser tools to an external Agent. It does not require a built-in LLM or payment service. The public demo exposes Streamable HTTP MCP; private team deployments use member authentication and a personal-credential stdio MCP adapter.
+Agentic Browser provides browser tools to an external Agent. It does not require a built-in LLM or payment service. The public demo exposes Streamable HTTP MCP; private deployments expose the same /mcp route with personal Bearer-token authentication. The stdio adapter remains available for existing clients. Both private transports call the same authenticated HTTP API and share the tool definitions.
 
 A session represents a continuous task. `browser_create` allocates one environment; action, screenshot, handoff, and wait calls reuse it until close or expiry. Each session has its own Chrome process, profile directory, runtime container, and egress-proxy container.
 
@@ -57,3 +57,7 @@ The runtime contains pinned Google Chrome plus the original signed zkPass TransG
 Native Linux amd64 and arm64 images are published together only after both runners pass. The deployment bundle fixes their multi-platform digests. Image selection is instance-wide; arbitrary per-session images and an image marketplace are outside the current scope.
 
 Offline tests verify extension UI, synthetic data capture, profile/storage isolation, and the handoff path. A live TransGate proof, external node connectivity, and Chrome/profile upgrades need separate acceptance. See [Runtime development](../runtime/README.md), [Releasing](RELEASING.md), and [Progress](PROGRESS.md).
+
+## Deployment access modes
+
+One Compose `.env` selects `AB_MODE=authenticated` or `public`. Authenticated mode can bootstrap the initial account from `AB_ADMIN_USERNAME` and `AB_ADMIN_PASSWORD`, only when no members exist. Existing and disabled accounts are never overwritten. The initial account has ordinary member resource scope; deployment administration remains a host responsibility. Passwords are salted and hashed; Agent tokens are stored as digests. Public mode ignores bootstrap settings and uses separate temporary identity storage.

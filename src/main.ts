@@ -15,7 +15,7 @@ try {
   config = readConfig();
 } catch {
   console.error(
-    "Invalid configuration. Check .env.example; legacy mode requires AGENT_BROWSER_TOKEN, and team mode requires BROWSER_MODE=docker.",
+    "Invalid configuration. Check .env.example, the access mode, and initial account settings (username and password of at least 12 characters).",
   );
   process.exit(1);
 }
@@ -36,6 +36,18 @@ if (engine instanceof DockerEngine) {
 }
 const registry = new SessionRegistry(engine, config);
 const identity = config.authMode !== "legacy" ? new IdentityStore(join(config.dataDirectory, "identity")) : undefined;
+if (identity && config.bootstrapAdmin) {
+  try {
+    if (await identity.bootstrapAdmin(config.bootstrapAdmin.username, config.bootstrapAdmin.password))
+      console.log("Initial administrator account created. Sign in to create a personal Agent token.");
+  } catch {
+    console.error("Unable to create the initial account. Check configuration and private-volume permissions.");
+    identity.close(); await engine.close(); process.exit(1);
+  }
+}
+// Do not retain the bootstrap password in the long-lived HTTP options object.
+config.bootstrapAdmin = undefined;
+delete process.env.AB_ADMIN_PASSWORD;
 const server = createHttpServer(registry, { ...config, identity, demo: config.authMode === "demo", publicBrowser: config.authMode === "public", defaultStartUrl: config.browserMode === 'docker' ? 'https://agentic-browser.invalid/demo' : undefined });
 const reapTimer = setInterval(() => {
   void registry.reap();

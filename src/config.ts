@@ -4,7 +4,7 @@ export function readConfig(env: NodeJS.ProcessEnv = process.env) {
   const parsed = z
     .object({
       AGENT_BROWSER_TOKEN: z.string().min(32).optional(),
-      BROWSER_AUTH_MODE: z.enum(["legacy", "team", "demo", "public"]).default("legacy"),
+      BROWSER_AUTH_MODE: z.enum(["legacy", "team", "authenticated", "demo", "public"]).default("legacy"),
       PUBLIC_MAX_SESSIONS_PER_IP: z.coerce.number().int().min(1).max(8).default(2),
       BROWSER_TRUST_PROXY: z.enum(["true", "false"]).default("false"),
       HOST: z.enum(["127.0.0.1", "::1", "0.0.0.0"]).default("127.0.0.1"),
@@ -31,7 +31,12 @@ export function readConfig(env: NodeJS.ProcessEnv = process.env) {
       BROWSER_DATA_VOLUME_ROOT: z.string().min(1).optional(),
       DESKTOP_CHROME_PATH: z.string().default("/usr/bin/google-chrome-stable"),
     })
-    .parse(env);
+    .parse({ ...env, BROWSER_AUTH_MODE: env.AB_MODE ?? env.BROWSER_AUTH_MODE });
+  const authMode = parsed.BROWSER_AUTH_MODE === "authenticated" ? "team" : parsed.BROWSER_AUTH_MODE;
+  if (env.AB_MODE && !["authenticated", "public"].includes(env.AB_MODE)) throw new Error("AB_MODE must be authenticated or public");
+  const bootstrapAdmin = authMode === "team" && (env.AB_ADMIN_USERNAME || env.AB_ADMIN_PASSWORD)
+    ? { username: z.string().trim().toLowerCase().regex(/^[a-z0-9][a-z0-9._-]{2,63}$/).parse(env.AB_ADMIN_USERNAME),
+        password: z.string().min(12).max(256).parse(env.AB_ADMIN_PASSWORD) } : undefined;
   if (parsed.BROWSER_AUTH_MODE === "legacy" && !parsed.AGENT_BROWSER_TOKEN) throw new Error("Legacy mode requires AGENT_BROWSER_TOKEN");
   if (parsed.BROWSER_AUTH_MODE !== "legacy" && parsed.BROWSER_MODE !== "docker") throw new Error("Team and demo modes require isolated Docker runtimes");
   const publicUrl = new URL(
@@ -54,7 +59,8 @@ export function readConfig(env: NodeJS.ProcessEnv = process.env) {
     ? (process.arch === 'arm64' ? 'linux/arm64' : 'linux/amd64') : parsed.BROWSER_RUNTIME_PLATFORM;
   return {
     token: parsed.AGENT_BROWSER_TOKEN,
-    authMode: parsed.BROWSER_AUTH_MODE,
+    authMode,
+    bootstrapAdmin,
     host: parsed.HOST,
     port: parsed.PORT,
     publicUrl: publicUrl.origin,
