@@ -27,7 +27,7 @@ Replace `YOUR_DEMO_DOMAIN`; the official deployment uses `agentic-browser.zkpass
 ```sh
 AB_COMPOSE_VARIANT=public bash scripts/release-compose.sh pull
 AB_COMPOSE_VARIANT=public bash scripts/release-compose.sh up -d --wait --wait-timeout 90
-AB_COMPOSE_VARIANT=public bash scripts/release-compose.sh exec controller node --import tsx src/doctor.ts
+AB_COMPOSE_VARIANT=public bash scripts/release-compose.sh doctor
 ```
 
 Only the controller mounts the Docker socket. A session creates its own browser and egress proxy; no VNC, CDP, or Docker TCP port needs to be exposed.

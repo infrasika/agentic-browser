@@ -47,8 +47,8 @@ cp .env.compose.example .env.compose
 # Optional: edit .env.compose to change the port, public URL, or session limit.
 bash scripts/release-compose.sh pull
 bash scripts/release-compose.sh up -d --wait --wait-timeout 90
-bash scripts/release-compose.sh exec controller node --import tsx src/doctor.ts
-bash scripts/release-compose.sh exec controller node --import tsx src/members-cli.ts create alice
+bash scripts/release-compose.sh doctor
+bash scripts/release-compose.sh member create alice
 ```
 
 Open `http://127.0.0.1:3333`, sign in with the member account you just created, and create a personal Agent credential. See [Self-hosting](docs/SELF_HOST.md) for configuration, remote access, members, upgrades, and recovery; see [Agent clients](docs/AGENT_CLIENT.md) for the private MCP configuration.

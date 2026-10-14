@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import { mkdtemp, readFile, writeFile, rm, symlink } from 'node:fs/promises';
+import { chmod, mkdir, mkdtemp, readFile, writeFile, rm, symlink } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fakeWorkspace, startService } from './helpers.js';
@@ -65,4 +65,59 @@ test('public self-host download is reproducible, pinned, source-free, and availa
   for (const path of ['/self-host/download/.env', '/self-host/download/src/main.ts', '/self-host/download/deploy/release.env', '/self-host-downloads/SHA256SUMS']) {
     assert.notEqual((await fetch(service.base + path)).status, 200, path);
   }
+});
+
+test('downloaded helpers run image commands and keep remote MCP clients free of server mounts', async t => {
+  const directory = await mkdtemp(join(tmpdir(), 'agentic-image-client-'));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  await exec('python3', ['scripts/package-self-host.py', '--output', directory]);
+  await exec('tar', ['-xzf', join(directory, 'agentic-browser-self-host.tar.gz'), '-C', directory]);
+  const root = join(directory, 'agentic-browser');
+  const manifest = JSON.parse(await readFile(join(root, 'SETUP.json'), 'utf8'));
+  const bin = join(directory, 'bin');
+  await mkdir(bin);
+  const calls = join(directory, 'docker-calls.jsonl');
+  const config = join(directory, 'compose.env');
+  await writeFile(config, '');
+  const docker = join(bin, 'docker');
+  await writeFile(docker, `#!/usr/bin/env node
+const fs = require('node:fs');
+const args = process.argv.slice(2);
+fs.appendFileSync(process.env.DOCKER_CALLS, JSON.stringify(args) + '\\n');
+if (args[0] === 'context') process.stdout.write('unix:///var/run/docker.sock\\n');
+`);
+  await chmod(docker, 0o755);
+  const env = { ...process.env, PATH: `${bin}:${process.env.PATH}`, DOCKER_CALLS: calls,
+    DOCKER_HOST: 'unix:///var/run/docker.sock', DOCKER_CONTEXT: '', AB_DOCKER_GID: '123',
+    AB_DOCKER_SOCKET: '/var/run/docker.sock', AB_RELEASE_FILE: join(root, 'deploy/release.env'),
+    AB_COMPOSE_ENV_FILE: config, AB_COMPOSE_VARIANT: '',
+    AGENT_BROWSER_TOKEN: 'synthetic-credential-must-stay-out-of-arguments',
+    AGENT_BROWSER_URL: 'https://workspace.example.test', AGENT_BROWSER_VIEW_URL: 'https://workspace.example.test' };
+  const run = async (...args: string[]) => {
+    await writeFile(calls, '');
+    await exec('bash', [join(root, 'scripts/release-compose.sh'), ...args], { cwd: directory, env });
+    return (await readFile(calls, 'utf8')).trim().split('\n').map(line => JSON.parse(line) as string[]);
+  };
+  assert.deepEqual(await run('pull-client'), [['pull', manifest.images.controller]]);
+  assert.deepEqual(await run('pull'), [['pull', manifest.images.controller], ['pull', manifest.images.runtime]]);
+  assert.deepEqual((await run('doctor'))[0].slice(-7), ['exec', '-T', 'controller', 'node', '--import', 'tsx', 'src/doctor.ts']);
+  const member = (await run('member', 'create', 'member with spaces'))[0];
+  assert.ok(!member.includes('-T'), 'Member setup keeps an interactive password prompt');
+  assert.deepEqual(member.slice(-8), ['exec', 'controller', 'node', '--import', 'tsx', 'src/members-cli.ts', 'create', 'member with spaces']);
+  const local = (await run('mcp'))[0];
+  assert.ok(local.includes('-T'), 'MCP must not use a terminal');
+  assert.ok(local.includes('AGENT_BROWSER_TOKEN') && !local.join(' ').includes(env.AGENT_BROWSER_TOKEN));
+  const remoteCalls = await run('mcp-remote');
+  assert.equal(remoteCalls.length, 1, 'Remote client never probes or uses the server socket');
+  const remote = remoteCalls[0];
+  assert.equal(remote[0], 'run');
+  for (const flag of ['--rm', '-i', '--init', '--read-only']) assert.ok(remote.includes(flag));
+  for (const flag of ['--mount', '--volume', '-v', '--privileged', '-t']) assert.ok(!remote.includes(flag));
+  assert.ok(!remote.join(' ').includes(env.AGENT_BROWSER_TOKEN));
+  assert.deepEqual(remote.slice(-6), ['--entrypoint', 'node', manifest.images.controller, '--import', 'tsx', 'src/mcp.ts']);
+  await writeFile(calls, '');
+  await assert.rejects(exec('bash', [join(root, 'scripts/release-compose.sh'), 'mcp-remote'], {
+    cwd: directory, env: { ...env, AGENT_BROWSER_TOKEN: '' },
+  }), /Set your personal Agent credential/);
+  assert.equal(await readFile(calls, 'utf8'), '', 'Missing credentials fail before starting Docker');
 });

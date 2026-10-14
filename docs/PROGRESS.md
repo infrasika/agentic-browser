@@ -53,6 +53,14 @@ Playwright verified task copying, the four-step order, the setup download button
 
 Deployed source commit `265949af9c03` to the official demo as `agentic-browser:self-host-265949af9c03` after confirming no active sessions. Live HTTPS downloads matched the committed archive byte-for-byte; its checksum and every manifest file hash passed. The live homepage, Copy task button, and self-hosting page were verified in Playwright. Health remained OK and capacity stayed at 5 browsers. This replaces the previous homepage-only controller patch; published controller/runtime pins remain `v0.1.0-preview.2` until the next image release.
 
+## Source-free setup commands and remote clients — 2026-10-14
+
+Replaced source-looking account, environment-check, and MCP commands in the public self-hosting guide with commands shipped in the setup download: `doctor`, `member`, and `mcp`. The guide explicitly identifies the downloaded configuration/helper folders. README and deployment guides use the same commands.
+
+Remote members can now use `pull-client` and `mcp-remote` to run the MCP client from the existing pinned public controller image. This requires their local Docker installation and personal credential, without source access, host Node.js, or server Docker permissions. The temporary client receives no host mounts, Docker socket, or private data volume. Custom-domain instructions use the configured public origin so host validation remains intact.
+
+TypeScript and all 53 unit/API tests passed, including extracted-bundle command dispatch, immutable image selection, credential handling, and remote-client mount restrictions. A separate clean-directory installation from the generated setup archive passed on the existing Ubuntu amd64 host using the published images. It verified the hidden interactive member password prompt, the doctor helper, both MCP client modes (11 tools, authenticated create, snapshot, handoff protection, close), rejection of an invalid credential, and removal of the disposable installation. The external test harness was not part of the deployment directory. Evidence is under `output/self-host-client-check/`. Published image digests are unchanged.
+
 ## Validation still required
 
 - The user previously verified Mac deployment, but the newly published native arm64 image still needs its own physical Mac acceptance run. Linux ARM CI is not a substitute.

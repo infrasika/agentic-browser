@@ -42,13 +42,15 @@ AB_PUBLIC_URL=http://127.0.0.1:3333
 AB_MAX_SESSIONS=1
 ```
 
-Then pull both images, start the controller, check its environment, and create a member:
+The `scripts/` and `deploy/` folders are included in the setup download. Run the following from that extracted directory; account administration and environment checks execute inside the controller image, with no application source or host Node.js required.
+
+Pull both images, start the controller, check its environment, and create a member:
 
 ```sh
 bash scripts/release-compose.sh pull
 bash scripts/release-compose.sh up -d --wait --wait-timeout 90
-bash scripts/release-compose.sh exec controller node --import tsx src/doctor.ts
-bash scripts/release-compose.sh exec controller node --import tsx src/members-cli.ts create alice
+bash scripts/release-compose.sh doctor
+bash scripts/release-compose.sh member create alice
 ```
 
 The password is entered in a hidden terminal prompt and must have at least 12 characters. Open `http://127.0.0.1:3333` and sign in. Create a personal Agent credential in the dashboard, then configure your client using [Agent clients](AGENT_CLIENT.md). Credentials are shown once; store them in the client's private configuration.
@@ -76,8 +78,8 @@ The team Compose configuration permits one active session per member, starts ses
 There is no open registration. An administrator creates separate members:
 
 ```sh
-bash scripts/release-compose.sh exec controller node --import tsx src/members-cli.ts create bob
-bash scripts/release-compose.sh exec controller node --import tsx src/members-cli.ts list
+bash scripts/release-compose.sh member create bob
+bash scripts/release-compose.sh member list
 ```
 
 Run the CLI without arguments to see password, disable/enable, and profile-claim commands. Password changes and disabling a member revoke their active login and Agent credentials; enabling them does not restore old credentials. Revoking one Agent credential leaves other members' credentials intact.

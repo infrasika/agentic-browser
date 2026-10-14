@@ -22,11 +22,39 @@ for release_ref in "$controller_ref" "$runtime_ref"; do
   fi
 done
 export AB_CONTROLLER_IMAGE="$controller_ref" AB_RUNTIME_IMAGE="$runtime_ref"
-if [ "${1:-}" = pull ]; then
-  docker pull "$AB_CONTROLLER_IMAGE"
-  docker pull "$AB_RUNTIME_IMAGE"
-  exit
-fi
+case "${1:-}" in
+  pull|pull-client)
+    docker pull "$AB_CONTROLLER_IMAGE"
+    if [ "$1" = pull ]; then docker pull "$AB_RUNTIME_IMAGE"; fi
+    exit
+    ;;
+  doctor)
+    shift
+    set -- exec -T controller node --import tsx src/doctor.ts "$@"
+    ;;
+  member)
+    shift
+    # Keep Compose's interactive terminal for the hidden password prompt.
+    set -- exec controller node --import tsx src/members-cli.ts "$@"
+    ;;
+  mcp)
+    shift
+    set -- exec -T -e AGENT_BROWSER_TOKEN -e AGENT_BROWSER_URL -e AGENT_BROWSER_VIEW_URL \
+      controller node --import tsx src/mcp.ts "$@"
+    ;;
+  mcp-remote)
+    : "${AGENT_BROWSER_URL:?Set the private service URL reachable from this client container}"
+    : "${AGENT_BROWSER_TOKEN:?Set your personal Agent credential}"
+    # The same published image provides a client without any server permissions.
+    # No host paths, private data volume, or Docker socket are mounted.
+    exec docker run --rm -i --init --read-only --cap-drop ALL \
+      --security-opt no-new-privileges --user 1000:1000 \
+      --memory 256m --cpus 0.5 --pids-limit 64 \
+      --tmpfs /tmp:rw,nosuid,nodev,size=64m,mode=1777 \
+      -e AGENT_BROWSER_TOKEN -e AGENT_BROWSER_URL -e AGENT_BROWSER_VIEW_URL \
+      --entrypoint node "$AB_CONTROLLER_IMAGE" --import tsx src/mcp.ts
+    ;;
+esac
 if [ "${AB_COMPOSE_VARIANT:-}" = public ]; then
   exec bash scripts/public-demo.sh "$@"
 fi

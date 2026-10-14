@@ -65,14 +65,18 @@ When full, `browser_create` returns MCP `isError: true` with `status: 429`, `err
 
 A team administrator creates your member account. Sign in to the workspace and create a personal Agent credential. It allows temporary sessions by default; grant specific saved profiles only when you want the Agent to reuse them. Do not share a credential between members.
 
-For a personal deployment where the Agent already has access to the same Docker engine, the published controller contains the stdio adapter:
+The [public setup download](https://agentic-browser.zkpass.org/self-host) includes the helper used below. All application commands run inside the published controller image. Neither option requires a source checkout, host Node.js, or npm dependencies.
+
+### Agent on the deployment machine
+
+With the controller running, use the setup helper to launch the MCP client inside it. Run `pwd` in the extracted setup directory and replace `/ABSOLUTE/PATH/agentic-browser` with that path:
 
 ```json
 {
   "mcpServers": {
     "agentic-browser": {
-      "command": "docker",
-      "args": ["exec", "-i", "-e", "AGENT_BROWSER_TOKEN", "-e", "AGENT_BROWSER_URL", "-e", "AGENT_BROWSER_VIEW_URL", "agentic-browser-controller-1", "node", "--import", "tsx", "src/mcp.ts"],
+      "command": "bash",
+      "args": ["/ABSOLUTE/PATH/agentic-browser/scripts/release-compose.sh", "mcp"],
       "env": {
         "AGENT_BROWSER_URL": "http://127.0.0.1:3333",
         "AGENT_BROWSER_TOKEN": "REPLACE_WITH_YOUR_PERSONAL_AGENT_CREDENTIAL",
@@ -83,17 +87,26 @@ For a personal deployment where the Agent already has access to the same Docker 
 }
 ```
 
-Adjust the container name if you changed `AB_PROJECT_NAME`. Keep `-i` and omit `-t` so MCP has a clean stdio stream. Here the API URL is reached inside the controller, while the view URL must be reachable from your own browser.
+The helper uses the project name in `.env.compose` and keeps MCP's stdio stream free of terminal formatting. For the default loopback setup, the API URL points to internal port 3333 inside the controller. If `AB_PUBLIC_URL` uses a public domain, set both URL values to that origin and ensure it is reachable from the controller; a loopback API address would be rejected by host validation. Set the view URL to the address reachable from your own browser, including a changed host port. This option assumes the Agent already has access to your local Docker engine.
 
-Remote team members should not receive server Docker access just to use MCP. They can run the Node.js 24 stdio adapter from an authorized local source installation with dependencies installed:
+### Agent on another machine
+
+Remote team members need only their own Docker installation, the downloaded setup files, their private service's address, and their personal credential. They do not need source access or permissions on the server's Docker engine.
+
+On the Agent's machine, extract the setup archive and pull only the controller image, which also contains the MCP client:
+
+```sh
+bash scripts/release-compose.sh pull-client
+```
+
+Do not run `up` or create a local member for this client-only setup. Use the helper's `mcp-remote` command:
 
 ```json
 {
   "mcpServers": {
     "agentic-browser": {
-      "command": "node",
-      "args": ["--import", "tsx", "/absolute/path/agentic-browser/src/mcp.ts"],
-      "cwd": "/absolute/path/agentic-browser",
+      "command": "bash",
+      "args": ["/ABSOLUTE/PATH/agentic-browser/scripts/release-compose.sh", "mcp-remote"],
       "env": {
         "AGENT_BROWSER_URL": "https://YOUR_PRIVATE_BROWSER_DOMAIN",
         "AGENT_BROWSER_TOKEN": "REPLACE_WITH_YOUR_PERSONAL_AGENT_CREDENTIAL",
@@ -104,7 +117,11 @@ Remote team members should not receive server Docker access just to use MCP. The
 }
 ```
 
-The generic example assumes the client supports `cwd`. Otherwise launch from the installation directory or use a small local wrapper. `AGENT_BROWSER_VIEW_URL` only rewrites human links; it does not create an SSH tunnel. Both URL settings accept HTTP(S) origins, not paths or embedded credentials. A separately distributed remote-team adapter package is not yet provided.
+The helper starts a temporary client container from the pinned controller image, with no Docker socket, host directories, or private data volumes mounted. It connects to the existing service over HTTPS and is removed when the MCP client disconnects. Pulling the image before connecting avoids a first-connection timeout.
+
+The remote-client example requires a service address reachable from the client container and matching the configured public origin. SSH forwarding for opening the website is covered in [Self-hosting](SELF_HOST.md); it does not automatically make a host loopback tunnel available to this client container.
+
+`AGENT_BROWSER_VIEW_URL` only rewrites human links; it does not create an SSH tunnel. Both URL settings accept HTTP(S) origins, not paths or embedded credentials. Private deployments currently use this stdio client with personal credentials; the public demo's account-free HTTP `/mcp` endpoint is a separate mode.
 
 Team mode exposes 11 tools, including authorized session and profile listings. A credential cannot read other credentials' sessions or create/delete saved profiles. Rebinding a member-owned session to another credential enters human control and invalidates old queued operations; the member then explicitly hands control back.
 

@@ -14,7 +14,7 @@
   <p>Try the handoff flow at <a href="https://agentic-browser.zkpass.org/">the official demo</a>. Its public MCP endpoint is <code>https://agentic-browser.zkpass.org/mcp</code>. Your private deployment has its own accounts and Agent configuration.</p>
   <section class="panel">
     <h2>1. Download the setup files</h2>
-    <p>This small download contains Docker Compose configuration, setup helpers, and operating instructions. The application and browser come from our two public images:</p>
+    <p>This small download contains Docker Compose configuration, setup helpers, and operating instructions. The <code>scripts/</code> and <code>deploy/</code> folders used below are included in this download; they are not a source checkout. The application and browser come from our two public images:</p>
     <ul>
       <li><a href="https://github.com/users/infrasika/packages/container/package/agentic-browser-controller">agentic-browser-controller</a></li>
       <li><a href="https://github.com/users/infrasika/packages/container/package/agentic-browser-runtime">agentic-browser-runtime</a></li>
@@ -44,21 +44,21 @@ AB_PORT=3333
 AB_PUBLIC_URL=http://127.0.0.1:3333
 AB_MAX_SESSIONS=1</pre>
     <p><code>AB_PUBLIC_URL</code> is the origin users open. Compose passes it into the application as <code>PUBLIC_URL</code>. Recreate the controller after changes. Keep the project name stable: it selects your private data volume.</p>
-    <p>Pull the two images, start the service, and create your first member account:</p>
+    <p>Run these commands from the extracted setup directory. They pull the two images and run the service, environment check, and account setup inside the controller container:</p>
     <pre tabindex="0">bash scripts/release-compose.sh pull
 bash scripts/release-compose.sh up -d --wait --wait-timeout 90
-bash scripts/release-compose.sh exec controller node --import tsx src/doctor.ts
-bash scripts/release-compose.sh exec controller node --import tsx src/members-cli.ts create alice</pre>
+bash scripts/release-compose.sh doctor
+bash scripts/release-compose.sh member create alice</pre>
     <p>Enter a password of at least 12 characters at the hidden terminal prompt. Open <code>http://127.0.0.1:3333</code>, sign in, and create a personal Agent credential. Create a separate account and credential for each team member.</p>
   </section>
   <section class="panel">
     <h2>4. Connect your Agent</h2>
-    <p>For a personal deployment where your Agent already has access to the same Docker engine, add this MCP configuration. Replace the credential with the one shown in your dashboard:</p>
+    <p>For an Agent on the same machine as your deployment, use the setup helper below. Run <code>pwd</code> in the extracted directory to find its full path, replace <code>/ABSOLUTE/PATH/agentic-browser</code>, and enter the personal credential from your dashboard. The helper runs the MCP client inside your controller image; no host Node.js installation or application source files are needed:</p>
     <pre tabindex="0">{
   "mcpServers": {
     "agentic-browser": {
-      "command": "docker",
-      "args": ["exec", "-i", "-e", "AGENT_BROWSER_TOKEN", "-e", "AGENT_BROWSER_URL", "-e", "AGENT_BROWSER_VIEW_URL", "agentic-browser-controller-1", "node", "--import", "tsx", "src/mcp.ts"],
+      "command": "bash",
+      "args": ["/ABSOLUTE/PATH/agentic-browser/scripts/release-compose.sh", "mcp"],
       "env": {
         "AGENT_BROWSER_URL": "http://127.0.0.1:3333",
         "AGENT_BROWSER_TOKEN": "YOUR_PERSONAL_AGENT_CREDENTIAL",
@@ -67,8 +67,29 @@ bash scripts/release-compose.sh exec controller node --import tsx src/members-cl
     }
   }
 }</pre>
-    <p>The controller must be running. Adjust its name if you changed the project name. Refresh or restart your MCP client, then ask your Agent to open a website and hand the browser to you. Use the actual session link it returns, complete your steps, and click <strong>Hand back to Agent</strong>.</p>
-    <p>Give each team member their own account and credential. Remote members can use the local stdio adapter to connect to your service over HTTPS; they do not need server Docker permissions. Full instructions are in <code>docs/AGENT_CLIENT.md</code> inside the bundle.</p>
+    <p>The controller must be running. The helper reads your project name from <code>.env.compose</code>. For the default loopback setup, the API address uses port 3333 inside the container; set <code>AGENT_BROWSER_VIEW_URL</code> to the address you open in your browser. If you configured a public domain, set both URL values to that domain, which must also be reachable from the controller. Refresh or restart your MCP client, then ask your Agent to open a website and hand the browser to you. Use the actual session link it returns, complete your steps, and click <strong>Hand back to Agent</strong>.</p>
+    <p>Give each team member their own account and credential. If the service runs on a remote Ubuntu server and your Agent runs on your Mac, use the remote-client setup below.</p>
+    <details id="remote-client">
+      <summary>Connect an Agent from another machine</summary>
+      <p>Install Docker locally and download and extract the same setup bundle on the Agent's machine. You do not start another server or create another member there. Pull only the client image before connecting:</p>
+      <pre tabindex="0">bash scripts/release-compose.sh pull-client</pre>
+      <p>Use this configuration with the full path to the setup folder on the Agent's machine and your private service's HTTPS address:</p>
+      <pre tabindex="0">{
+  "mcpServers": {
+    "agentic-browser": {
+      "command": "bash",
+      "args": ["/ABSOLUTE/PATH/agentic-browser/scripts/release-compose.sh", "mcp-remote"],
+      "env": {
+        "AGENT_BROWSER_URL": "https://YOUR_PRIVATE_BROWSER_DOMAIN",
+        "AGENT_BROWSER_TOKEN": "YOUR_PERSONAL_AGENT_CREDENTIAL",
+        "AGENT_BROWSER_VIEW_URL": "https://YOUR_PRIVATE_BROWSER_DOMAIN"
+      }
+    }
+  }
+}</pre>
+      <p>This runs a client from the same controller image, without mounting a Docker socket or server data. It needs access only to your service over HTTPS. Full client instructions are in <code>docs/AGENT_CLIENT.md</code> inside the bundle.</p>
+    </details>
+    <p>Both configurations use only the downloaded setup files and published images.</p>
   </section>
   <section class="panel">
     <h2>Remote access and day-to-day operation</h2>
