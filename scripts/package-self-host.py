@@ -28,10 +28,26 @@ def build(root, output):
         images[match[1].lower()] = match[2]
     if set(images) != {'controller', 'runtime'}:
         raise SystemExit('Both controller and runtime image pins are required')
+    # Native Compose needs no project checkout or helper after this one-time setup.
+    compose = contents['compose.yaml'].decode()
+    for key, image in [('AB_CONTROLLER_IMAGE', images['controller']), ('AB_RUNTIME_IMAGE', images['runtime'])]:
+        compose, count = re.subn(r'\$\{' + key + r':-[^}]+\}', image, compose)
+        if count != 1:
+            raise SystemExit(f'Expected exactly one {key} reference in compose.yaml')
+    compose = compose.replace('Use bash scripts/compose.sh to detect the socket group', 'Run the standalone installer to detect the socket group')
+    compose = compose.replace('Use bash scripts/compose.sh', 'Run the standalone installer')
+    installer = contents['scripts/install.sh.in'].decode()
+    for marker, value in [('CONTROLLER_IMAGE', images['controller']), ('RUNTIME_IMAGE', images['runtime']), ('COMPOSE', compose.rstrip())]:
+        if installer.count(f'@@{marker}@@') != 1:
+            raise SystemExit(f'Expected exactly one installer marker: {marker}')
+        installer = installer.replace(f'@@{marker}@@', value)
     manifest = {'kind': 'public-self-host-configuration', 'images': images,
                 'files': {name: hashlib.sha256(data).hexdigest() for name, data in sorted(contents.items())}}
     contents['SETUP.json'] = (json.dumps(manifest, indent=2) + '\n').encode()
     output.mkdir(parents=True, exist_ok=True)
+    (output / 'install.sh').write_text(installer)
+    for name in ['SELF_HOST.md', 'AGENT_CLIENT.md']:
+        (output / name).write_bytes(contents[f'docs/{name}'])
     archive = output / 'agentic-browser-self-host.tar.gz'
     with archive.open('wb') as raw, gzip.GzipFile(filename='', mode='wb', fileobj=raw, mtime=0) as compressed:
         with tarfile.open(fileobj=compressed, mode='w', format=tarfile.PAX_FORMAT) as bundle:

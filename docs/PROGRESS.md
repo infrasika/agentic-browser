@@ -75,6 +75,14 @@ TypeScript and all 54 unit/API tests passed. A clean-directory installation from
 
 Deployed `a7ccacad5b12` as `agentic-browser:setup-config-a7ccacad5b12` after confirming no active demo sessions. The live guide and anonymous setup archive matched the tested files, including all file hashes. Playwright verified the settings table, expandable options/application instructions, both client JSON examples, and desktop/mobile layouts without horizontal overflow. Health passed and the public capacity remained 0 / 5. Published image pins are unchanged.
 
+## Standalone installer and native Compose commands — 2026-10-14
+
+Added a public `/install.sh` that embeds the accepted configuration, pulls both pinned images, detects Linux-side Docker socket permissions, and writes only `compose.yaml` and `.env` in a new installation directory. It checks Docker/Compose versions, supports Docker Desktop socket detection, refuses nonlocal Docker contexts and unsafe paths, and never overwrites existing files. The controller remains non-root with the previous resource restrictions; only its short group probe and running controller receive the socket.
+
+The primary self-hosting page, README, and guide now use native `docker compose` commands for startup, account creation, configuration changes, and local MCP. Remote clients use the same published controller image directly with `docker run`; they need no installation files or server Docker permissions. Public plain-text downloads provide the self-host and client guides. Existing helper-based bundles remain supported, with migration instructions that retain the project name and private volume.
+
+TypeScript and all 55 unit/API tests passed. Installer tests cover pinned configuration, actual Compose rendering, simulated Linux/Mac socket detection, restrictive settings-file permissions, invalid versions/context/group handling, and overwrite refusal. A clean-directory Ubuntu amd64 run of the standalone installer used the existing public images and only the two generated files. It passed native Compose startup and doctor, hidden interactive member creation, both Docker-based MCP examples (11 tools, authenticated create/snapshot/handoff protection/close), invalid credential rejection, and recreation applying `.env` changes while retaining the authenticated member. Test resources were removed. Evidence is under `output/native-compose-check/`. This remains an existing-host test; physical Mac and fresh-host acceptance are outstanding. Public image digests are unchanged.
+
 ## Validation still required
 
 - The user previously verified Mac deployment, but the newly published native arm64 image still needs its own physical Mac acceptance run. Linux ARM CI is not a substitute.

@@ -18,7 +18,7 @@ DIGEST = re.compile(r'sha256:[a-f0-9]{64}')
 def deployment_contents(root=ROOT):
     """Public configuration and documentation only; never discover source or local state."""
     files = ['compose.yaml', 'compose.public.yaml', '.env.compose.example', '.env.public.example',
-             'scripts/compose.sh', 'scripts/public-demo.sh', 'scripts/release-compose.sh',
+             'scripts/compose.sh', 'scripts/public-demo.sh', 'scripts/release-compose.sh', 'scripts/install.sh.in',
              'README.md', 'docs/SELF_HOST.md', 'docs/UBUNTU_PUBLIC_DEMO.md', 'docs/AGENT_CLIENT.md',
              'docs/ARCHITECTURE.md', 'docs/RELEASING.md', 'docs/PLAN.md', 'docs/PROGRESS.md',
              'runtime/README.md', 'deploy/nginx-public.conf', 'deploy/release.env',

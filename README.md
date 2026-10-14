@@ -33,22 +33,16 @@ Public images are available for **Linux amd64 and arm64**:
 - `ghcr.io/infrasika/agentic-browser-controller`
 - `ghcr.io/infrasika/agentic-browser-runtime`
 
-The current English preview is `v0.1.0-preview.2`. Download the setup files directly from the [self-hosting page](https://agentic-browser.zkpass.org/self-host) and pull the two images. The included `deploy/release.env` pins them by digest. No source checkout, build, GitHub access, or registry login is needed. The source repository remains private.
+The current English preview is `v0.1.0-preview.2`. The [standalone installer](https://agentic-browser.zkpass.org/install.sh) pulls both public images and writes only `compose.yaml` and `.env`. No source checkout, build, registry login, or helper scripts are needed afterward. Both images are pinned by digest in the generated Compose file.
 
-Requirements: Docker Engine 26+ with Compose 2.24.4+ and Bash. Apple Silicon Macs use Docker Desktop's Linux arm64 engine. The host does not need Node.js, Chrome, or the extensions installed separately.
+Requirements: Docker Engine 26+, Compose 2.24.4+, and Bash. Apple Silicon Macs use Docker Desktop's Linux arm64 engine.
 
 ```sh
-curl -fSLO https://agentic-browser.zkpass.org/self-host/download/agentic-browser-self-host.tar.gz
-curl -fSLO https://agentic-browser.zkpass.org/self-host/download/SHA256SUMS
-sha256sum -c SHA256SUMS  # On macOS: shasum -a 256 -c SHA256SUMS
-tar -xzf agentic-browser-self-host.tar.gz
+curl -fsSL https://agentic-browser.zkpass.org/install.sh | bash
 cd agentic-browser
-cp .env.compose.example .env.compose
-# Optional: edit .env.compose to change the port, public URL, or session limit.
-bash scripts/release-compose.sh pull
-bash scripts/release-compose.sh up -d --wait --wait-timeout 90
-bash scripts/release-compose.sh doctor
-bash scripts/release-compose.sh member create alice
+# Edit .env to change the port, public URL, or session limits.
+docker compose up -d --wait
+docker compose exec controller npm run members -- create alice
 ```
 
 Open `http://127.0.0.1:3333`, sign in with the member account you just created, and create a personal Agent credential. See [Self-hosting](docs/SELF_HOST.md) for configuration, remote access, members, upgrades, and recovery; see [Agent clients](docs/AGENT_CLIENT.md) for the private MCP configuration.

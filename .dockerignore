@@ -13,6 +13,7 @@
 !scripts/
 !scripts/fetch-runtime-assets.py
 !scripts/package-self-host.py
+!scripts/install.sh.in
 !scripts/release-manifest.py
 !scripts/compose.sh
 !scripts/public-demo.sh

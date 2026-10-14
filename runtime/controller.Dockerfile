@@ -13,7 +13,7 @@ COPY src/ ./src/
 COPY web/ ./web/
 COPY test/ ./test/
 COPY scripts/fetch-runtime-assets.py ./scripts/
-COPY scripts/package-self-host.py scripts/release-manifest.py scripts/compose.sh scripts/public-demo.sh scripts/release-compose.sh ./scripts/
+COPY scripts/install.sh.in scripts/package-self-host.py scripts/release-manifest.py scripts/compose.sh scripts/public-demo.sh scripts/release-compose.sh ./scripts/
 COPY compose.yaml compose.public.yaml .env.compose.example .env.public.example README.md ./
 COPY docs/ ./docs/
 COPY deploy/release.env deploy/nginx-public.conf ./deploy/

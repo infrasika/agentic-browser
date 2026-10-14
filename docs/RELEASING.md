@@ -5,7 +5,7 @@ Publish these two public GHCR packages while keeping the source repository priva
 - `ghcr.io/infrasika/agentic-browser-controller`
 - `ghcr.io/infrasika/agentic-browser-runtime`
 
-GitHub Release attachments inherit repository access restrictions. New installations use the public setup download; an authorized administrator can also distribute historical release bundles. Publishing the images does not publish the source or Release page.
+GitHub Release attachments inherit repository access restrictions. New installations use the standalone installer; an authorized administrator can also distribute historical release bundles. Publishing the images does not publish the source or Release page.
 
 ## Run the workflow
 
@@ -31,7 +31,9 @@ The Release contains:
 
 The allowlist excludes source code, private environment files, user profiles, logs, and credentials. Actions also retains validation artifacts. The source-preview archive is a different artifact for authorized source recipients.
 
-The public website also serves `agentic-browser-self-host.tar.gz` and `SHA256SUMS` at `/self-host/download/`. `npm run package:self-host` builds this configuration-only archive from the same deployment allowlist and the accepted `deploy/release.env`. The controller Docker build generates it automatically; `npm start` and `npm run dev` generate it for source deployments. Only the two named download routes are public. `SETUP.json` records the configuration hashes and both image pins. This setup archive may include newer instructions while retaining the last accepted image release; it never modifies historical release assets. Verify an anonymous download and a clean-directory installation whenever changing the kit or pins.
+The public website also serves `agentic-browser-self-host.tar.gz` and `SHA256SUMS` at `/self-host/download/`. `npm run package:self-host` builds this configuration-only archive from the same deployment allowlist and the accepted `deploy/release.env`. The controller Docker build generates it automatically; `npm start` and `npm run dev` generate it for source deployments. Only the explicitly named installer, archive, checksum, and user-guide routes are public. `SETUP.json` records the configuration hashes and both image pins. This setup archive may include newer instructions while retaining the last accepted image release; it never modifies historical release assets. Verify an anonymous download and a clean-directory installation whenever changing the kit or pins.
+
+The same packaging step generates `/install.sh`. This script embeds the accepted Compose configuration with literal image digests, pulls both images, detects the controller socket group, and writes a new directory containing only `compose.yaml` and `.env`. It refuses existing files and requires no repository scripts afterward. Verify the standalone installer and native Compose lifecycle as well as the compatibility archive when changing this setup.
 
 New GHCR packages default to private. On first publication, set **only the two package visibilities** to Public and verify anonymous pulls for both images on both platforms. Keep the source repository private. For later releases, verify that visibility and anonymous access still work.
 

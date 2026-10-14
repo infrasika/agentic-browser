@@ -13,23 +13,20 @@
   <p class="intro">Run our public Docker images with one configuration file. No source checkout or build is required.</p>
   <p>Requires Docker Engine 26+, Compose 2.24.4+, and Bash. Supports Linux amd64/arm64 and Docker Desktop on Apple Silicon.</p>
   <section class="panel">
-    <h2>1. Download</h2>
-    <p><a class="button secondary" href="/self-host/download/agentic-browser-self-host.tar.gz" download>Download setup files</a> <a href="/self-host/download/SHA256SUMS" download>Checksum</a></p>
-    <p>Extract the archive and open a terminal in its <code>agentic-browser</code> folder. All helpers below are included.</p>
-    <details>
-      <summary>Download and verify from the terminal</summary>
-      <pre tabindex="0">curl -fSLO https://agentic-browser.zkpass.org/self-host/download/agentic-browser-self-host.tar.gz
-curl -fSLO https://agentic-browser.zkpass.org/self-host/download/SHA256SUMS
-sha256sum -c SHA256SUMS
-tar -xzf agentic-browser-self-host.tar.gz
+    <h2>1. Prepare</h2>
+    <pre tabindex="0">curl -fsSL https://agentic-browser.zkpass.org/install.sh | bash
 cd agentic-browser</pre>
-      <p>On macOS, use <code>shasum -a 256 -c SHA256SUMS</code> for verification. Stop if the checksum fails.</p>
+    <p>The installer pulls both public images and creates only <code>compose.yaml</code> and <code>.env</code>. It detects Docker socket permissions and does not start the service. No project download is needed.</p>
+    <details>
+      <summary>Inspect the installer or use another directory</summary>
+      <pre tabindex="0">curl -fsSL https://agentic-browser.zkpass.org/install.sh -o install.sh
+bash install.sh my-browser</pre>
+      <p>Existing files are never overwritten. Use a new directory for a new installation. The <a href="/self-host/download/agentic-browser-self-host.tar.gz">compatibility setup bundle</a> remains available for existing helper-based installations.</p>
     </details>
   </section>
   <section class="panel">
     <h2>2. Configure</h2>
-    <pre tabindex="0">cp .env.compose.example .env.compose</pre>
-    <p>Edit <strong><code>.env.compose</code></strong>. The defaults work locally; change the total browser limit to suit your server:</p>
+    <p>Edit <strong><code>.env</code></strong>. The defaults work locally; change the total browser limit to suit your server:</p>
     <pre tabindex="0">AB_PROJECT_NAME=agentic-browser
 AB_PORT=3333
 AB_MAX_SESSIONS=1</pre>
@@ -37,47 +34,45 @@ AB_MAX_SESSIONS=1</pre>
     <table>
       <thead><tr><th scope="col">Setting</th><th scope="col">Manage it in</th></tr></thead>
       <tbody>
-        <tr><td>Server address, limits, session lifetimes</td><td><code>.env.compose</code>, applied at startup</td></tr>
-        <tr><td>Member accounts and passwords</td><td>The <code>member</code> helper</td></tr>
+        <tr><td>Server address, limits, session lifetimes</td><td><code>.env</code>, applied at startup</td></tr>
+        <tr><td>Member accounts and passwords</td><td><code>docker compose exec controller npm run members</code></td></tr>
         <tr><td>Personal Agent credentials and saved profiles</td><td>The signed-in dashboard</td></tr>
       </tbody>
     </table>
-    <p>The dashboard does not change server settings. The source-run <code>.env</code> file is not used by this deployment.</p>
+    <p>Docker Compose reads this <code>.env</code> file when it creates the controller. The dashboard does not change server settings.</p>
     <details id="server-options">
       <summary>Limits and optional settings</summary>
       <pre tabindex="0">AB_MAX_SESSIONS_PER_MEMBER=1
 AB_SESSION_TTL_SECONDS=1800
 AB_SESSION_MAX_LIFETIME_SECONDS=14400
 # AB_EGRESS_DENY_HOSTS=other-management.example.com</pre>
-      <p>Each member can use one browser by default, within the total limit. The initial lease is 30 minutes; renewals cannot exceed a 4-hour total lifetime. Limits allow 1–32 browsers. See <code>docs/SELF_HOST.md</code> in the download for all supported values.</p>
-      <p>Only supported settings are passed into the container. For example, <code>AB_PUBLIC_URL</code> becomes <code>PUBLIC_URL</code>. Image digests come from <code>deploy/release.env</code>. Keep the project name stable to retain the same data volume.</p>
+      <p>Each member can use one browser by default, within the total limit. The initial lease is 30 minutes; renewals cannot exceed a 4-hour total lifetime. Limits allow 1–32 browsers. See the <a href="/self-host/download/SELF_HOST.md">full guide</a> for supported values.</p>
+      <p>Only supported settings are passed into the container. For example, <code>AB_PUBLIC_URL</code> becomes <code>PUBLIC_URL</code>. Image digests are fixed in <code>compose.yaml</code>. Keep the project name stable to retain the same data volume.</p>
     </details>
     <details id="apply-settings">
       <summary>Apply changes after installation</summary>
-      <p>Edit <code>.env.compose</code>, finish active sessions, then recreate the controller:</p>
-      <pre tabindex="0">bash scripts/release-compose.sh up -d --force-recreate --wait --wait-timeout 90</pre>
+      <p>Edit <code>.env</code>, finish active sessions, then recreate the controller:</p>
+      <pre tabindex="0">docker compose up -d --force-recreate --wait</pre>
       <p>No image rebuild is needed. A plain restart does not reload these settings. Accounts and saved profiles remain in the data volume.</p>
     </details>
   </section>
   <section class="panel">
     <h2>3. Start and sign in</h2>
-    <pre tabindex="0">bash scripts/release-compose.sh pull
-bash scripts/release-compose.sh up -d --wait --wait-timeout 90
-bash scripts/release-compose.sh doctor
-bash scripts/release-compose.sh member create alice</pre>
-    <p>Enter a password of at least 12 characters. Open <code>http://127.0.0.1:3333</code> or your configured address, sign in, and create a personal Agent credential. Add a separate member for each teammate.</p>
+    <pre tabindex="0">docker compose up -d --wait
+docker compose exec controller npm run members -- create alice</pre>
+    <p>The account command runs inside the image; Node.js and npm are not needed on your host. Enter a password of at least 12 characters. Open <code>http://127.0.0.1:3333</code> or your configured address, sign in, and create a personal Agent credential. Add a separate member for each teammate.</p>
   </section>
   <section class="panel">
     <h2>4. Connect your Agent</h2>
-    <p>Choose where your Agent runs. Replace the setup folder path and personal credential in the configuration, then reconnect your MCP client.</p>
+    <p>Choose where your Agent runs. Replace the installation folder path and personal credential in the configuration, then reconnect your MCP client.</p>
     <details id="local-client">
       <summary>Agent on the same machine</summary>
-      <p>Run <code>pwd</code> in the setup folder to find its full path. Keep the controller running.</p>
+      <p>Run <code>pwd</code> in the installation folder to find its full path. Keep the controller running.</p>
       <pre tabindex="0">{
   "mcpServers": {
     "agentic-browser": {
-      "command": "bash",
-      "args": ["/ABSOLUTE/PATH/agentic-browser/scripts/release-compose.sh", "mcp"],
+      "command": "docker",
+      "args": ["compose", "--project-directory", "/ABSOLUTE/PATH/agentic-browser", "exec", "-T", "-e", "AGENT_BROWSER_TOKEN", "-e", "AGENT_BROWSER_URL", "-e", "AGENT_BROWSER_VIEW_URL", "controller", "npm", "run", "--silent", "mcp"],
       "env": {
         "AGENT_BROWSER_URL": "http://127.0.0.1:3333",
         "AGENT_BROWSER_TOKEN": "YOUR_PERSONAL_AGENT_CREDENTIAL",
@@ -90,13 +85,13 @@ bash scripts/release-compose.sh member create alice</pre>
     </details>
     <details id="remote-client">
       <summary>Agent on another machine</summary>
-      <p>Install Docker and extract the setup files on that machine. Pull the client image without starting another server:</p>
-      <pre tabindex="0">bash scripts/release-compose.sh pull-client</pre>
+      <p>Install Docker on the Agent's machine. Pull the controller image, which also contains the client. No installation files or server Docker access are needed:</p>
+      <pre tabindex="0">docker pull ghcr.io/infrasika/agentic-browser-controller@sha256:dcf96a174264c80ad4f44a71ad762cb059db98e33dcdfb2e7620aaa412679515</pre>
       <pre tabindex="0">{
   "mcpServers": {
     "agentic-browser": {
-      "command": "bash",
-      "args": ["/ABSOLUTE/PATH/agentic-browser/scripts/release-compose.sh", "mcp-remote"],
+      "command": "docker",
+      "args": ["run", "--rm", "-i", "--init", "--read-only", "--cap-drop", "ALL", "--security-opt", "no-new-privileges", "--memory", "256m", "--cpus", "0.5", "--pids-limit", "64", "--tmpfs", "/tmp:rw,nosuid,nodev,size=64m,mode=1777", "-e", "AGENT_BROWSER_TOKEN", "-e", "AGENT_BROWSER_URL", "-e", "AGENT_BROWSER_VIEW_URL", "ghcr.io/infrasika/agentic-browser-controller@sha256:dcf96a174264c80ad4f44a71ad762cb059db98e33dcdfb2e7620aaa412679515", "npm", "run", "--silent", "mcp"],
       "env": {
         "AGENT_BROWSER_URL": "https://YOUR_PRIVATE_BROWSER_DOMAIN",
         "AGENT_BROWSER_TOKEN": "YOUR_PERSONAL_AGENT_CREDENTIAL",
@@ -105,7 +100,7 @@ bash scripts/release-compose.sh member create alice</pre>
     }
   }
 }</pre>
-      <p>This client uses the same published image and connects to your private service over HTTPS. It receives no server Docker permissions. More examples are in <code>docs/AGENT_CLIENT.md</code>.</p>
+      <p>This client uses the same published image and connects to your private service over HTTPS. It receives no server Docker permissions. The image reference above matches the current pinned release. See the <a href="/self-host/download/AGENT_CLIENT.md">client guide</a> for details.</p>
     </details>
     <p>Ask your Agent to open a website and send you a sign-in link. Complete your steps in that browser, then click <strong>Hand back to Agent</strong>.</p>
   </section>
@@ -115,8 +110,8 @@ bash scripts/release-compose.sh member create alice</pre>
       <summary>Images, storage, and remote access</summary>
       <p>The controller creates one isolated browser per session from the runtime image, which includes Chrome and both zkPass extensions. Only the trusted controller mounts the Docker socket. Start with one browser; each runtime has a 2 GiB memory and 2 CPU limit, plus service overhead.</p>
       <p>Temporary browser data is cleared on close. Saved profiles persist in your private data volume; the server administrator can access that data.</p>
-      <p>For an Ubuntu website tunnel, run <code>ssh -N -L 3333:127.0.0.1:3333 ubuntu@SERVER_IP</code>. For team HTTPS access, follow <code>deploy/nginx-public.conf</code>. Setting the public URL alone does not configure DNS, TLS, or port exposure.</p>
-      <p>Before upgrading, finish sessions and back up the data volume. Retain your settings and project name. Do not use <code>down --volumes</code> for routine changes. See <code>docs/SELF_HOST.md</code> for operations and <code>docs/PROGRESS.md</code> for platform verification status.</p>
+      <p>For an Ubuntu website tunnel, run <code>ssh -N -L 3333:127.0.0.1:3333 ubuntu@SERVER_IP</code>. For team access, configure an HTTPS reverse proxy with WebSocket support. Setting the public URL alone does not configure DNS, TLS, or port exposure.</p>
+      <p>Before upgrading, finish sessions and back up the data volume. Retain your settings and project name. Do not use <code>down --volumes</code> for routine changes. See the <a href="/self-host/download/SELF_HOST.md">full guide</a> for operations and platform notes.</p>
     </details>
   </section>
 </main>

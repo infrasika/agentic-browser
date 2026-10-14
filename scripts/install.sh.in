@@ -1,0 +1,88 @@
+#!/usr/bin/env bash
+# Public configuration installer. Application code stays in the pinned images.
+set -euo pipefail
+umask 077
+if [ "${1:-}" = --help ]; then
+  printf 'Usage: bash install.sh [new-installation-directory]\nDefault directory: agentic-browser\nPrepares compose.yaml and .env and pulls both images; does not start services.\n'
+  exit
+fi
+if [ "$#" -gt 1 ]; then printf 'Expected at most one installation directory.\n' >&2; exit 1; fi
+target="${1:-agentic-browser}"
+case "$target" in ''|-*) printf 'Use a nonempty directory path.\n' >&2; exit 1 ;; esac
+if [ -e "$target" ] || [ -L "$target" ]; then
+  if [ -L "$target" ] || [ ! -d "$target" ]; then
+    printf 'Installation path must be a directory, not a symlink.\n' >&2; exit 1
+  fi
+  shopt -s nullglob dotglob
+  existing=("$target"/*)
+  if [ "${#existing[@]}" -ne 0 ]; then
+    printf 'Directory is not empty: %s. Use a new directory; existing settings are never overwritten.\n' "$target" >&2; exit 1
+  fi
+fi
+command -v docker >/dev/null || { printf 'Install Docker before running this installer.\n' >&2; exit 1; }
+api_version="$(docker version --format '{{.Server.APIVersion}}')"
+IFS=. read -r api_major api_minor <<< "$api_version"
+if [[ ! "$api_major" =~ ^[0-9]+$ || ! "$api_minor" =~ ^[0-9]+$ ]] || (( api_major < 1 || (api_major == 1 && api_minor < 45) )); then
+  printf 'Docker Engine 26 or later is required (API 1.45+).\n' >&2; exit 1
+fi
+compose_version="$(docker compose version --short)"
+compose_version="${compose_version#v}"
+if [[ ! "$compose_version" =~ ^([0-9]+)\.([0-9]+)\.([0-9]+) ]]; then
+  printf 'Cannot determine the Docker Compose version.\n' >&2; exit 1
+fi
+if (( BASH_REMATCH[1] < 2 || (BASH_REMATCH[1] == 2 && BASH_REMATCH[2] < 24) || (BASH_REMATCH[1] == 2 && BASH_REMATCH[2] == 24 && BASH_REMATCH[3] < 4) )); then
+  printf 'Docker Compose 2.24.4 or later is required.\n' >&2; exit 1
+fi
+if [ -n "${DOCKER_CONTEXT:-}" ] || [ -z "${DOCKER_HOST:-}" ]; then
+  endpoint="$(docker context inspect --format '{{.Endpoints.docker.Host}}')"
+else
+  endpoint="$DOCKER_HOST"
+fi
+case "$endpoint" in
+  unix://*) socket_path="${endpoint#unix://}" ;;
+  *) printf 'Use a local Docker Unix socket context; remote SSH/TCP contexts are not supported.\n' >&2; exit 1 ;;
+esac
+if [ "$(uname -s)" = Darwin ]; then socket_path=/var/run/docker.sock; fi
+case "$socket_path" in
+  /*) ;;
+  *) printf 'Docker socket path must be absolute.\n' >&2; exit 1 ;;
+esac
+case "$socket_path" in
+  *','*|*'$'*|*"'"*|*'\'*|*$'\n'*|*$'\r'*) printf 'Unsupported Docker socket path.\n' >&2; exit 1 ;;
+esac
+controller_image='@@CONTROLLER_IMAGE@@'
+runtime_image='@@RUNTIME_IMAGE@@'
+docker pull "$controller_image"
+docker pull "$runtime_image"
+# Probe the Linux-side socket group, including when hosted by Docker Desktop.
+socket_gid="$(docker run --rm --network none --read-only --cap-drop ALL \
+  --security-opt no-new-privileges --user 1000:1000 \
+  --memory 128m --cpus 0.5 --pids-limit 32 \
+  --mount "type=bind,src=$socket_path,dst=/var/run/docker.sock" \
+  "$controller_image" stat -c %g /var/run/docker.sock)"
+case "$socket_gid" in ''|*[!0-9]*) printf 'Could not detect the Docker socket group.\n' >&2; exit 1 ;; esac
+mkdir -p "$target"
+# Refuse to overwrite files even if another process creates them during pulls.
+set -C
+cat > "$target/compose.yaml" <<'AB_COMPOSE_FILE'
+@@COMPOSE@@
+AB_COMPOSE_FILE
+cat > "$target/.env" <<'AB_SETTINGS_FILE'
+# Standalone Docker Compose settings. Edit this file, then recreate the controller:
+# docker compose up -d --force-recreate --wait
+AB_PROJECT_NAME=agentic-browser
+AB_PORT=3333
+# Default: http://127.0.0.1:<AB_PORT>. For team HTTPS access, set the origin:
+# AB_PUBLIC_URL=https://browser.example.com
+AB_MAX_SESSIONS=1
+AB_MAX_SESSIONS_PER_MEMBER=1
+AB_SESSION_TTL_SECONDS=1800
+AB_SESSION_MAX_LIFETIME_SECONDS=14400
+# AB_EGRESS_DENY_HOSTS=other-management.example.com
+# AB_RUNTIME_PLATFORM=auto
+
+# Detected on this Docker host. Rerun setup in a new directory if the host/context changes.
+AB_SETTINGS_FILE
+printf "AB_DOCKER_SOCKET='%s'\nAB_DOCKER_GID=%s\n" "$socket_path" "$socket_gid" >> "$target/.env"
+printf '\nPrepared %s/compose.yaml and %s/.env.\n' "$target" "$target"
+printf 'Open that directory, edit .env if needed, then run:\n  docker compose up -d --wait\n  docker compose exec controller npm run members -- create alice\n'

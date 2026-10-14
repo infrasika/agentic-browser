@@ -17,6 +17,14 @@ test('public self-host download is reproducible, pinned, source-free, and availa
   await exec('python3', ['scripts/package-self-host.py']);
   const service = await startService({ create: async () => fakeWorkspace(), close: async () => {} });
   t.after(() => service.close());
+  const installer = await fetch(service.base + '/install.sh');
+  assert.equal(installer.status, 200);
+  assert.equal(await installer.text(), await readFile('web/self-host-downloads/install.sh', 'utf8'));
+  for (const name of ['SELF_HOST.md', 'AGENT_CLIENT.md']) {
+    const guide = await fetch(service.base + '/self-host/download/' + name);
+    assert.equal(guide.status, 200);
+    assert.equal(await guide.text(), await readFile('docs/' + name, 'utf8'));
+  }
   const download = '/self-host/download/agentic-browser-self-host.tar.gz';
   const response = await fetch(service.base + download);
   assert.equal(response.status, 200);
