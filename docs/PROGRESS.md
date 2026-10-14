@@ -73,6 +73,8 @@ Exposed `AB_MAX_SESSIONS_PER_MEMBER`, `AB_SESSION_TTL_SECONDS`, and `AB_SESSION_
 
 TypeScript and all 54 unit/API tests passed. A clean-directory installation from the generated public setup archive on the existing Ubuntu amd64 host verified that custom limits and lifetimes reach the pinned controller image, a plain restart keeps the previous environment, and recreation applies new values while preserving its volume and stored synthetic fixture. Doctor passed before and after the change. Only the disposable test installation was removed. Evidence is under `output/self-host-config-check/`; native Mac and fresh-host acceptance remain separate.
 
+Deployed `a7ccacad5b12` as `agentic-browser:setup-config-a7ccacad5b12` after confirming no active demo sessions. The live guide and anonymous setup archive matched the tested files, including all file hashes. Playwright verified the settings table, expandable options/application instructions, both client JSON examples, and desktop/mobile layouts without horizontal overflow. Health passed and the public capacity remained 0 / 5. Published image pins are unchanged.
+
 ## Validation still required
 
 - The user previously verified Mac deployment, but the newly published native arm64 image still needs its own physical Mac acceptance run. Linux ARM CI is not a substitute.
