@@ -77,8 +77,8 @@ def publish(version, directory):
              'README.md', 'docs/SELF_HOST.md', 'docs/UBUNTU_PUBLIC_DEMO.md', 'docs/AGENT_CLIENT.md',
              'docs/ARCHITECTURE.md', 'docs/RELEASING.md', 'docs/PLAN.md', 'docs/PROGRESS.md',
              'runtime/README.md', 'deploy/nginx-public.conf',
-             'deploy/releases/v0.1.0-preview.1-public-verification.json',
              'runtime/DISTRIBUTION-NOTICES.md', 'runtime/PLAYWRIGHT-LICENSE']
+    files += sorted(str(path.relative_to(ROOT)) for path in (ROOT / 'deploy/releases').glob('*-public-verification.json'))
     contents = {name: (ROOT / name).read_bytes() for name in files}
     contents['deploy/release.env'] = ''.join(f'AB_{kind.upper()}_IMAGE={ref}\n' for kind, ref in images.items()).encode()
     contents['RELEASE.json'] = manifest_bytes

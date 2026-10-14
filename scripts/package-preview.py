@@ -10,7 +10,8 @@ from datetime import datetime, timezone
 
 root = Path(__file__).resolve().parent.parent
 names = {"package.json", "package-lock.json", "tsconfig.json", ".env.example",
-         ".dockerignore", ".gitignore", ".env.compose.example", ".env.public.example", "compose.yaml", "compose.public.yaml", "README.md"}
+         ".dockerignore", ".gitignore", ".env.compose.example", ".env.public.example", "compose.yaml", "compose.public.yaml", "README.md", "deploy/release.env"}
+names.update(str(path.relative_to(root)) for path in (root / "deploy/releases").glob("*-public-verification.json"))
 allowed = {"src": {".ts"}, "web": {".html", ".js", ".css"}, "test": {".ts"},
            "docs": {".md"}, "scripts": {".py", ".sh", ".mjs"},
            "runtime": {".json", ".mjs", ".md", ".Dockerfile"}, "deploy": {".conf"}}

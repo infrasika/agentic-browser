@@ -3,9 +3,8 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'New immutable version, e.g. v0.1.0-preview.1'
+        description: 'New unused immutable version, e.g. v0.1.0-preview.3'
         required: true
-        default: v0.1.0-preview.1
 permissions:
   contents: read
 concurrency:

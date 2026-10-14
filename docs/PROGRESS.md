@@ -27,7 +27,11 @@ Local validation passed: TypeScript; 51 unit/API tests; 2 extension/sandbox test
 
 Playwright checks covered the homepage, Copy prompt, missing-link recovery, member sign-in/dashboard, and self-hosting guide. Desktop and 390-pixel mobile checks found no horizontal overflow or Chinese text. Relative documentation links, release-bundle allowlist, Python/JavaScript syntax, and source packaging passed. Screenshots are under `output/playwright/`. A scan of maintained first-party files found no Chinese text.
 
-The English multi-platform preview is being published as a new version; the original preview's immutable images and release assets are retained.
+Published **v0.1.0-preview.2** from `5954bb3411d9282bfa4068ea0af98cac877b43e4`. [Native amd64/arm64 release validation](https://github.com/infrasika/agentic-browser/actions/runs/38513168816) passed. Both controller/runtime images passed anonymous pulls on both platforms, and a fresh-directory deployment of the actual release bundle passed on the existing Ubuntu host. The published bundle contains only English text and all relative documentation links resolve.
+
+`deploy/release.env` now pins this English release. The official demo was updated while it had no active sessions; its five-browser limit was retained. Live HTTPS checks passed for the homepage, copy prompt, GitHub task, self-hosting guide, and MCP create → English page snapshot → handoff message → close. The smoke-test session was removed and capacity returned to 0 / 5.
+
+The [v0.1.0-preview.2 verification receipt](../deploy/releases/v0.1.0-preview.2-public-verification.json) is also attached to the private GitHub Release as `PUBLIC-VERIFICATION.json`. The source repository remains private and both GHCR packages remain public. Earlier immutable image digests, bundles, and checksums are retained. Source and deployment packaging include archived public verification receipts so progress-guide links remain valid.
 
 ## Validation still required
 

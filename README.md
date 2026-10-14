@@ -33,7 +33,7 @@ Public images are available for **Linux amd64 and arm64**:
 - `ghcr.io/infrasika/agentic-browser-controller`
 - `ghcr.io/infrasika/agentic-browser-runtime`
 
-Use a versioned deployment bundle with `deploy/release.env` to pin both images by digest. No registry login is needed. The source repository and GitHub Release attachments are private; obtain the deployment bundle from an administrator or an account with repository access. Public image visibility does not make the source or release attachments public.
+The current English preview is `v0.1.0-preview.2`. Use its deployment bundle with `deploy/release.env` to pin both images by digest. No registry login is needed. The source repository and GitHub Release attachments are private; obtain the deployment bundle from an administrator or an account with repository access. Public image visibility does not make the source or release attachments public.
 
 Requirements: Docker Engine 26+ with Compose 2.24.4+ and Bash. Apple Silicon Macs use Docker Desktop's Linux arm64 engine. The host does not need Node.js, Chrome, or the extensions installed separately.
 

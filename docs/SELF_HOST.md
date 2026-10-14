@@ -4,6 +4,8 @@ Deploy a private workspace on Ubuntu or Docker Desktop on a Mac. The [official d
 
 ## Requirements and delivery
 
+The current pinned English release is `v0.1.0-preview.2`.
+
 - Docker Engine 26+ and Docker Compose 2.24.4+, with a local Unix socket Docker context.
 - Bash. The container distribution does not require Node.js or Chrome on the host.
 - Linux amd64 or arm64. Apple Silicon Macs run the Linux arm64 images through Docker Desktop. Windows and rootless Docker are not currently validated.
