@@ -83,6 +83,8 @@ The primary self-hosting page, README, and guide now use native `docker compose`
 
 TypeScript and all 55 unit/API tests passed. Installer tests cover pinned configuration, actual Compose rendering, simulated Linux/Mac socket detection, restrictive settings-file permissions, invalid versions/context/group handling, and overwrite refusal. A clean-directory Ubuntu amd64 run of the standalone installer used the existing public images and only the two generated files. It passed native Compose startup and doctor, hidden interactive member creation, both Docker-based MCP examples (11 tools, authenticated create/snapshot/handoff protection/close), invalid credential rejection, and recreation applying `.env` changes while retaining the authenticated member. Test resources were removed. Evidence is under `output/native-compose-check/`. This remains an existing-host test; physical Mac and fresh-host acceptance are outstanding. Public image digests are unchanged.
 
+Deployed `1aa7e86873a2` as `agentic-browser:native-compose-1aa7e86873a2` with zero active demo sessions. The anonymous installer, guides, and compatibility archive matched the tested files. The exact public `curl … | bash` command passed with empty registry credentials and produced only the two expected files; native Compose rendered them successfully. Playwright verified the direct update command, both Docker client examples, and desktop/mobile layouts without overflow. Service health passed and capacity remained 0 / 5. Published image pins are unchanged.
+
 ## Validation still required
 
 - The user previously verified Mac deployment, but the newly published native arm64 image still needs its own physical Mac acceptance run. Linux ARM CI is not a substitute.
