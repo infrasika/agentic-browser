@@ -63,6 +63,16 @@ TypeScript and all 53 unit/API tests passed, including extracted-bundle command 
 
 Deployed `7f307dfb9477` as `agentic-browser:source-free-7f307dfb9477` after confirming zero active public sessions. The official HTTPS guide and anonymous archive download matched the tested files; checksum and all manifest hashes passed. Playwright verified both client configurations, the remote-client disclosure, and desktop/390-pixel layouts without horizontal overflow. Service health passed and capacity remained 0 / 5. This controller-only update replaces the earlier self-hosting page patch; the public release image pins remain unchanged.
 
+## Concise self-hosting and startup configuration — 2026-10-14
+
+Reorganized the self-hosting page and guide around download, configure, start, and connect. The page keeps optional settings, client JSON, and maintenance details collapsed; the guide retains the full configuration reference. Contributor setup stays in README. Updated stale roadmap/release wording about source access.
+
+The configuration table distinguishes server settings in `.env.compose`, member administration through the helper, personal credentials/profiles in the dashboard, and connection settings in the Agent client. It explains supported Compose mappings, the separate source-run `.env`, shell overrides, and why recreation is required after edits.
+
+Exposed `AB_MAX_SESSIONS_PER_MEMBER`, `AB_SESSION_TTL_SECONDS`, and `AB_SESSION_MAX_LIFETIME_SECONDS` in the setup configuration, retaining defaults of 1, 1800, and 14400. These map to existing settings in the published images and need no image release. Expanded `.env.compose.example` with the supported values and application command.
+
+TypeScript and all 54 unit/API tests passed. A clean-directory installation from the generated public setup archive on the existing Ubuntu amd64 host verified that custom limits and lifetimes reach the pinned controller image, a plain restart keeps the previous environment, and recreation applies new values while preserving its volume and stored synthetic fixture. Doctor passed before and after the change. Only the disposable test installation was removed. Evidence is under `output/self-host-config-check/`; native Mac and fresh-host acceptance remain separate.
+
 ## Validation still required
 
 - The user previously verified Mac deployment, but the newly published native arm64 image still needs its own physical Mac acceptance run. Linux ARM CI is not a substitute.

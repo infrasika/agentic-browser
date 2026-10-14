@@ -7,54 +7,73 @@
 </head>
 <body>
 <header><a class="brand" href="/">a<span class="brand-dot">●</span> Agentic Browser</a><a href="/">Back to the demo ↗</a></header>
-<main class="dashboard">
+<main class="dashboard self-host">
   <div class="eyebrow">YOUR INFRASTRUCTURE / YOUR WORKSPACE</div>
   <h1>Run your own<br><span class="muted">Agentic Browser.</span></h1>
-  <p class="intro">Pull our two public Docker images, choose your settings, and start your own workspace. No source checkout, image build, or registry account is needed.</p>
-  <p>Try the handoff flow at <a href="https://agentic-browser.zkpass.org/">the official demo</a>. Its public MCP endpoint is <code>https://agentic-browser.zkpass.org/mcp</code>. Your private deployment has its own accounts and Agent configuration.</p>
+  <p class="intro">Run our public Docker images with one configuration file. No source checkout or build is required.</p>
+  <p>Requires Docker Engine 26+, Compose 2.24.4+, and Bash. Supports Linux amd64/arm64 and Docker Desktop on Apple Silicon.</p>
   <section class="panel">
-    <h2>1. Download the setup files</h2>
-    <p>This small download contains Docker Compose configuration, setup helpers, and operating instructions. The <code>scripts/</code> and <code>deploy/</code> folders used below are included in this download; they are not a source checkout. The application and browser come from our two public images:</p>
-    <ul>
-      <li><a href="https://github.com/users/infrasika/packages/container/package/agentic-browser-controller">agentic-browser-controller</a></li>
-      <li><a href="https://github.com/users/infrasika/packages/container/package/agentic-browser-runtime">agentic-browser-runtime</a></li>
-    </ul>
-    <p>The <strong>controller</strong> runs the service. The <strong>runtime</strong> provides Chrome, zkPass TransGate, and zkPass Schema Validator; the controller starts separate browser containers as sessions are requested and removes them afterward.</p>
-    <p><a class="button secondary" href="/self-host/download/agentic-browser-self-host.tar.gz" download>Download setup files</a> <a href="/self-host/download/SHA256SUMS" download>Download checksum</a></p>
-    <p>Image references are pinned by digest in <code>deploy/release.env</code>. The download includes configuration and documentation only, with no personal browser state. You do not need access to the source repository.</p>
-  </section>
-  <section class="panel">
-    <h2>2. Prepare Docker</h2>
-    <p>Use Docker Engine 26+ and Compose 2.24.4+ on Ubuntu, or Docker Desktop with its Linux engine on a Mac. Bash is required. Node.js, Chrome, and extensions do not need to be installed on the host.</p>
-    <p>Images support Linux amd64 and arm64. Apple Silicon Macs use Linux arm64 through Docker Desktop. Native Linux ARM validation is complete; a physical Mac acceptance run for the published native image is still tracked separately.</p>
-    <p>Start with one concurrent session and measure resource use. Each browser has a 2 GiB memory and 2 CPU limit, plus its proxy and controller. Only the controller mounts the Docker socket to manage session containers. Use a trusted image: this permission gives it powerful access to the Docker host.</p>
-  </section>
-  <section class="panel">
-    <h2>3. Configure and start</h2>
-    <p>In a new directory, download and verify the setup files. If you downloaded them with the buttons above, start at the checksum command. On macOS, use <code>shasum -a 256 -c SHA256SUMS</code> instead of <code>sha256sum</code>.</p>
-    <pre tabindex="0">curl -fSLO https://agentic-browser.zkpass.org/self-host/download/agentic-browser-self-host.tar.gz
+    <h2>1. Download</h2>
+    <p><a class="button secondary" href="/self-host/download/agentic-browser-self-host.tar.gz" download>Download setup files</a> <a href="/self-host/download/SHA256SUMS" download>Checksum</a></p>
+    <p>Extract the archive and open a terminal in its <code>agentic-browser</code> folder. All helpers below are included.</p>
+    <details>
+      <summary>Download and verify from the terminal</summary>
+      <pre tabindex="0">curl -fSLO https://agentic-browser.zkpass.org/self-host/download/agentic-browser-self-host.tar.gz
 curl -fSLO https://agentic-browser.zkpass.org/self-host/download/SHA256SUMS
 sha256sum -c SHA256SUMS
 tar -xzf agentic-browser-self-host.tar.gz
-cd agentic-browser
-cp .env.compose.example .env.compose</pre>
-    <p>The defaults work for one browser on your own machine. To change the port, public address, or browser limit, edit <code>.env.compose</code> before starting:</p>
+cd agentic-browser</pre>
+      <p>On macOS, use <code>shasum -a 256 -c SHA256SUMS</code> for verification. Stop if the checksum fails.</p>
+    </details>
+  </section>
+  <section class="panel">
+    <h2>2. Configure</h2>
+    <pre tabindex="0">cp .env.compose.example .env.compose</pre>
+    <p>Edit <strong><code>.env.compose</code></strong>. The defaults work locally; change the total browser limit to suit your server:</p>
     <pre tabindex="0">AB_PROJECT_NAME=agentic-browser
 AB_PORT=3333
-AB_PUBLIC_URL=http://127.0.0.1:3333
 AB_MAX_SESSIONS=1</pre>
-    <p><code>AB_PUBLIC_URL</code> is the origin users open. Compose passes it into the application as <code>PUBLIC_URL</code>. Recreate the controller after changes. Keep the project name stable: it selects your private data volume.</p>
-    <p>Run these commands from the extracted setup directory. They pull the two images and run the service, environment check, and account setup inside the controller container:</p>
+    <p>For a remote team, set <code>AB_PUBLIC_URL=https://browser.example.com</code> and configure an HTTPS reverse proxy. Otherwise, the address defaults to <code>http://127.0.0.1:3333</code>.</p>
+    <table>
+      <thead><tr><th scope="col">Setting</th><th scope="col">Manage it in</th></tr></thead>
+      <tbody>
+        <tr><td>Server address, limits, session lifetimes</td><td><code>.env.compose</code>, applied at startup</td></tr>
+        <tr><td>Member accounts and passwords</td><td>The <code>member</code> helper</td></tr>
+        <tr><td>Personal Agent credentials and saved profiles</td><td>The signed-in dashboard</td></tr>
+      </tbody>
+    </table>
+    <p>The dashboard does not change server settings. The source-run <code>.env</code> file is not used by this deployment.</p>
+    <details id="server-options">
+      <summary>Limits and optional settings</summary>
+      <pre tabindex="0">AB_MAX_SESSIONS_PER_MEMBER=1
+AB_SESSION_TTL_SECONDS=1800
+AB_SESSION_MAX_LIFETIME_SECONDS=14400
+# AB_EGRESS_DENY_HOSTS=other-management.example.com</pre>
+      <p>Each member can use one browser by default, within the total limit. The initial lease is 30 minutes; renewals cannot exceed a 4-hour total lifetime. Limits allow 1–32 browsers. See <code>docs/SELF_HOST.md</code> in the download for all supported values.</p>
+      <p>Only supported settings are passed into the container. For example, <code>AB_PUBLIC_URL</code> becomes <code>PUBLIC_URL</code>. Image digests come from <code>deploy/release.env</code>. Keep the project name stable to retain the same data volume.</p>
+    </details>
+    <details id="apply-settings">
+      <summary>Apply changes after installation</summary>
+      <p>Edit <code>.env.compose</code>, finish active sessions, then recreate the controller:</p>
+      <pre tabindex="0">bash scripts/release-compose.sh up -d --force-recreate --wait --wait-timeout 90</pre>
+      <p>No image rebuild is needed. A plain restart does not reload these settings. Accounts and saved profiles remain in the data volume.</p>
+    </details>
+  </section>
+  <section class="panel">
+    <h2>3. Start and sign in</h2>
     <pre tabindex="0">bash scripts/release-compose.sh pull
 bash scripts/release-compose.sh up -d --wait --wait-timeout 90
 bash scripts/release-compose.sh doctor
 bash scripts/release-compose.sh member create alice</pre>
-    <p>Enter a password of at least 12 characters at the hidden terminal prompt. Open <code>http://127.0.0.1:3333</code>, sign in, and create a personal Agent credential. Create a separate account and credential for each team member.</p>
+    <p>Enter a password of at least 12 characters. Open <code>http://127.0.0.1:3333</code> or your configured address, sign in, and create a personal Agent credential. Add a separate member for each teammate.</p>
   </section>
   <section class="panel">
     <h2>4. Connect your Agent</h2>
-    <p>For an Agent on the same machine as your deployment, use the setup helper below. Run <code>pwd</code> in the extracted directory to find its full path, replace <code>/ABSOLUTE/PATH/agentic-browser</code>, and enter the personal credential from your dashboard. The helper runs the MCP client inside your controller image; no host Node.js installation or application source files are needed:</p>
-    <pre tabindex="0">{
+    <p>Choose where your Agent runs. Replace the setup folder path and personal credential in the configuration, then reconnect your MCP client.</p>
+    <details id="local-client">
+      <summary>Agent on the same machine</summary>
+      <p>Run <code>pwd</code> in the setup folder to find its full path. Keep the controller running.</p>
+      <pre tabindex="0">{
   "mcpServers": {
     "agentic-browser": {
       "command": "bash",
@@ -67,13 +86,12 @@ bash scripts/release-compose.sh member create alice</pre>
     }
   }
 }</pre>
-    <p>The controller must be running. The helper reads your project name from <code>.env.compose</code>. For the default loopback setup, the API address uses port 3333 inside the container; set <code>AGENT_BROWSER_VIEW_URL</code> to the address you open in your browser. If you configured a public domain, set both URL values to that domain, which must also be reachable from the controller. Refresh or restart your MCP client, then ask your Agent to open a website and hand the browser to you. Use the actual session link it returns, complete your steps, and click <strong>Hand back to Agent</strong>.</p>
-    <p>Give each team member their own account and credential. If the service runs on a remote Ubuntu server and your Agent runs on your Mac, use the remote-client setup below.</p>
+      <p>For local deployments, the API uses internal port 3333; the view URL is the address you open. If you configured a public domain, use that origin for both URLs and ensure the controller can reach it.</p>
+    </details>
     <details id="remote-client">
-      <summary>Connect an Agent from another machine</summary>
-      <p>Install Docker locally and download and extract the same setup bundle on the Agent's machine. You do not start another server or create another member there. Pull only the client image before connecting:</p>
+      <summary>Agent on another machine</summary>
+      <p>Install Docker and extract the setup files on that machine. Pull the client image without starting another server:</p>
       <pre tabindex="0">bash scripts/release-compose.sh pull-client</pre>
-      <p>Use this configuration with the full path to the setup folder on the Agent's machine and your private service's HTTPS address:</p>
       <pre tabindex="0">{
   "mcpServers": {
     "agentic-browser": {
@@ -87,19 +105,19 @@ bash scripts/release-compose.sh member create alice</pre>
     }
   }
 }</pre>
-      <p>This runs a client from the same controller image, without mounting a Docker socket or server data. It needs access only to your service over HTTPS. Full client instructions are in <code>docs/AGENT_CLIENT.md</code> inside the bundle.</p>
+      <p>This client uses the same published image and connects to your private service over HTTPS. It receives no server Docker permissions. More examples are in <code>docs/AGENT_CLIENT.md</code>.</p>
     </details>
-    <p>Both configurations use only the downloaded setup files and published images.</p>
+    <p>Ask your Agent to open a website and send you a sign-in link. Complete your steps in that browser, then click <strong>Hand back to Agent</strong>.</p>
   </section>
   <section class="panel">
-    <h2>Remote access and day-to-day operation</h2>
-    <p>For an Ubuntu server reached from a Mac, forward the service port and keep the tunnel open:</p>
-    <pre tabindex="0">ssh -N -L 3333:127.0.0.1:3333 ubuntu@SERVER_IP</pre>
-    <p>Open <code>http://127.0.0.1:3333</code> locally. Cursor's port forwarding works too; use the local port it actually provides. <code>AGENT_BROWSER_VIEW_URL</code> must match the address reachable from your browser. It does not create the tunnel.</p>
-    <p>For direct remote access, use HTTPS and a trusted reverse proxy with WebSocket support. Only the service port is needed. Use <code>docs/UBUNTU_PUBLIC_DEMO.md</code> and <code>deploy/nginx-public.conf</code> for proxy and public-demo configuration; keep team authentication for your private workspace.</p>
-    <p>Temporary sessions remove their browser state on close. Saved profiles are opt-in and belong to one member. A saved profile is opened in a new session after restart; old tasks are not replayed. The deployment administrator can access the host and stored data.</p>
-    <p>Before upgrading, finish sessions, stop the controller, and back up the private volume. Keep the previous bundle and digests. Do not use <code>down --volumes</code> for an ordinary upgrade. Chrome profile downgrades may require restoring a pre-upgrade backup.</p>
-    <p>The bundle's <code>docs/SELF_HOST.md</code> covers member administration, configuration, recovery, and upgrades. Its architecture, release, and progress guides record supported behavior and remaining validation.</p>
+    <h2>Operation and upgrades</h2>
+    <details>
+      <summary>Images, storage, and remote access</summary>
+      <p>The controller creates one isolated browser per session from the runtime image, which includes Chrome and both zkPass extensions. Only the trusted controller mounts the Docker socket. Start with one browser; each runtime has a 2 GiB memory and 2 CPU limit, plus service overhead.</p>
+      <p>Temporary browser data is cleared on close. Saved profiles persist in your private data volume; the server administrator can access that data.</p>
+      <p>For an Ubuntu website tunnel, run <code>ssh -N -L 3333:127.0.0.1:3333 ubuntu@SERVER_IP</code>. For team HTTPS access, follow <code>deploy/nginx-public.conf</code>. Setting the public URL alone does not configure DNS, TLS, or port exposure.</p>
+      <p>Before upgrading, finish sessions and back up the data volume. Retain your settings and project name. Do not use <code>down --volumes</code> for routine changes. See <code>docs/SELF_HOST.md</code> for operations and <code>docs/PROGRESS.md</code> for platform verification status.</p>
+    </details>
   </section>
 </main>
 </body>

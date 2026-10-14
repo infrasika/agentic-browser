@@ -27,7 +27,7 @@ The first supported deployment targets are Ubuntu amd64/arm64 and Docker Desktop
 2. Exercise a saved profile across a controlled Chrome/extension upgrade and rollback with synthetic data. Document when restoring a backup is necessary.
 3. Run sustained multi-user tests at the configured capacity, including disconnects, expiry, revocation, controller interruption, and failed resource cleanup. Confirm capacity recovers without cross-user access.
 4. Validate a live TransGate proof and Schema Validator workflow, including cancellation and unavailable external services. Keep real-account results separate from synthetic CI tests.
-5. Simplify remote team onboarding with a distributable MCP adapter. The public configuration download now covers server installation without repository access; the current remote Node.js adapter still requires authorized source access.
+5. Validate the image-based remote MCP client on users' machines. The public setup bundle now covers both server deployment and remote clients without source access.
 
 ## Scope boundaries
 

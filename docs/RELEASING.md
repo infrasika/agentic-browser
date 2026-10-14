@@ -5,7 +5,7 @@ Publish these two public GHCR packages while keeping the source repository priva
 - `ghcr.io/infrasika/agentic-browser-controller`
 - `ghcr.io/infrasika/agentic-browser-runtime`
 
-GitHub Release attachments inherit repository access restrictions. An authorized administrator distributes the deployment bundle to self-hosting users; publishing the images does not publish the source or Release page.
+GitHub Release attachments inherit repository access restrictions. New installations use the public setup download; an authorized administrator can also distribute historical release bundles. Publishing the images does not publish the source or Release page.
 
 ## Run the workflow
 
