@@ -17,7 +17,7 @@ The first supported deployment targets are Ubuntu amd64/arm64 and Docker Desktop
 | Multi-platform image delivery | Released preview | Native amd64/arm64 CI, pinned public images, anonymous pulls |
 | English product and documentation | Complete | All first-party UI/messages/docs in English; consolidated guides |
 | Public self-hosting setup files | Complete | Standalone installer, native Compose commands, fixed public images, no repository access required |
-| Unified setup and authenticated HTTP MCP | Implemented; release acceptance in progress | One .env, first-start account, URL-plus-token MCP, preserved member isolation |
+| Unified setup and authenticated HTTP MCP | Released in preview.3 | One .env, first-start account, URL-plus-token MCP, preserved member isolation |
 | Fresh-host and Mac acceptance | Next | Native arm64 release on a physical Mac; independent fresh Ubuntu host |
 | Upgrade and sustained-load acceptance | Planned | Profile migration/rollback and longer-running quota/recovery checks |
 | Live zkPass proof acceptance | Planned | Real external proof flow, cancellation and failure reporting |

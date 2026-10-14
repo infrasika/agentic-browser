@@ -33,7 +33,7 @@ Public images are available for **Linux amd64 and arm64**:
 - `ghcr.io/infrasika/agentic-browser-controller`
 - `ghcr.io/infrasika/agentic-browser-runtime`
 
-The current English preview is `v0.1.0-preview.2`. The [standalone installer](https://agentic-browser.zkpass.org/install.sh) pulls both public images and writes only `compose.yaml` and `.env`. No source checkout, build, registry login, or helper scripts are needed afterward. Both images are pinned by digest in the generated Compose file.
+The current preview is `v0.1.0-preview.3`, with one environment file, initial account setup, and authenticated HTTP MCP. The [standalone installer](https://agentic-browser.zkpass.org/install.sh) pulls both public images and writes only `compose.yaml` and `.env`. No source checkout, build, registry login, or helper scripts are needed afterward. Both images are pinned by digest in the generated Compose file.
 
 Requirements: Docker Engine 26+, Compose 2.24.4+, and Bash. Apple Silicon Macs use Docker Desktop's Linux arm64 engine.
 
