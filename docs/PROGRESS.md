@@ -10,7 +10,9 @@
 
 本机 amd64 候选镜像验收通过：类型检查、51 项单元/API 测试、两个扩展实际运行与 Chrome 沙箱检查、团队 Compose 隔离和恢复、五浏览器公共配额与人工接管。证据在 `output/runtime/release-{build,extensions,controller,public}-amd64.log` 和 `release-unit.log`。线上公共服务尚未切换到候选镜像。
 
-此记录时尚未发布：GitHub Actions 双架构运行、GHCR 公开可见性、匿名拉取、干净部署包验收均待执行；不能将本机 amd64 结果当作 ARM64 或 Mac 实机结果。新原生 ARM 镜像的 Mac Docker Desktop 验收仍需单独记录。可复现保证是拉取同一镜像 digest；apt 源和上游历史文件可用性尚不保证逐字节源码重建。
+首次 [Actions 运行](https://github.com/infrasika/agentic-browser/actions/runs/38508385940) 中，两个原生架构均完成镜像构建，但扩展截图因 runner UID 与容器 UID 不同而写入失败，发布被正确阻止。测试脚本改用专属临时截图目录，退出时复制证据并清理，不修改源码或实际 Profile 权限；随后重跑完整双架构验收。维护者流程见 [发布指南](RELEASING.md)。
+
+此记录时尚未发布：GitHub Actions 双架构全程通过、GHCR 公开可见性、匿名拉取、干净部署包验收均待执行；不能将本机 amd64 结果当作 ARM64 或 Mac 实机结果。新原生 ARM 镜像的 Mac Docker Desktop 验收仍需单独记录。可复现保证是拉取同一镜像 digest；apt 源和上游历史文件可用性尚不保证逐字节源码重建。
 
 ## 前一批：5 个并发浏览器、容量展示与满额提示
 
