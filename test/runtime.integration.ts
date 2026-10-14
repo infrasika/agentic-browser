@@ -53,7 +53,7 @@ test('Docker volume subpaths: only the authorised profile and proxy directory ar
   await workspace.setControl('human');
   const stream = workspace.openDesktop(); assert.match((await once(stream, 'data'))[0].toString(), /^RFB /);
   const closed = once(stream, 'close'); await workspace.setControl('agent'); await closed;
-  assert.match((await workspace.perform({ type: 'snapshot' }) as { text: string }).text, /演示用户名/);
+  assert.match((await workspace.perform({ type: 'snapshot' }) as { text: string }).text, /Demo username/);
   await inside("require('fs').writeFileSync('/profile/volume-fixture','saved')");
   await workspace.close();
   const reopened = await engine.create({ ownerId: alice, profileId: profile.id });
@@ -140,7 +140,7 @@ test('Docker Runtime: public HTTPS works through private proxy; private/metadata
     assert.match((await workspace.perform({ type: 'snapshot' }) as { text: string }).text, /Network target is not allowed/, url);
   }
   await workspace.perform({ type: 'navigate', url: 'https://agentic-browser.invalid/demo' });
-  assert.match((await workspace.perform({ type: 'snapshot' }) as { text: string }).text, /演示用户名/);
+  assert.match((await workspace.perform({ type: 'snapshot' }) as { text: string }).text, /Demo username/);
   const direct = await exec('docker', ['exec', workspace.record.name, 'node', '-e', "fetch('http://1.1.1.1',{signal:AbortSignal.timeout(1500)}).then(()=>console.log('bypassed'),()=>console.log('blocked'))"]);
   assert.equal(direct.stdout.trim(), 'blocked');
   await workspace.close();

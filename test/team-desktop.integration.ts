@@ -53,14 +53,14 @@ test('team native desktop: one input window, reconnect with fresh grant, native 
   const pendingWait = mcp?.callTool({ name: 'browser_wait', arguments: { sessionId: id, timeoutSeconds: 25 } });
   const page = await client.newPage();
   await page.goto(created.data.humanUrl);
-  const connected = () => page.waitForFunction(() => document.getElementById('connection')?.textContent === '连接正常' && !!document.querySelector('#desktop canvas'));
+  const connected = () => page.waitForFunction(() => document.getElementById('connection')?.textContent === 'Connected' && !!document.querySelector('#desktop canvas'));
   await connected();
   // A second tab with the same login gets no RFB stream and cannot displace us.
   const other = await client.newPage();
   let otherReceivedFrame = false;
   other.on('websocket', socket => socket.on('framereceived', ({ payload }) => { if (Buffer.isBuffer(payload)) otherReceivedFrame = true; }));
   await other.goto(created.data.humanUrl);
-  await other.waitForFunction(() => document.getElementById('message')?.textContent?.includes('另一个窗口'));
+  await other.waitForFunction(() => document.getElementById('message')?.textContent?.includes('another window'));
   assert.equal(otherReceivedFrame, false);
   assert.equal(await page.locator('#desktop canvas').count(), 1);
   await other.close();
@@ -76,10 +76,10 @@ test('team native desktop: one input window, reconnect with fresh grant, native 
   // Poll only the test site's rendered framebuffer before returning; no CDP in the human phase.
   await new Promise(resolve => setTimeout(resolve, 600));
   await page.locator('#resume').click();
-  await page.waitForFunction(() => document.getElementById('message')?.textContent?.startsWith('已交还'));
+  await page.waitForFunction(() => document.getElementById('message')?.textContent?.startsWith('Control returned'));
   if (pendingWait) assert.equal(JSON.parse(((await pendingWait).content as { text: string }[])[0].text).status, 'ready');
   const snapshot = await agent(`/api/sessions/${id}/actions`, 'POST', { type: 'snapshot' });
-  assert.equal(snapshot.status, 200); assert.match(snapshot.data.result.text, /已登录：team-native-fixture/);
+  assert.equal(snapshot.status, 200); assert.match(snapshot.data.result.text, /Signed in: team-native-fixture/);
   await page.locator('#takeover').click(); await connected();
   assert.equal((await client.request.post(base + '/api/auth/logout', { headers: humanHeaders, data: {} })).status(), 200);
   await page.waitForFunction(() => !document.querySelector('#desktop canvas'));

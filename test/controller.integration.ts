@@ -47,7 +47,7 @@ test('container controller: scoped mounts, native handoff, saved profile, restar
   assert.deepEqual(detail.HostConfig.CapDrop, ['ALL']);
   assert.deepEqual(detail.Mounts.map((m: any) => m.Destination).sort(), ['/data', '/var/run/docker.sock']);
   assert.equal(await inside("console.log(process.getuid())"), '1000');
-  assert.match(await docker('exec', controller, 'node', '--import', 'tsx', 'src/doctor.ts'), /PASS 私有数据卷/);
+  assert.match(await docker('exec', controller, 'node', '--import', 'tsx', 'src/doctor.ts'), /PASS Private data volume/);
   instance = await inside("import {readFile} from 'node:fs/promises';console.log(await readFile('/data/runtimes/instance-id','utf8'))");
   await inside(`import {IdentityStore} from './src/identity.ts';
     const s=new IdentityStore('/data/identity');
@@ -96,15 +96,15 @@ test('container controller: scoped mounts, native handoff, saved profile, restar
   assert.equal((await agent(`/api/sessions/${id}/handoff`, 'POST', {})).status, 200);
   assert.equal((await agent(`/api/sessions/${id}/actions`, 'POST', { type: 'snapshot' })).status, 409);
   const page = await human.newPage(); await page.goto(session.data.humanUrl);
-  const connected = () => page.waitForFunction(() => document.getElementById('connection')?.textContent === '连接正常' && !!document.querySelector('#desktop canvas'));
+  const connected = () => page.waitForFunction(() => document.getElementById('connection')?.textContent === 'Connected' && !!document.querySelector('#desktop canvas'));
   await connected(); await page.reload(); await connected();
   await page.locator('#text').fill('compose-native-fixture'); await page.locator('#send-text').click();
   await page.locator('#desktop canvas').focus(); await page.keyboard.press('Tab');
   await page.keyboard.type('fictional-site-password'); await page.keyboard.press('Enter');
   await new Promise(resolve => setTimeout(resolve, 600));
   await page.locator('#resume').click();
-  await page.waitForFunction(() => document.getElementById('message')?.textContent?.startsWith('已交还'));
-  assert.match((await agent(`/api/sessions/${id}/actions`, 'POST', { type: 'snapshot' })).data.result.text, /已登录：compose-native-fixture/);
+  await page.waitForFunction(() => document.getElementById('message')?.textContent?.startsWith('Control returned'));
+  assert.match((await agent(`/api/sessions/${id}/actions`, 'POST', { type: 'snapshot' })).data.result.text, /Signed in: compose-native-fixture/);
   await page.close();
   // Diagnostic only, after handback: inspect the sandbox and create a fake
   // persisted cookie. No real accounts or production Profiles are involved.

@@ -1,39 +1,39 @@
 <!doctype html>
-<html lang="zh-CN">
+<html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>接管演示</title>
+    <title>Handoff demo</title>
     <link rel="stylesheet" href="/app.css" />
     <script type="module" src="/demo.js"></script>
   </head>
   <body class="demo-body">
     <main class="panel demo-card">
       <div class="eyebrow">HANDOFF DEMO</div>
-      <h1 class="viewer-title">欢迎回来。</h1>
+      <h1 class="viewer-title">Welcome back.</h1>
       <p class="intro small">
-        这是本地演示页。使用任意虚构用户名和密码体验登录，请勿填写真实密码。
+        This is a local demo page. Use a fictional username and password to try signing in. Do not enter a real password.
       </p>
       <form id="login">
-        <label for="username">演示用户名</label
+        <label for="username">Demo username</label
         ><input
           id="username"
           name="username"
           autocomplete="off"
           required
-        /><label for="password">演示密码</label
+        /><label for="password">Demo password</label
         ><input
           id="password"
           name="password"
           type="password"
           autocomplete="off"
           required
-        /><button class="primary wide">登录演示</button>
+        /><button class="primary wide">Sign in to the demo</button>
       </form>
       <section id="account" hidden>
         <h2 id="welcome"></h2>
-        <p>登录状态已保留。现在可以交还给 Agent。</p>
-        <button id="continue" class="primary wide">继续任务</button>
+        <p>Your demo session is signed in. You can now hand control back to the Agent.</p>
+        <button id="continue" class="primary wide">Continue task</button>
         <p id="result" role="status"></p>
       </section>
     </main>

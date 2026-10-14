@@ -69,7 +69,7 @@ export class BrowserSession {
     }
     if (['cleanup_pending', 'closed'].includes(this.workspace.runtime?.state ?? '')) {
       void this.close().catch(() => {});
-      throw new ServiceError(503, 'runtime_stopped', '浏览器环境已停止，请创建新会话。');
+      throw new ServiceError(503, 'runtime_stopped', 'The browser environment has stopped. Create a new session.');
     }
   }
 
@@ -208,7 +208,7 @@ export class SessionRegistry {
 
   create(purpose: string, profileId?: string, ownerId?: string, agentCredentialHash?: string): Promise<BrowserSession> {
     if (profileId && !this.profiles)
-      return Promise.reject(new ServiceError(400, "profiles_unavailable", "保存登录状态需要远程桌面模式。"));
+      return Promise.reject(new ServiceError(400, "profiles_unavailable", "Saving login state requires desktop mode."));
     if (this.stopping)
       return Promise.reject(
         new ServiceError(503, "shutting_down", "Service is shutting down"),

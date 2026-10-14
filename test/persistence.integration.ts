@@ -60,7 +60,7 @@ test("opt-in native login survives a full service process restart; temporary pro
     }
     response.setHeader("Content-Type", "text/html; charset=utf-8");
     response.end(request.headers.cookie?.includes("fixture_login=synthetic-user")
-      ? "<h1>已登录 synthetic-user</h1>" : '<h1>请登录</h1><form method="post" action="/login"><button id="login">虚构账号登录</button></form>');
+      ? "<h1>Signed in synthetic-user</h1>" : '<h1>Please sign in</h1><form method="post" action="/login"><button id="login">Sign in with fictional details</button></form>');
   });
   fixture.listen(0, "127.0.0.1");
   await once(fixture, "listening");
@@ -72,11 +72,11 @@ test("opt-in native login survives a full service process restart; temporary pro
     await new Promise<void>((resolve) => fixture.close(() => resolve()));
     await rm(directory, { recursive: true, force: true });
   });
-  const profile = await service.request("/api/profiles", "POST", { name: "持久化测试账号" }, 201);
+  const profile = await service.request("/api/profiles", "POST", { name: "Persistent test profile" }, 201);
   const first = await service.request("/api/sessions", "POST", { profileId: profile.id, url }, 201);
   assert.equal(first.profile.id, profile.id);
   await service.request(`/api/sessions/${first.id}/actions`, "POST", { type: "click", selector: "#login" });
-  assert.match(JSON.stringify(await service.request(`/api/sessions/${first.id}/actions`, "POST", { type: "snapshot" })), /已登录 synthetic-user/);
+  assert.match(JSON.stringify(await service.request(`/api/sessions/${first.id}/actions`, "POST", { type: "snapshot" })), /Signed in synthetic-user/);
   await service.request("/api/sessions", "POST", { profileId: profile.id }, 409);
   await service.request(`/api/profiles/${profile.id}`, "DELETE", undefined, 409);
   await service.request(`/api/sessions/${first.id}/handoff`, "POST", { reason: "Test shutdown during human control" });
@@ -86,10 +86,10 @@ test("opt-in native login survives a full service process restart; temporary pro
   assert.deepEqual((await service.request("/api/sessions")).sessions, []);
   assert.equal((await service.request("/api/profiles")).profiles[0].id, profile.id);
   const restored = await service.request("/api/sessions", "POST", { profileId: profile.id, url }, 201);
-  assert.match(JSON.stringify(await service.request(`/api/sessions/${restored.id}/actions`, "POST", { type: "snapshot" })), /已登录 synthetic-user/);
+  assert.match(JSON.stringify(await service.request(`/api/sessions/${restored.id}/actions`, "POST", { type: "snapshot" })), /Signed in synthetic-user/);
   const temporary = await service.request("/api/sessions", "POST", { url }, 201);
   assert.equal(temporary.profile, null);
-  assert.match(JSON.stringify(await service.request(`/api/sessions/${temporary.id}/actions`, "POST", { type: "snapshot" })), /请登录/);
+  assert.match(JSON.stringify(await service.request(`/api/sessions/${temporary.id}/actions`, "POST", { type: "snapshot" })), /Please sign in/);
   await service.request(`/api/sessions/${restored.id}`, "DELETE");
   // A failed browser launch must not keep the saved profile locked.
   const profiles = new ProfileStore(directory);

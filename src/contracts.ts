@@ -21,10 +21,10 @@ export type SessionCapacity = {
 export class SessionCapacityError extends ServiceError {
   readonly retryAfterSeconds = 30;
   constructor(readonly capacity: SessionCapacity, readonly source?: { currentSessions: number; maxSessions: number }) {
-    const total = `当前全站会话数 ${capacity.currentSessions} / ${capacity.maxSessions}（含启动中和清理中的会话）`;
+    const total = `Current total sessions ${capacity.currentSessions} / ${capacity.maxSessions} (including sessions starting or being cleaned up)`;
     super(429, source ? 'source_limit' : 'session_limit', source
-      ? `当前网络的并发浏览器已达上限（${source.currentSessions} / ${source.maxSessions}）。${total}。请关闭自己的空闲会话，或稍后再试（建议等待 30 秒）。`
-      : `浏览器容量已满。${total}。请稍后再试（建议等待 30 秒，不保证届时有空位）。`);
+      ? `This network has reached its concurrent browser limit (${source.currentSessions} / ${source.maxSessions}). ${total}. Close your own idle sessions or try again later (suggested wait: 30 seconds).`
+      : `All browser slots are in use. ${total}. Please try again later (suggested wait: 30 seconds; availability is not guaranteed).`);
   }
   payload() {
     return { error: this.code, status: this.status, message: this.message, userMessage: this.message,

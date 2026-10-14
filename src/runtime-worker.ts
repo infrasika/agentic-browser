@@ -106,7 +106,7 @@ input.on('line', line => {
       }
       send({ id: message.id, result });
     } catch (error) {
-      send({ id: message.id, error: error instanceof ServiceError ? { status: error.status, code: error.code, message: error.message } : { status: 502, code: 'runtime_operation_failed', message: '浏览器操作失败，请检查会话状态。' } });
+      send({ id: message.id, error: error instanceof ServiceError ? { status: error.status, code: error.code, message: error.message } : { status: 502, code: 'runtime_operation_failed', message: 'Browser operation failed. Check the session status.' } });
     }
   });
 });

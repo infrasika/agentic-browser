@@ -11,7 +11,7 @@ export const usernameSchema = z.string().trim().toLowerCase().regex(/^[a-z0-9][a
 export const passwordSchema = z.string().min(12).max(256);
 const digest = (value: string) => createHash('sha256').update(value).digest('hex');
 const secret = () => randomBytes(32).toString('base64url');
-const denied = () => new ServiceError(401, 'unauthorized', '请登录或使用有效的个人 Agent 凭据。');
+const denied = () => new ServiceError(401, 'unauthorized', 'Sign in or use a valid personal Agent credential.');
 const derive = (password: string, salt: string) => new Promise<Buffer>((resolve, reject) => {
   scrypt(password, salt, 32, { N: 32768, r: 8, p: 1, maxmem: 64 * 1024 * 1024 }, (error, key) => error ? reject(error) : resolve(key));
 });
@@ -48,12 +48,12 @@ export class IdentityStore extends EventEmitter {
     const id = randomUUID(), salt = secret();
     const hash = (await derive(password, salt)).toString('hex');
     try { this.db.prepare('INSERT INTO members(id,username,password,salt) VALUES(?,?,?,?)').run(id, username, hash, salt); }
-    catch { throw new ServiceError(409, 'member_exists', '成员名已存在，或成员记录无法写入。'); }
+    catch { throw new ServiceError(409, 'member_exists', 'The member name already exists, or the member record could not be saved.'); }
     return { id, username };
   }
   private member(username: string) {
     const row = this.db.prepare('SELECT * FROM members WHERE username=?').get(usernameSchema.parse(username)) as MemberRow | undefined;
-    if (!row) throw new ServiceError(404, 'member_not_found', '成员不存在。');
+    if (!row) throw new ServiceError(404, 'member_not_found', 'Member not found.');
     return row;
   }
   setActive(username: string, active: boolean) {
@@ -79,7 +79,7 @@ export class IdentityStore extends EventEmitter {
     this.rateLimit(`guest:${remoteAddress}`, 6);
     this.reap();
     if (Number(this.db.prepare('SELECT count(*) AS total FROM members WHERE guest_expires>0').get()!.total) >= 128)
-      throw new ServiceError(429, 'demo_busy', '演示繁忙，请稍后再试。');
+      throw new ServiceError(429, 'demo_busy', 'The demo is busy. Please try again later.');
     const id = randomUUID(), username = `guest-${id.slice(0, 12)}`;
     this.db.prepare('INSERT INTO members(id,username,password,salt,guest_expires) VALUES(?,?,?,?,?)').run(id, username, secret(), secret(), this.now() + 600000);
     return { ownerId: id, ...this.issue(id, 'human', 'Temporary demo visitor', 600000) };
@@ -100,15 +100,15 @@ export class IdentityStore extends EventEmitter {
   private rateLimit(key: string, maximum: number) {
     const now = this.now();
     for (const [id, value] of this.attempts) if (value.resetAt <= now) this.attempts.delete(id);
-    if (this.attempts.size >= 4096 && !this.attempts.has(key)) throw new ServiceError(429, 'login_rate_limit', '登录请求过多，请稍后重试。');
+    if (this.attempts.size >= 4096 && !this.attempts.has(key)) throw new ServiceError(429, 'login_rate_limit', 'Too many sign-in attempts. Please try again later.');
     const state = this.attempts.get(key) ?? { count: 0, resetAt: now + 60000 };
     this.attempts.set(key, state);
-    if (++state.count > maximum) throw new ServiceError(429, 'login_rate_limit', '登录请求过多，请稍后重试。');
+    if (++state.count > maximum) throw new ServiceError(429, 'login_rate_limit', 'Too many sign-in attempts. Please try again later.');
   }
   async login(username: string, password: string, remoteAddress: string) {
     username = usernameSchema.parse(username); passwordSchema.parse(password);
     this.rateLimit(`ip:${remoteAddress}`, 30); this.rateLimit(`user:${username}`, 10);
-    if (this.verifying >= 4) throw new ServiceError(429, 'login_busy', '登录请求繁忙，请稍后重试。');
+    if (this.verifying >= 4) throw new ServiceError(429, 'login_busy', 'Sign-in is busy. Please try again later.');
     const row = this.db.prepare('SELECT * FROM members WHERE username=?').get(username) as MemberRow | undefined;
     this.verifying++;
     let hash: Buffer;
@@ -145,9 +145,9 @@ export class IdentityStore extends EventEmitter {
   }
   issueAgent(principal: Principal, name: string, profileIds: string[] = []) {
     this.requireHuman(principal);
-    if (principal.guest) throw new ServiceError(403, 'demo_restricted', '演示访客不能创建 Agent 凭据。');
+    if (principal.guest) throw new ServiceError(403, 'demo_restricted', 'Demo guests cannot create Agent credentials.');
     name = z.string().trim().min(1).max(80).parse(name);
-    if (this.listAgents(principal).length >= 20) throw new ServiceError(429, 'credential_limit', '请先撤销不用的 Agent 凭据。');
+    if (this.listAgents(principal).length >= 20) throw new ServiceError(429, 'credential_limit', 'Revoke unused Agent credentials first.');
     return this.issue(principal.ownerId, 'agent', name, 90 * 24 * 3600000, z.array(z.string().uuid()).max(100).parse(profileIds));
   }
   private requireHuman(principal: Principal) {
@@ -161,7 +161,7 @@ export class IdentityStore extends EventEmitter {
   agentHash(principal: Principal, id: string) {
     this.requireHuman(principal);
     const key = this.db.prepare("SELECT hash FROM credentials WHERE id=? AND owner=? AND kind='agent' AND expires>?").get(id, principal.ownerId, this.now());
-    if (!key) throw new ServiceError(404, 'credential_not_found', 'Agent 凭据不存在或已失效。');
+    if (!key) throw new ServiceError(404, 'credential_not_found', 'The Agent credential does not exist or has expired.');
     return String(key.hash);
   }
   revokeAgent(principal: Principal, id: string) {

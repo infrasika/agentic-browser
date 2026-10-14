@@ -1,20 +1,57 @@
 <!doctype html>
-<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>让你的 Agent 使用远程浏览器 · Agentic Browser</title><link rel="stylesheet" href="/app.css"><script data-cfasync="false" type="module" src="/public-browser.js"></script></head>
-<body><header><a class="brand" href="/">a<span class="brand-dot">●</span> Agentic Browser</a><span class="badge">公共体验</span></header>
-<main class="dashboard"><div class="eyebrow">YOUR AGENT / REMOTE BROWSER</div><h1>接入你的 Agent，<br><span class="muted">一起完成网页任务。</span></h1>
-<p class="intro">浏览器运行在服务器上。需要你操作时，Agent 会给出接管链接；完成后，你可以把同一个浏览器交还给它。</p>
-<section class="panel" aria-labelledby="capacity-heading"><h2 id="capacity-heading">浏览器容量</h2><p id="capacity-status" class="message" role="status">正在获取当前会话数…</p><p class="hint">统计包含启动中、运行中和清理中的会话，每 10 秒更新。显示有空位时仍以实际创建结果为准。</p></section>
-<section class="panel"><h2>连接 MCP</h2><p>复制提示词，粘贴到你自己的 Agent，让它帮你接入并开始体验。需要客户端支持远程 HTTP MCP，体验无需注册。</p>
-<button id="copy-prompt" class="primary" type="button" disabled>Copy prompt</button><p id="prompt-status" class="message" role="status"></p>
-<details id="prompt-preview"><summary>查看完整提示词</summary><pre id="install-prompt" tabindex="0"></pre></details>
-<p class="hint">部分客户端需要手动添加配置，或刷新工具 / 重启后生效；提示词会让 Agent 根据当前客户端引导你完成。</p>
-<p>也可以手动添加 MCP 配置：</p><pre id="mcp-config" tabindex="0"></pre><button id="copy-config" class="quiet" type="button" disabled>复制配置</button>
-<p id="copy-status" class="message" role="status"></p>
-<p>Codex CLI：</p><pre id="codex-command"></pre>
-<p>Claude Code：已安装 Claude Code 后，在本机终端执行：</p><pre id="claude-command" tabindex="0"></pre><button id="copy-claude" class="quiet" type="button" disabled>复制 Claude Code 命令</button><p id="claude-status" class="message" role="status"></p>
-<p class="small"><code>--scope user</code> 表示在你本机的所有项目中可用。添加后运行 <code>claude mcp get agentic-browser</code> 检查连接，进入 Claude Code 后用 <code>/mcp</code> 查看工具状态，再发送下方体验任务。<a href="https://code.claude.com/docs/en/mcp#option-1-add-a-remote-http-server" target="_blank" rel="noopener noreferrer">Claude Code 官方说明</a></p></section>
-<section class="panel"><h2>查看你的 GitHub 私有仓库</h2><p>你在远程浏览器中登录 GitHub，交还后由 Agent 统计账号下的私有仓库总数，并列出仓库名称。</p>
-<div id="github-task" hidden><p>接入后，把下面的任务发给你的 Agent：</p><blockquote id="github-prompt">用 agentic-browser 打开 https://github.com/login，把浏览器交给我登录。调用 browser_handoff 后，请先在当前对话中展示返回的实际 humanUrl，包含可点击链接和完整地址，再等待我操作。等我完成登录并交还后，统计我账号下的私有仓库总数，并列出所有私有仓库的名称，完成后关闭会话。</blockquote><p>账号、密码和验证码由你在接管的浏览器中输入，无需把密码发给 Agent。</p></div>
-<p>也可以指定公网网页。每个会话使用独立临时浏览器，初始 5 分钟，最多 10 分钟；有并发和频率限额，不保存登录配置。Google、X 等网站可能要求验证或拒绝登录。</p>
-<p class="hint">公共部署管理员可以管理运行环境；交还后 Agent 可以读取网页内容。请勿分享接管链接或会话密钥。自己的日常业务请部署独立实例。</p>
-<p id="transport-warning" class="message">当前入口为 HTTP，浏览器画面和输入内容未加密。启用 HTTPS 后将显示 GitHub 登录任务；当前请仅使用虚构数据测试连接。</p></section></main></body></html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Your Agent, a shared browser · Agentic Browser</title>
+  <link rel="stylesheet" href="/app.css">
+  <script data-cfasync="false" type="module" src="/public-browser.js"></script>
+</head>
+<body>
+<header><a class="brand" href="/">a<span class="brand-dot">●</span> Agentic Browser</a><a href="/self-host">Self-hosting guide ↗</a></header>
+<main class="dashboard">
+  <div class="eyebrow">YOUR AGENT / REMOTE BROWSER</div>
+  <h1>Give your Agent a browser.<br><span class="muted">Step in when needed.</span></h1>
+  <p class="intro">Your Agent works in a remote browser. When a task needs your input, open its handoff link, complete the step, and return the same browser to your Agent.</p>
+  <p>Official demo: <a href="https://agentic-browser.zkpass.org/">agentic-browser.zkpass.org</a>. No Agentic Browser account or API key is required.</p>
+  <section class="panel" aria-labelledby="capacity-heading">
+    <h2 id="capacity-heading">Browser availability</h2>
+    <p id="capacity-status" class="message" role="status">Checking active sessions…</p>
+    <p class="hint">Counts include sessions starting, running, or being cleaned up. Updated every 10 seconds. A displayed free slot is not a reservation.</p>
+  </section>
+  <section class="panel">
+    <h2>Connect your Agent</h2>
+    <p>Copy this prompt into your Agent to set up the remote MCP server and try a task. Your client must support Streamable HTTP MCP.</p>
+    <button id="copy-prompt" class="primary" type="button" disabled>Copy prompt</button>
+    <p id="prompt-status" class="message" role="status"></p>
+    <details id="prompt-preview"><summary>Read the full prompt</summary><pre id="install-prompt" tabindex="0"></pre></details>
+    <p class="hint">Some clients need manual configuration, a tool refresh, or a restart. The prompt asks your Agent to guide you through the steps for your client.</p>
+    <h3>Generic MCP configuration</h3>
+    <pre id="mcp-config" tabindex="0"></pre><button id="copy-config" class="quiet" type="button" disabled>Copy configuration</button>
+    <p id="copy-status" class="message" role="status"></p>
+    <h3>Codex CLI</h3><pre id="codex-command"></pre>
+    <h3>Claude Code</h3><p>With Claude Code installed, run this command in your local terminal:</p>
+    <pre id="claude-command" tabindex="0"></pre><button id="copy-claude" class="quiet" type="button" disabled>Copy Claude Code command</button>
+    <p id="claude-status" class="message" role="status"></p>
+    <p class="small"><code>--scope user</code> makes the server available across your local projects. Check it with <code>claude mcp get agentic-browser</code>, then use <code>/mcp</code> inside Claude Code to check the tools. <a href="https://code.claude.com/docs/en/mcp#option-1-add-a-remote-http-server" target="_blank" rel="noopener noreferrer">Claude Code documentation</a></p>
+  </section>
+  <section class="panel">
+    <h2>Try it with your private GitHub repositories</h2>
+    <p>Sign in to GitHub in the remote browser. Hand control back, and your Agent can count and list the private repositories owned by your account.</p>
+    <div id="github-task" hidden>
+      <p>After connecting, send this task to your Agent:</p>
+      <blockquote id="github-prompt">Use agentic-browser to open https://github.com/login and hand the browser to me so I can sign in. After calling browser_handoff, show the returned humanUrl in this conversation as both a clickable link and the full URL before waiting. Once I have signed in and handed control back, count all private repositories owned by my account and list their names, checking every page of results. Close the session when finished.</blockquote>
+      <p>Enter your username, password, and verification codes in the remote browser. You do not need to send them to your Agent in chat.</p>
+    </div>
+    <p>You can also choose another public website. Each session has a separate temporary browser, starts with 5 minutes, and lasts at most 10 minutes. Concurrency and request limits apply. Login profiles are not saved. Websites such as Google and X may require verification or refuse sign-in.</p>
+    <p class="hint">The deployment administrator can manage the environment. After handback, your Agent can read the page. Keep handoff links and session keys private. Use a self-hosted instance for everyday work.</p>
+    <p id="transport-warning" class="message">This HTTP connection does not encrypt the browser display or your input. The GitHub task is available over HTTPS. For now, use public pages and fictional data only.</p>
+  </section>
+  <section class="panel">
+    <h2>Run your own instance</h2>
+    <p>Use the public demo to try the handoff flow, then deploy a personal or team workspace on your own machine. Published images support Linux amd64 and arm64, including Linux containers on Apple Silicon Macs.</p>
+    <p>The images include Chrome, zkPass TransGate, and zkPass Schema Validator. Each session gets its own container; team members have separate accounts, credentials, and saved profiles.</p>
+    <a class="button secondary" href="/self-host">Read the self-hosting guide ↗</a>
+  </section>
+</main>
+</body>
+</html>

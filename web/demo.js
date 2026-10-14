@@ -3,7 +3,7 @@ function showAccount() {
   if (!name) return;
   document.getElementById("login").hidden = true;
   document.getElementById("account").hidden = false;
-  document.getElementById("welcome").textContent = `已登录：${name}`;
+  document.getElementById("welcome").textContent = `Signed in: ${name}`;
 }
 document.getElementById("login").onsubmit = (event) => {
   event.preventDefault();
@@ -16,6 +16,6 @@ document.getElementById("login").onsubmit = (event) => {
 };
 document.getElementById("continue").onclick = () => {
   document.getElementById("result").textContent =
-    "任务完成：Agent 已在人工登录后的同一个会话中继续操作。";
+    "Task complete: the Agent continued in the same session after the human signed in.";
 };
 showAccount();

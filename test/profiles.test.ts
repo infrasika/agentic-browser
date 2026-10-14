@@ -10,7 +10,7 @@ test("saved profiles survive store recreation, restrict permissions, and exclude
   const root = await mkdtemp(join(tmpdir(), "profiles-test-"));
   t.after(() => rm(root, { recursive: true, force: true }));
   const first = new ProfileStore(root);
-  const info = await first.create("测试账号");
+  const info = await first.create("Test account");
   const second = new ProfileStore(root);
   assert.deepEqual(await second.list(), [info]);
   assert.equal((await stat(root)).mode & 0o777, 0o700);

@@ -195,7 +195,7 @@ export class DockerWorkspace implements BrowserWorkspace {
   private fail() {
     this.closed = true;
     this.runtimeState = 'cleanup_pending';
-    for (const request of this.pending.values()) { clearTimeout(request.timer); request.reject(new ServiceError(503, 'runtime_stopped', '浏览器环境已停止。')); }
+    for (const request of this.pending.values()) { clearTimeout(request.timer); request.reject(new ServiceError(503, 'runtime_stopped', 'The browser environment has stopped.')); }
     this.pending.clear();
     for (const stream of this.streams.values()) stream.destroy();
   }
@@ -217,14 +217,14 @@ export class DockerWorkspace implements BrowserWorkspace {
     } catch { this.fail(); }
   }
   private send(value: unknown) {
-    if (!this.child || this.child.stdin.destroyed) throw new ServiceError(503, 'runtime_stopped', '浏览器环境已停止。');
+    if (!this.child || this.child.stdin.destroyed) throw new ServiceError(503, 'runtime_stopped', 'The browser environment has stopped.');
     if (this.child.stdin.writableLength > 4 * 1024 * 1024) throw new Error('Runtime input queue is full');
     this.child.stdin.write(JSON.stringify(value) + '\n');
   }
   private rpc(operation: string, payload: Record<string, unknown> = {}): Promise<any> {
     return new Promise((resolve, reject) => {
       const id = randomUUID();
-      const timer = setTimeout(() => { this.pending.delete(id); reject(new ServiceError(504, 'runtime_timeout', '浏览器环境没有及时响应。')); }, 30000).unref();
+      const timer = setTimeout(() => { this.pending.delete(id); reject(new ServiceError(504, 'runtime_timeout', 'The browser environment did not respond in time.')); }, 30000).unref();
       this.pending.set(id, { resolve, reject, timer });
       try { this.send({ id, operation, ...payload }); } catch (error) { clearTimeout(timer); this.pending.delete(id); reject(error); }
     });
@@ -237,7 +237,7 @@ export class DockerWorkspace implements BrowserWorkspace {
     try { this.send({ operation: 'revoke' }); } catch {}
   }
   openDesktop(): Duplex {
-    if (this.closed || this.streams.size) throw new ServiceError(409, 'control_unavailable', '远程桌面不可用或已有输入连接。');
+    if (this.closed || this.streams.size) throw new ServiceError(409, 'control_unavailable', 'The remote desktop is unavailable or already has an input connection.');
     const id = randomUUID();
     const stream = new Duplex({
       read() {},

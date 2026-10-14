@@ -1,119 +1,131 @@
-# 自部署预览版
+# Self-hosting
 
-## 使用固定的发行镜像
+Deploy a private workspace on Ubuntu or Docker Desktop on a Mac. The [official demo](https://agentic-browser.zkpass.org/) is a separate, temporary public service; it does not create an account on your deployment.
 
-当前预览版为 `v0.1.0-preview.1`，两个 GHCR 镜像均已公开，amd64/arm64 匿名拉取验收通过；安装时无需执行 `docker login`。版本摘要见 `deploy/release.env`，验收记录见 [进度](PROGRESS.md)。
+## Requirements and delivery
 
-发行版通过 GitHub Actions 在原生 `linux/amd64` 和 `linux/arm64` runner 上分别构建控制器、Chrome/zkPass 运行镜像。两个平台均完成扩展、Chrome 沙箱、团队隔离、人工接管和公共容量验收后，才合并发布版本标签。Ubuntu x86_64 使用 amd64，Ubuntu ARM64 和 M 系列 Mac 的 Docker Desktop 使用 Linux arm64；不包含 32 位 ARM。
+- Docker Engine 26+ and Docker Compose 2.24.4+, with a local Unix socket Docker context.
+- Bash. The container distribution does not require Node.js or Chrome on the host.
+- Linux amd64 or arm64. Apple Silicon Macs run the Linux arm64 images through Docker Desktop. Windows and rootless Docker are not currently validated.
+- Enough memory for your configured concurrency. Each browser has a 2 GiB memory and 2 CPU limit, plus its proxy and the controller. Start with one session and measure actual usage before raising the limit.
 
-从发行页或管理员取得 `agentic-browser-deploy.tar.gz`、`SHA256SUMS`、`RELEASE.json`。发行清单记录源代码提交、两个多架构镜像 digest、Chrome/扩展锁定版本。仓库可保持私有，管理员可单独分发部署包，GHCR 镜像须公开并通过匿名拉取验证才算对外可用。
+Obtain `agentic-browser-deploy.tar.gz`, `RELEASE.json`, and `SHA256SUMS` from the deployment administrator or a GitHub account with access to the private repository's Releases. The two GHCR image packages are public and need no registry credentials; GitHub Release attachments are not public.
+
+`deploy/release.env` pins the controller and runtime to immutable multi-platform digests. Docker selects the native architecture. Do not replace these digests with `latest` when reproducing a release. Linux amd64 and arm64 are tested natively in CI; a native arm64 release on Docker Desktop still needs its own Mac acceptance run.
+
+## Install
 
 ```sh
-# Linux；Mac 可用 shasum -a 256 -c SHA256SUMS
+# Linux; on macOS use: shasum -a 256 -c SHA256SUMS
 sha256sum -c SHA256SUMS
 tar -xzf agentic-browser-deploy.tar.gz
 cd agentic-browser
 cp .env.compose.example .env.compose
+```
+
+Review `.env.compose` before starting:
+
+```dotenv
+AB_PROJECT_NAME=agentic-browser
+AB_PORT=3333
+AB_PUBLIC_URL=http://127.0.0.1:3333
+AB_MAX_SESSIONS=1
+```
+
+Then pull both images, start the controller, check its environment, and create a member:
+
+```sh
 bash scripts/release-compose.sh pull
 bash scripts/release-compose.sh up -d --wait --wait-timeout 90
 bash scripts/release-compose.sh exec controller node --import tsx src/doctor.ts
 bash scripts/release-compose.sh exec controller node --import tsx src/members-cli.ts create alice
 ```
 
-密码在终端内隐藏输入。打开 `http://127.0.0.1:3333`，登录成员账户后创建个人 Agent 凭据；团队 MCP 配置见包内 [客户端说明](AGENT_CLIENT.md) 的发行镜像示例。此路径仅需 Docker Engine 26+、Compose 2.24.4+ 和 Bash，无需本机安装 Node、Chrome 或扩展。Mac 使用 Docker Desktop 的 Linux engine。新发行镜像的 Mac 实机结果须单独记录，不能用 Linux ARM runner 的结果替代 Mac 验收。
+The password is entered in a hidden terminal prompt and must have at least 12 characters. Open `http://127.0.0.1:3333` and sign in. Create a personal Agent credential in the dashboard, then configure your client using [Agent clients](AGENT_CLIENT.md). Credentials are shown once; store them in the client's private configuration.
 
-`deploy/release.env` 的两个镜像引用均为 `ghcr.io/infrasika/agentic-browser-*@sha256:...`。脚本拒绝仅有可变标签的发行配置，先拉取控制器和运行镜像，再沿用现有 Compose 私有数据卷与隔离配置。只给控制器挂载 Docker socket；浏览器和代理没有此权限。`.env.compose` 可设置项目名、端口和并发数，不能覆盖发行文件锁定的镜像；测试其他发行文件可设置 `AB_RELEASE_FILE=/绝对路径/release.env`。
+Only the controller receives the Docker socket, including the short startup group-ID probe. This lets it create and remove session containers, networks, and private-volume mounts. Docker access is powerful enough to manage the Docker host: run only a trusted controller image. Browser and egress-proxy containers never receive the socket. The wrapper detects the Linux socket group automatically, including on Docker Desktop.
 
-当前源码的 `deploy/release.env` 固定到已发布的 `v0.1.0-preview.1`。较早源码版本缺少此文件时，脚本会明确报错，可从所需版本部署包复制；不使用虚构 digest。管理员如需公共演示，先复制 `.env.public.example` 为 `.env.public`，再使用 `AB_COMPOSE_VARIANT=public bash scripts/release-compose.sh up -d --wait`；真实团队使用保持默认 team 模式。
+## Configuration
 
-升级时保留旧部署包及其 digest 配置，先结束活动会话、停止控制器，再在同一项目名和私有卷上启动新版本。不要执行 `down --volumes` 作为普通升级步骤。旧镜像可按旧 digest 恢复，但 Chrome Profile 的跨版本降级仍需验证或恢复升级前备份。
+| Setting | Where | Purpose |
+| --- | --- | --- |
+| `AB_PUBLIC_URL` | `.env.compose` or `.env.public` | User-facing origin, including scheme and nonstandard port |
+| `AB_PORT` | Compose environment file | Host port mapped to internal port 3333 |
+| `AB_PROJECT_NAME` | Compose environment file | Deployment name and private data-volume namespace |
+| `AB_MAX_SESSIONS` | Compose environment file | Total concurrent browsers; default 1 for team Compose |
+| `AB_RUNTIME_PLATFORM` | Compose environment file | Default `auto`; explicit `linux/amd64` or `linux/arm64` for controlled testing |
+| `AB_RELEASE_FILE` | Command environment | Alternate absolute path to a release pin file |
+| `PUBLIC_URL` | `.env` for a host process | Host-process equivalent of `AB_PUBLIC_URL` |
 
-这里的“可复现”指通过摘要部署同一份已验收镜像。源码构建的基础镜像、npm、Chrome 与扩展已锁定；Debian apt 源仍会更新，因此不宣称不同日期从源码构建会得到逐字节相同的镜像。Chrome/CRX 官方端点不保证旧文件长期存在，Actions 按锁文件使用缓存或核验下载；不匹配时失败，不能自动刷新锁绕过检查。
+Compose maps `AB_PUBLIC_URL` to the controller's `PUBLIC_URL`. Editing the root `.env` does not change a deployment launched with `.env.compose` or `.env.public`. Variable names are case-sensitive; `public_url` is not recognized. Recreate the controller after configuration changes.
 
-## 从源码构建
+The team Compose configuration permits one active session per member, starts sessions with a 30-minute lease, and caps lifetime at 4 hours. Agent credentials initially allow temporary sessions only. A member must explicitly authorize individual saved profiles for a credential to reuse them.
 
-源码构建入口继续保留。控制服务运行在 Linux 主机上，每个 Session 的 Chrome 与镜像服务运行在独立 Docker 容器中；不要求 Mac 安装扩展。先核对 [进度记录](PROGRESS.md)，其中分别列出自动化结果和真实账号待验收项。
+## Members and saved profiles
 
-M 系列 Mac 使用 Linux 控制器容器和数据卷，完整 Compose 链路已在 Linux amd64 验收，Mac 实机仍待确认。请按 [Mac 部署指南](MAC_DEPLOYMENT.md) 操作；本文下方是控制服务直接运行于 Linux 宿主机的方式。
+There is no open registration. An administrator creates separate members:
 
-## 安装和成员初始化
+```sh
+bash scripts/release-compose.sh exec controller node --import tsx src/members-cli.ts create bob
+bash scripts/release-compose.sh exec controller node --import tsx src/members-cli.ts list
+```
 
-要求 Linux amd64 或 arm64、Node 24、npm、Python 3、Docker、util-linux 的 flock。控制服务使用非 root 用户，该用户需有 Docker 权限。每个浏览器容器上限 2 GiB 内存和 2 CPU，另有出网代理开销；根据主机资源降低 `MAX_SESSIONS`。当前 Docker 后端不支持 Mac 原生控制服务、Windows 或 rootless Docker 的保证性兼容。
+Run the CLI without arguments to see password, disable/enable, and profile-claim commands. Password changes and disabling a member revoke their active login and Agent credentials; enabling them does not restore old credentials. Revoking one Agent credential leaves other members' credentials intact.
 
-在独立目录取得源码，保留来源说明。首次构建需下载官方 Chrome 与两个扩展，包摘要必须与锁文件一致。若上游已变更，不会静默采用新包；应恢复部署者保留的旧缓存，或审核升级并重新验收。
+Members can create and delete their own saved profiles in the dashboard. A saved profile preserves website login state between new sessions; it does not keep an old running session alive. A profile can only be used by one active session at a time. Legacy unowned profiles remain unavailable until an administrator explicitly assigns them with `claim-profile <member> <profile-id>`.
+
+Data lives in the project-specific Docker volume, mounted as `/data` inside the controller. Changing the project name creates a different deployment and does not migrate existing members or profiles. The deployment administrator can access this data; isolation protects members from other members and their Agents, not from the host administrator.
+
+## Remote access and Mac port forwarding
+
+The default service binds to host loopback. For a remote Ubuntu host, forward the service port:
+
+```sh
+ssh -N -L 3333:127.0.0.1:3333 ubuntu@SERVER_IP
+```
+
+Open `http://127.0.0.1:3333` on your Mac while the tunnel is running. Cursor's Ports panel can create the same forwarding. If it chooses another local port, use that exact port in the handoff URL. The display and WebSocket use the same service port; do not expose VNC or Chrome debugging ports.
+
+`AGENT_BROWSER_URL` is the API origin reachable by the MCP process. `AGENT_BROWSER_VIEW_URL` is the origin reachable by the person's browser; it only rewrites handoff links and does not create a tunnel. See [Agent clients](AGENT_CLIENT.md).
+
+For remote team access without a tunnel, put the controller behind a trusted HTTPS reverse proxy and set `AB_PUBLIC_URL` to that origin. Preserve Host and WebSocket upgrades. The [Nginx template](../deploy/nginx-public.conf) provides the relevant proxy directives; adjust its domain, certificate paths, and backend port. The public-demo guide explains proxy/IP handling, but keep the default **team** authentication mode for private deployments.
+
+## Upgrade, recovery, and removal
+
+1. Keep the previous deployment bundle and image digests. Finish active sessions, then stop the controller with `bash scripts/release-compose.sh stop`.
+2. Have the administrator back up the private volume while browsers and SQLite writers are stopped. Never include this backup in a release bundle.
+3. Install the new bundle, retaining your environment file and project name. Pull its pinned images and start it with the install commands above.
+4. Run `doctor`, sign in with a synthetic member, and check create → handoff → handback → close before resuming regular work.
+
+Do not use `down --volumes` for an ordinary upgrade. Restart recovery cleans this instance's abandoned runtime resources; it does not resume old tasks or replay browser actions. Saved profiles remain available for new sessions after cleanup. A connection interruption can reconnect while the session is still alive; expiry requires a new session.
+
+Reverting the image digest does not prove an upgraded Chrome profile can be downgraded. Restore the pre-upgrade private backup or use a fresh profile when compatibility is unknown. Cross-version Chrome/extension upgrade and rollback still require acceptance testing.
+
+Use `bash scripts/release-compose.sh down` to remove the controller while retaining the data volume. Permanent data removal is an administrator operation after deciding what backups to retain. Do not run global Docker pruning to clean one Agentic Browser deployment.
+
+## Source builds and acceptance
+
+For authorized source users, Node.js 24+, npm, Python 3, Docker, and Linux test dependencies are required:
 
 ```sh
 npm ci
-npm run runtime:build
-npm run setup
+npm run check
+npm test
+bash scripts/build-container-images.sh
+cp .env.compose.example .env.compose
+bash scripts/compose.sh up -d --wait
 ```
 
-`setup` 只在 `.env` 不存在时创建文件。按下面内容编辑自己的 `.env`，先设置数据目录，再建立成员；不要复制其他部署的 `.env` 或 Profile。
-
-```dotenv
-BROWSER_AUTH_MODE=team
-BROWSER_MODE=docker
-BROWSER_RUNTIME_IMAGE=agentic-browser:zkpass-prototype
-BROWSER_NETWORK=public
-BROWSER_DATA_DIR=.data
-HOST=127.0.0.1
-PORT=3333
-PUBLIC_URL=http://127.0.0.1:3333
-MAX_SESSIONS=4
-MAX_SESSIONS_PER_MEMBER=2
-SESSION_TTL_SECONDS=1800
-SESSION_MAX_LIFETIME_SECONDS=14400
-```
-
-团队模式忽略共享 `AGENT_BROWSER_TOKEN`。如有其他管理域名或管理公网 IP，在 `BROWSER_EGRESS_DENY_HOSTS` 中逗号分隔填写；`PUBLIC_URL` 的主机名自动加入禁止出网目标。
-
-```sh
-npm run doctor
-npm run members -- create alice
-npm run members -- create bob
-npm start
-```
-
-密码在本机终端隐藏输入。网页登录后创建个人 Agent 凭据，默认仅允许临时会话；复用保存配置需逐项授权。详见 [成员管理](TEAM_SETUP.md) 和 [Agent 接入](AGENT_CLIENT.md)。共享主机的系统管理员、Docker 管理员仍须被信任。
-
-## 本地转发与 HTTPS
-
-Cursor/SSH 只需转发服务端口 3333，镜像 WebSocket 使用同一端口。Mac 上打开编辑器给出的本地转发地址，例如 `http://localhost:50350`；不要把服务器内部 VNC/CDP 端口开放到公网。端口映射变化时更新 MCP 客户端的 `AGENT_BROWSER_VIEW_URL`，保留实际 HTTP API 地址。工具本身不会自动建立 SSH 隧道。
-
-需要团队远程直连时，用可信反向代理提供 HTTPS，将 `PUBLIC_URL` 设置为实际 origin，并保留 Host、Origin 和 WebSocket 升级；控制服务仍可只监听回环地址。不要把 HTTP 明文登录入口直接公开。服务不信任客户端任意提交的转发头；入口限流需在代理侧配置。若代理统一来源 IP，应用的登录/访客限速会合并计算。
-
-## 自动验收
-
-完整测试需要宿主机 Chromium、Chrome/X11 依赖与已构建镜像；它们用于兼容旧模式和模拟访问镜像的用户浏览器，正常 Docker 自部署仅需上面的运行依赖。
+For the full test suite, install its host browser and desktop dependencies first:
 
 ```sh
 npm run browser:install
 npm run desktop:install
-npm run runtime:build
-docker build -f runtime/controller.Dockerfile -t agentic-browser:controller-preview .
 npm run verify
 ```
 
-`verify` 顺序运行类型检查、单元/API、Chromium、原生桌面、团队镜像、扩展、独立 Runtime、Compose 控制器、真实 MCP 容器链路和双访客演示。需安装 Compose；控制器验收仅给测试控制器挂载 Docker socket，并使用独立随机命名卷，结束后删除。任何一步失败即停止，记录 `output/acceptance/<UTC时间>/results.tsv` 与各项日志。测试不复用真实账号配置；公网 Runtime 测试依赖外部无凭据测试服务可达。
+Results are written to `output/acceptance/<UTC timestamp>/`. `doctor` is an environment check, not a successful website-login test. A clean-directory install is not the same as validation on a new host.
 
-`npm run doctor` 是只读环境检查，不代表浏览器或真实登录流程已经通过。干净目录重新安装通过，也不等价于另一台干净主机的验收。
+`npm run package:preview` creates an allowlisted source archive with file hashes. It excludes private environment files, `.data`, `.git`, dependencies, logs, browser profiles, and downloaded binary assets. This archive is for authorized source recipients; it is separate from the public-image deployment bundle.
 
-## 本地源码包与升级
-
-```sh
-npm run package:preview
-```
-
-输出在 `output/releases/<UTC时间>/`，包含源码归档和 `SHA256SUMS`；包内 `PREVIEW-MANIFEST.json` 记录每个源文件摘要。打包使用文件类型及目录允许清单，拒绝符号链接，排除 `.env`、`.data`、`.git`、依赖、缓存、日志与 Chrome/CRX 二进制包。该命令不上传、不发布、不创建 Git 提交。
-
-升级前保留上一份源码归档、已验收的镜像 ID、扩展包缓存和锁文件。停止接收新任务，正常结束活动 Session 后停止服务。私有数据的备份应在浏览器和 SQLite 使用者关闭后由部署管理员保存到受限位置，不能放入发行包；本轮没有替用户制作真实数据备份。
-
-在新目录安装依赖、构建并验收新镜像，再将 `BROWSER_RUNTIME_IMAGE` 指向审核过的镜像 ID，使用原私有数据目录启动。每个控制进程启动时把镜像标签解析为固定 ID，不会在活动 Session 中替换镜像。当前只支持实例级选择一个镜像；尚无网页模板市场或 Session 自选任意镜像。
-
-回退代码与运行镜像不保证 Chrome Profile 可降级。先使用虚构配置测试兼容；不兼容时由所有者选择恢复升级前私有备份或创建新配置。实际跨 Chrome/扩展版本升级和回退仍待单独验收。
-
-## 停止和移除
-
-使用 SIGTERM 或终端 Ctrl+C 正常停止控制服务，等待浏览器及代理回收完成。异常退出后，下次启动会依据本实例标签和资源账本清理残留，不应使用全局 `docker system prune` 处理本项目。
-
-删除源码不等于删除主动保存的登录配置。需要移除数据时，先由成员在工作台删除自己的未占用 Profile；服务器卸载由管理员确认备份保留策略后处理实例专属目录。不要删除团队共用的其他应用目录或 Docker 资源。
+Pinned deployment means running the same tested image bytes. Source rebuilds are not guaranteed byte-identical because Debian package repositories still change. See [Releasing](RELEASING.md) for asset locks and publication checks.

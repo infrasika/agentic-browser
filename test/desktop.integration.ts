@@ -18,7 +18,7 @@ test(
       await service.close();
     });
     const created = await service.request("/api/sessions", "POST", {
-      purpose: "远程桌面协作验证",
+      purpose: "Remote desktop collaboration test",
       url: `${service.base}/demo`,
     });
     assert.equal(created.status, 201, await created.clone().text());
@@ -42,7 +42,7 @@ test(
     };
     await act({ type: "click", selector: "#username" });
     const handoff = await service.request(`${agent}/handoff`, "POST", {
-      reason: "使用虚构账号测试桌面输入",
+      reason: "Test desktop input with a fictional account",
     });
     assert.equal(handoff.status, 200, await handoff.clone().text());
     const { revision } = (await handoff.json()) as { revision: number };
@@ -99,7 +99,7 @@ test(
     await page.waitForFunction(() =>
       document
         .getElementById("message")
-        ?.textContent?.includes("已连接远程浏览器"),
+        ?.textContent?.includes("Connected to the remote browser"),
     );
     const canvas = page.locator("#desktop canvas");
     await page.waitForFunction(
@@ -115,7 +115,7 @@ test(
       undefined,
       { timeout: 10000 },
     );
-    await page.locator("#text").fill("native-user-测试");
+    await page.locator("#text").fill("native-user-café");
     await page.locator("#send-text").click();
     await canvas.focus();
     await page.keyboard.press("Tab");
@@ -129,40 +129,40 @@ test(
     });
     await page.locator("#resume").click();
     await page.waitForFunction(() =>
-      document.getElementById("message")?.textContent?.startsWith("已交还"),
+      document.getElementById("message")?.textContent?.startsWith("Control returned"),
     );
     await observerClosed;
     assert.equal(await canvas.count(), 0);
     await act({ type: "reload" });
     const account = await act({ type: "snapshot" });
-    assert.match(account.result.text, /已登录：native-user-测试/);
+    assert.match(account.result.text, /Signed in: native-user-café/);
     await act({ type: "click", selector: "#continue" });
-    assert.match((await act({ type: "snapshot" })).result.text, /任务完成/);
+    assert.match((await act({ type: "snapshot" })).result.text, /Task complete/);
     assert.deepEqual(errors, []);
 
     // Reloading a viewer and losing its network must preserve the human lease.
     await page.locator("#takeover").click();
-    await page.waitForFunction(() => document.getElementById("connection")?.textContent === "连接正常" && !!document.querySelector("#desktop canvas"));
+    await page.waitForFunction(() => document.getElementById("connection")?.textContent === "Connected" && !!document.querySelector("#desktop canvas"));
     const beforeReconnect = service.registry.get(session.id).info();
     assert.equal(await page.locator("#expiry-warning").isVisible(), true);
     await page.locator("#extend").click();
-    await page.waitForFunction(() => document.getElementById("message")?.textContent === "会话已续期。");
+    await page.waitForFunction(() => document.getElementById("message")?.textContent === "Session extended.");
     assert.ok(service.registry.get(session.id).expiresAt > Date.parse(beforeReconnect.expiresAt));
     await page.reload();
-    await page.waitForFunction(() => document.getElementById("connection")?.textContent === "连接正常" && !!document.querySelector("#desktop canvas"));
+    await page.waitForFunction(() => document.getElementById("connection")?.textContent === "Connected" && !!document.querySelector("#desktop canvas"));
     await page.context().setOffline(true);
     await page.waitForFunction(() => (document.getElementById("text") as HTMLInputElement)?.disabled && !document.querySelector("#desktop canvas"));
     assert.equal(service.registry.get(session.id).info().control, "human");
     assert.equal((await service.request(`${agent}/screen`)).status, 409);
     await page.context().setOffline(false);
-    await page.waitForFunction(() => document.getElementById("connection")?.textContent === "连接正常" && !!document.querySelector("#desktop canvas"));
+    await page.waitForFunction(() => document.getElementById("connection")?.textContent === "Connected" && !!document.querySelector("#desktop canvas"));
     assert.equal(service.registry.get(session.id).info().revision, beforeReconnect.revision);
     await page.locator("#resume").click();
-    await page.waitForFunction(() => document.getElementById("message")?.textContent?.startsWith("已交还"));
-    assert.match((await act({ type: "snapshot" })).result.text, /任务完成/);
+    await page.waitForFunction(() => document.getElementById("message")?.textContent?.startsWith("Control returned"));
+    assert.match((await act({ type: "snapshot" })).result.text, /Task complete/);
 
     // An old human lease is invalid even when a fresh handoff later reopens VNC.
-    await service.request(`${agent}/handoff`, "POST", { reason: "再次接管" });
+    await service.request(`${agent}/handoff`, "POST", { reason: "Take control again" });
     const stale = new WebSocket(endpoint, { origin: service.base });
     await once(stale, "open");
     const staleClosed = once(stale, "close");
@@ -179,7 +179,7 @@ test(
     );
     assert.doesNotMatch(
       JSON.stringify(await clean.json()),
-      /已登录：native-user/,
+      /Signed in: native-user/,
     );
   },
 );

@@ -74,7 +74,9 @@ def publish(version, directory):
     (output / 'RELEASE.json').write_bytes(manifest_bytes)
     files = ['compose.yaml', 'compose.public.yaml', '.env.compose.example', '.env.public.example',
              'scripts/compose.sh', 'scripts/public-demo.sh', 'scripts/release-compose.sh',
-             'docs/SELF_HOST.md', 'docs/UBUNTU_PUBLIC_DEMO.md', 'docs/AGENT_CLIENT.md', 'docs/TEAM_SETUP.md', 'docs/MAC_DEPLOYMENT.md',
+             'README.md', 'docs/SELF_HOST.md', 'docs/UBUNTU_PUBLIC_DEMO.md', 'docs/AGENT_CLIENT.md',
+             'docs/ARCHITECTURE.md', 'docs/RELEASING.md', 'docs/PLAN.md', 'docs/PROGRESS.md',
+             'runtime/README.md', 'deploy/nginx-public.conf',
              'runtime/DISTRIBUTION-NOTICES.md', 'runtime/PLAYWRIGHT-LICENSE']
     contents = {name: (ROOT / name).read_bytes() for name in files}
     contents['deploy/release.env'] = ''.join(f'AB_{kind.upper()}_IMAGE={ref}\n' for kind, ref in images.items()).encode()
@@ -86,7 +88,18 @@ def publish(version, directory):
             item.size = len(data); item.mode = 0o644; item.mtime = 0
             bundle.addfile(item, io.BytesIO(data))
     (output / 'SHA256SUMS').write_text(''.join(f'{hashlib.sha256(path.read_bytes()).hexdigest()}  {path.name}\n' for path in [archive, output / 'RELEASE.json']))
-    notes = f'''原生 linux/amd64 与 linux/arm64 控制器/浏览器，来源提交 `{revision}`。\n\n两个平台均通过扩展/Chrome 沙箱、团队隔离、人工接管、公共五浏览器配额验收。\n\n解压部署包，按 docs/SELF_HOST.md 使用 scripts/release-compose.sh 拉取 digest 固定镜像。\n\n首次创建 GHCR 包默认为 private；维护者须分别设为 Public 后验证匿名拉取。发布动作完成不代表匿名可用，仓库本身的可见性不变。\n\n'''
+    notes = f"""Native Linux amd64 and arm64 controller/browser images, built from `{revision}`.
+
+Both platforms passed extension and Chrome sandbox checks, team isolation, human handoff, and public five-browser capacity acceptance.
+
+Official demo: https://agentic-browser.zkpass.org/
+Self-hosting: https://agentic-browser.zkpass.org/self-host
+
+Extract the deployment bundle and follow docs/SELF_HOST.md. Use scripts/release-compose.sh to pull the images pinned by digest.
+
+Keep the source repository private. GHCR packages must be Public and verified through anonymous pulls; completion of this workflow alone does not establish public availability. Release attachments require repository access and may be distributed separately by an administrator.
+
+"""
     notes += '\n'.join(f'- {kind}: `{ref}`' for kind, ref in images.items()) + '\n'
     (output / 'NOTES.md').write_text(notes)
 

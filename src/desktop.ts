@@ -371,7 +371,7 @@ export class DesktopWorkspace implements BrowserWorkspace {
         if (expected.every(item => installed.some(actual => actual.id === item.id && actual.version === item.version && actual.state === 'ENABLED'))) return;
         await delay(250);
       }
-      throw new ServiceError(503, 'extensions_not_ready', '固定扩展版本未就绪，浏览器环境已拒绝交付。');
+      throw new ServiceError(503, 'extensions_not_ready', 'The required extension versions are not ready. The browser environment was not made available.');
     } finally { await page.close(); }
   }
 

@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="zh-CN">
+<html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
@@ -15,16 +15,16 @@
     </header>
     <main class="dashboard">
       <div class="eyebrow">BROWSER / HUMAN / AGENT</div>
-      <h1>让任务继续，<br /><span class="muted">在需要时接手。</span></h1>
+      <h1>Keep the task moving.<br /><span class="muted">Take over when needed.</span></h1>
       <p class="intro">
-        Agent 操作网页，你完成登录或人工确认，再把同一个浏览器交还给它。
+        Your Agent works on the web. You handle sign-in or manual confirmation, then return the same browser to your Agent.
       </p>
       <section id="account" class="panel" hidden>
-        <p>当前成员：<strong id="member-name"></strong> <button id="logout" class="quiet">退出登录</button></p>
-        <details><summary>管理个人 Agent 凭据</summary>
-          <p class="hint">Agent 可以使用你的浏览器资源。人工接管页面需要你单独登录。</p>
-          <form id="credential-form"><label for="credential-name">凭据名称</label><input id="credential-name" required maxlength="80" placeholder="例如：我的开发 Agent"><label for="credential-profiles">允许复用的登录配置（可多选，不选则仅临时会话）</label><select id="credential-profiles" multiple></select><button class="secondary">创建凭据</button></form>
-          <p id="credential-message" role="status"></p><textarea id="credential-secret" readonly hidden aria-label="新创建的 Agent 凭据"></textarea>
+        <p>Signed-in member: <strong id="member-name"></strong> <button id="logout" class="quiet">Sign out</button></p>
+        <details><summary>Manage personal Agent credentials</summary>
+          <p class="hint">Agent credentials grant access to your browser resources. Sign in separately to take control as a person.</p>
+          <form id="credential-form"><label for="credential-name">Credential name</label><input id="credential-name" required maxlength="80" placeholder="For example: Development Agent"><label for="credential-profiles">Allowed saved profiles (select multiple, or none for temporary sessions only)</label><select id="credential-profiles" multiple></select><button class="secondary">Create credential</button></form>
+          <p id="credential-message" role="status"></p><textarea id="credential-secret" readonly hidden aria-label="New Agent credential"></textarea>
           <div id="credentials"></div>
         </details>
       </section>
@@ -32,38 +32,38 @@
         <section class="panel">
           <div class="panel-heading">
             <span class="step">01</span>
-            <h2>新建浏览器会话</h2>
+            <h2>Create a browser session</h2>
           </div>
           <form id="create-form">
-            <div id="legacy-auth"><label for="token">服务访问令牌</label
+            <div id="legacy-auth"><label for="token">Service access token</label
             ><input
               id="token"
               type="password"
               autocomplete="off"
               required
-              placeholder=".env 中的 AGENT_BROWSER_TOKEN"
+              placeholder="AGENT_BROWSER_TOKEN from .env"
             />
-            <p class="hint">仅保存在此标签页的会话存储中。</p></div>
-            <label for="purpose">任务名称</label
+            <p class="hint">Stored only in the session storage of this tab.</p></div>
+            <label for="purpose">Task name</label
             ><input
               id="purpose"
-              value="体验人工接管"
+              value="Try human handoff"
               maxlength="300"
               required
             />
-            <label for="url">起始网页</label
+            <label for="url">Starting URL</label
             ><input id="url" type="url" required />
-            <label for="profile">登录状态</label>
+            <label for="profile">Login state</label>
             <select id="profile">
-              <option value="">临时会话 · 结束后清理</option>
+              <option value="">Temporary session · cleared on close</option>
             </select>
             <div id="new-profile" hidden>
-              <label for="profile-name">保存配置的名称</label>
-              <input id="profile-name" maxlength="80" placeholder="例如：我的工作账号" />
+              <label for="profile-name">Saved profile name</label>
+              <input id="profile-name" maxlength="80" placeholder="For example: Work account" />
             </div>
-            <p class="hint" id="profile-hint">保存配置需使用远程桌面模式。输入令牌后刷新列表。</p>
+            <p class="hint" id="profile-hint">Saved profiles require desktop mode. Enter your token and refresh the list.</p>
             <button class="primary wide" id="create">
-              创建会话 <span>↗</span>
+              Create session <span>↗</span>
             </button>
           </form>
           <p id="message" role="status" class="message"></p>
@@ -71,42 +71,42 @@
         <section class="panel flow-panel">
           <div class="panel-heading">
             <span class="step">02</span>
-            <h2>在同一会话里协作</h2>
+            <h2>Collaborate in the same session</h2>
           </div>
           <ol class="flow">
             <li>
-              <strong>Agent 执行任务</strong>
-              <p>通过 MCP 或 HTTP 接口浏览、点击、输入。</p>
+              <strong>Your Agent starts the task</strong>
+              <p>Browse, click, and type through MCP or HTTP tools.</p>
             </li>
             <li>
-              <strong>你接管浏览器</strong>
-              <p>Agent 暂停。直接在接管页面完成登录和确认。</p>
+              <strong>You take control</strong>
+              <p>Your Agent pauses while you sign in or confirm a step in the remote browser.</p>
             </li>
             <li>
-              <strong>交还后继续</strong>
-              <p>保留当前网页与登录状态，Agent 继续操作。</p>
+              <strong>Hand back and continue</strong>
+              <p>The page and login state stay in place while your Agent continues.</p>
             </li>
           </ol>
-          <p class="note">内置演示页只使用虚构账号，方便先走通完整流程。</p>
+          <p class="note">Use fictional accounts on the built-in demo page to try the complete flow.</p>
         </section>
       </div>
       <section class="sessions-section">
         <div class="section-heading">
-          <h2>当前会话</h2>
-          <button id="refresh" class="secondary">刷新列表</button>
+          <h2>Current sessions</h2>
+          <button id="refresh" class="secondary">Refresh list</button>
         </div>
         <div id="sessions" class="session-list">
-          <p class="muted">输入访问令牌后查看会话。</p>
+          <p class="muted">Enter your access token to view sessions.</p>
         </div>
       </section>
       <section class="sessions-section">
-        <div class="section-heading"><h2>已保存的登录配置</h2></div>
-        <p class="hint">选择配置新建会话，可在服务正常重启后继续使用登录状态。网站仍可能要求重新验证。删除配置会清除其中所有网站的本地登录数据。</p>
-        <div id="profiles" class="session-list"><p class="muted">输入令牌后刷新列表。</p></div>
+        <div class="section-heading"><h2>Saved login profiles</h2></div>
+        <p class="hint">Create a session with a saved profile to reuse login state after a service restart. Websites may still require verification. Deleting a profile removes its local login data for all websites.</p>
+        <div id="profiles" class="session-list"><p class="muted">Enter your token and refresh the list.</p></div>
       </section>
     </main>
     <footer>
-      你的浏览器任务，由你掌控。<span>本地开发版 · 会话可续期，保存登录状态需主动选择</span>
+      Your browser tasks. Your control.<span>Self-hosted workspace · extend sessions and explicitly opt into saved login state</span>
     </footer>
   </body>
 </html>

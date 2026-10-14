@@ -38,7 +38,7 @@ let failures = 0;
 let deadlineAt = 0;
 
 function accept(next) {
-  if (!connected && state) $("message").textContent = "连接已恢复，控制权已确认。";
+  if (!connected && state) $("message").textContent = "Connection restored. Control ownership confirmed.";
   deadlineAt = performance.now() + Date.parse(next.expiresAt) - (next.serverTime ? Date.parse(next.serverTime) : Date.now());
   connected = true;
   failures = 0;
@@ -49,8 +49,8 @@ function accept(next) {
 function connectionStatus() {
   const ready = connected && (state?.control !== "human" || state?.transport !== "desktop" || desktopConnected);
   $("connection").textContent = stopped
-    ? "会话已结束或链接已失效。可返回首页恢复已保存的配置。"
-    : ready ? "连接正常" : "连接中断或正在连接；恢复后会确认控制权。请检查远程端口转发。";
+    ? "The session has ended or the link is no longer valid. Return to the dashboard to open a saved profile."
+    : ready ? "Connected" : "Connecting or disconnected. Control will be checked after reconnecting. Check your port forwarding.";
   $("reconnect").hidden = ready || stopped;
   $("recover").hidden = !stopped;
 }
@@ -58,11 +58,11 @@ function connectionStatus() {
 function expiryStatus() {
   if (!state) return;
   const remaining = Math.max(0, Math.ceil((deadlineAt - performance.now()) / 1000));
-  $("expiry").textContent = `${new Date(state.expiresAt).toLocaleTimeString()} 到期 · 剩余 ${Math.floor(remaining / 60)}:${String(remaining % 60).padStart(2, "0")}`;
+  $("expiry").textContent = `${new Date(state.expiresAt).toLocaleTimeString("en-US")} · expires in ${Math.floor(remaining / 60)}:${String(remaining % 60).padStart(2, "0")}`;
   $("expiry-warning").hidden = remaining > 120 || stopped;
   $("expiry-warning").textContent = remaining > 0
-    ? `会话即将到期，请点击「延长会话」。${state.profile ? "到期后将关闭浏览器，保存的登录配置仍保留。" : "此为临时会话，到期后登录状态会清理。"}`
-    : "正在确认会话是否到期，输入已暂停。";
+    ? `This session will expire soon. Click Extend session. ${state.profile ? "The browser will close at expiry. Your saved profile will be retained." : "This is a temporary session. Login state will be removed at expiry."}`
+    : "Checking whether the session has expired. Input is paused.";
 }
 
 function failedRequest(error) {
@@ -77,8 +77,8 @@ function failedRequest(error) {
     connectionStatus();
   }
   if (error.status !== 409) $("message").textContent = stopped
-    ? "会话不可用。若服务已重启，请返回首页使用已保存的配置新建会话。"
-    : error.status ? error.message : "连接中断，正在重试。未确认的输入不会自动重发。";
+    ? "Session unavailable. If the service restarted, return to the dashboard and create a session with a saved profile."
+    : error.status ? error.message : "Connection lost. Retrying. Unconfirmed input will not be replayed automatically.";
 }
 
 function disconnectDesktop() {
@@ -110,7 +110,7 @@ function connectDesktop() {
     if (state) render(state);
     retryDesktopAt = Date.now() + 2000;
     $("placeholder").hidden = false;
-    $("message").textContent = "远程桌面连接已断开，正在重新连接…";
+    $("message").textContent = "Remote desktop disconnected. Reconnecting…";
   };
   socket.onopen = async () => {
     try {
@@ -123,7 +123,7 @@ function connectDesktop() {
   socket.onclose = event => {
     if (event.code === 4409 && desktopSocket === socket) {
       inputEpoch++; disconnectDesktop(); retryDesktopAt = Infinity;
-      $('message').textContent = '浏览器已在另一个窗口接管。请关闭那个窗口，再点击「重新连接」。';
+      $('message').textContent = 'The browser is controlled in another window. Close that window, then click Reconnect.';
       connectionStatus(); return;
     }
     failed();
@@ -149,14 +149,14 @@ function connectDesktop() {
       if (desktopSocket === socket) {
         desktopConnected = true;
         render(state);
-        $("message").textContent = "已连接远程浏览器，可以直接操作。";
+        $("message").textContent = "Connected to the remote browser. You can interact now.";
       }
     });
   };
 }
 
 function desktopAction(value) {
-  if (!desktopConnected || !desktopRfb) throw new Error("远程桌面尚未连接，请稍候。");
+  if (!desktopConnected || !desktopRfb) throw new Error("The remote desktop is not connected yet. Please wait.");
   desktopRfb.focus();
   if (value.type === "type") {
     for (const character of value.text) {
@@ -183,7 +183,7 @@ function desktopAction(value) {
 async function api(operation = "", method = "GET", body) {
   if (!credentials) {
     stopped = true;
-    throw new Error("接管链接无效，请从首页打开接管页面。");
+    throw new Error("Invalid handoff link. Open the handoff page from the dashboard.");
   }
   const response = await fetch(
     `/api/human/${credentials.id}${operation ? `/${operation}` : ""}`,
@@ -199,7 +199,7 @@ async function api(operation = "", method = "GET", body) {
   );
   if (!response.ok) {
     const body = await response.json();
-    const error = new Error(body.message || "请求失败");
+    const error = new Error(body.message || "Request failed");
     error.status = response.status;
     throw error;
   }
@@ -223,32 +223,32 @@ function render(next) {
   document.querySelector(".browser-toolbar").hidden = desktop;
   $("screen-wrap").classList.toggle("desktop-mode", desktop);
   $("input-hint").textContent = desktop
-    ? "直接操作远程浏览器窗口。可使用窗口中的地址栏、标签页和返回按钮。"
-    : "点击网页中的控件，再直接使用键盘输入。支持滚轮、Tab 和 Enter。";
+    ? "Interact with the remote browser directly, including its address bar, tabs, and navigation buttons."
+    : "Click a page control, then type. Scrolling, Tab, and Enter are supported.";
   $("state").textContent = human
-    ? "● 你正在操作"
+    ? "● You have control"
     : switching
-      ? "正在交接"
-      : "● Agent 操作中";
+      ? "Transferring control"
+      : "● Agent has control";
   $("state").classList.toggle("human", human);
   $("purpose").textContent = next.purpose;
   expiryStatus();
   connectionStatus();
-  $("storage-mode").textContent = next.profile ? `保存登录状态：${next.profile.name}` : "临时会话 · 结束后清理登录状态";
+  $("storage-mode").textContent = next.profile ? `Saved profile: ${next.profile.name}` : "Temporary session · login state is removed on close";
   const unavailable = !connected || stopped || performance.now() >= deadlineAt;
   $("extend").disabled = unavailable || busy;
   $("end-session").disabled = stopped || busy;
-  $("extend").textContent = `延长会话 · 从现在起 ${Math.ceil((next.ttlSeconds ?? 1800) / 60)} 分钟`;
+  $("extend").textContent = `Extend session · another ${Math.ceil((next.ttlSeconds ?? 1800) / 60)} minutes`;
   $("control-title").textContent = human
-    ? "现在由你掌控"
+    ? "You have control"
     : switching
-      ? "等待已有操作结束"
-      : "当前由 Agent 操作";
+      ? "Waiting for current operations to finish"
+      : "Agent has control";
   $("reason").textContent =
     next.reason ||
     (human
-      ? "完成登录或确认后，点击下方按钮交还控制权。"
-      : "需要登录或人工确认时，可以接管浏览器。");
+      ? "After signing in or confirming the next step, use the button below to hand back control."
+      : "Take control whenever a login or manual confirmation is needed.");
   $("takeover").hidden = human;
   $("takeover").disabled = switching || busy || unavailable;
   $("resume").hidden = !human;
@@ -289,18 +289,18 @@ async function transfer(operation) {
   busy = true;
   disconnectDesktop();
   if (state) render(state);
-  $("message").textContent = "正在交接控制权…";
+  $("message").textContent = "Transferring control…";
   try {
     const next = await api(
       operation,
       "POST",
-      operation === "takeover" ? { reason: "用户主动接管浏览器" } : {},
+      operation === "takeover" ? { reason: "User requested browser control" } : {},
     );
     accept(next);
     $("message").textContent =
       operation === "resume"
-        ? next.control === 'human' ? next.reason : "已交还。Agent 可以继续使用当前登录会话。"
-        : "已接管，可以在左侧操作。";
+        ? next.control === 'human' ? next.reason : "Control returned. The Agent can continue in the current signed-in session."
+        : "You have control. Interact with the browser on the left.";
   } catch (error) {
     failedRequest(error);
   } finally {
@@ -315,10 +315,10 @@ $("end-session").onclick = async () => {
   if (stopped || busy) return;
   busy = true; observationEpoch++; inputEpoch++; disconnectDesktop();
   if (state) render(state);
-  $('message').textContent = '正在结束会话并回收临时浏览器…';
+  $('message').textContent = 'Closing the session and cleaning up the temporary browser…';
   try {
     await api('', 'DELETE'); stopped = true;
-    clearScreen(); $('message').textContent = '会话已结束，临时浏览器已回收。主动保存的登录配置仍保留。';
+    clearScreen(); $('message').textContent = 'Session closed and temporary browser removed. Saved profiles are retained.';
   } catch (error) { failedRequest(error); }
   finally { busy = false; if (state) render(state); connectionStatus(); }
 };
@@ -330,7 +330,7 @@ $("extend").onclick = async () => {
   if (state) render(state);
   try {
     accept(await api("extend", "POST", {}));
-    $("message").textContent = "会话已续期。";
+    $("message").textContent = "Session extended.";
   } catch (error) { failedRequest(error); }
   finally { observationEpoch++; busy = false; if (state) render(state); }
 };
@@ -449,7 +449,7 @@ async function poll() {
     failedRequest(error);
     if (stopped) {
       clearScreen();
-      $("state").textContent = "会话不可用";
+      $("state").textContent = "Session unavailable";
       for (const control of document.querySelectorAll("button, input, select"))
         control.disabled = true;
       connectionStatus();

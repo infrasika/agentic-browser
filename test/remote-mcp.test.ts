@@ -96,9 +96,9 @@ test('public MCP: handoff and refreshed links include a user-ready URL without e
     assert.equal(url.origin, f.base);
     assert.equal(url.pathname, '/connect');
     assert.ok(url.hash.startsWith(`#${created.id}.`));
-    assert.match(data.userMessage, /连接并接管/);
-    assert.match(data.userMessage, /完成，交还给 Agent/);
-    assert.ok(data.userMessage.includes(`[打开浏览器并接管](${data.humanUrl})`), 'The message contains an actual clickable URL');
+    assert.match(data.userMessage, /Connect and take control/);
+    assert.match(data.userMessage, /Hand back to Agent/);
+    assert.ok(data.userMessage.includes(`[Open browser and take control](${data.humanUrl})`), 'The message contains an actual clickable URL');
     assert.ok(data.userMessage.split('\n').includes(data.humanUrl), 'Raw URL remains copyable in text-only clients');
     assert.ok(Array.isArray(response.content));
     assert.ok(response.content.some((block: any) => block.type === 'text' && block.text.includes(`\n\n${data.userMessage}`)), 'Text-only clients get the ready-to-send message outside JSON');
@@ -125,7 +125,7 @@ test('public MCP: reserves per-source quota during creation and ignores untruste
   assert.deepEqual(limited.sourceCapacity, { currentSessions: 1, maxSessions: 1 });
   assert.equal(limited.capacity.currentSessions, 1);
   assert.equal(limited.capacity.full, false);
-  assert.match(limited.userMessage, /当前网络/);
+  assert.match(limited.userMessage, /This network/);
   gate.resolve();
   const created = result(await creating);
   assert.equal(result(await b.callTool({ name: 'browser_create', arguments: {} })).status, 429);
@@ -153,7 +153,7 @@ test('public MCP: five concurrent allocations fill capacity, expose only totals,
     assert.equal(denied.isError, true); assert.equal(payload.error, 'session_limit'); assert.equal(payload.status, 429);
     assert.deepEqual(payload.capacity, full); assert.deepEqual(denied.structuredContent, payload);
     assert.equal(payload.retryAfterSeconds, 30);
-    assert.match(payload.userMessage, /5 \/ 5/); assert.match(payload.userMessage, /稍后再试/);
+    assert.match(payload.userMessage, /5 \/ 5/); assert.match(payload.userMessage, /try again later/);
     assert.ok(Array.isArray(denied.content) && denied.content.some((part: any) => part.type === 'text' && part.text.includes('Show this capacity notice')));
     assert.equal(starts, 5, 'No sixth browser was launched');
   } finally { gate.resolve(); }

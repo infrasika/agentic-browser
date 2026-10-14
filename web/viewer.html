@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="zh-CN">
+<html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>接管浏览器 · Agentic Browser</title>
+    <title>Browser control · Agentic Browser</title>
     <link rel="stylesheet" href="/app.css" />
     <script data-cfasync="false" type="module" src="/viewer.js"></script>
   </head>
@@ -11,30 +11,30 @@
     <header>
       <a class="brand" href="/"
         >a<span class="brand-dot">●</span> Agentic Browser</a
-      ><span id="state" class="badge">正在连接</span>
+      ><span id="state" class="badge">Connecting</span>
     </header>
     <main class="viewer-layout">
       <section class="browser-column">
         <div class="section-heading">
           <div>
             <div class="eyebrow">SHARED BROWSER</div>
-            <h1 id="purpose" class="viewer-title">浏览器会话</h1>
+            <h1 id="purpose" class="viewer-title">Browser session</h1>
           </div>
           <span id="expiry" class="hint"></span>
         </div>
         <div class="connection-bar" role="status">
-          <span id="connection">正在连接服务…</span>
-          <button id="reconnect" class="quiet" hidden>重新连接</button>
+          <span id="connection">Connecting to the service…</span>
+          <button id="reconnect" class="quiet" hidden>Reconnect</button>
         </div>
         <div id="expiry-warning" class="notice" role="status" hidden></div>
         <div class="browser-toolbar">
-          <button data-action="back" title="后退" aria-label="后退">←</button
-          ><button data-action="forward" title="前进" aria-label="前进">
+          <button data-action="back" title="Back" aria-label="Back">←</button
+          ><button data-action="forward" title="Forward" aria-label="Forward">
             →</button
-          ><button data-action="reload" title="刷新网页" aria-label="刷新网页">
+          ><button data-action="reload" title="Reload page" aria-label="Reload page">
             ↻</button
-          ><select id="tabs" aria-label="浏览器标签页">
-            <option>当前标签页</option>
+          ><select id="tabs" aria-label="Browser tabs">
+            <option>Current tab</option>
           </select>
         </div>
         <div
@@ -42,48 +42,48 @@
           class="screen-wrap"
           tabindex="0"
           role="application"
-          aria-label="远程浏览器，点击画面后可使用键盘"
+          aria-label="Remote browser. Click the display to use your keyboard."
         >
-          <img id="screen" alt="远程浏览器画面" draggable="false" hidden />
-          <div id="desktop" aria-label="远程桌面" hidden></div>
+          <img id="screen" alt="Remote browser display" draggable="false" hidden />
+          <div id="desktop" aria-label="Remote desktop" hidden></div>
           <div id="placeholder" class="placeholder">
             <span class="big-mark">a●</span>
-            <p>接管后，浏览器画面会显示在这里。</p>
+            <p>The browser display appears here when you take control.</p>
           </div>
         </div>
         <p class="hint" id="input-hint">
-          点击网页中的控件，再直接使用键盘输入。支持滚轮、Tab 和 Enter。
+          Click a page control, then type. Scrolling, Tab, and Enter are supported.
         </p>
       </section>
       <aside class="panel control-panel">
         <div class="eyebrow">CONTROL</div>
-        <h2 id="control-title">当前由 Agent 操作</h2>
+        <h2 id="control-title">Agent has control</h2>
         <p id="reason" class="intro small">
-          需要登录或人工确认时，可以接管浏览器。
+          Take control whenever a login or manual confirmation is needed.
         </p>
-        <button id="takeover" class="primary wide">接管浏览器</button>
+        <button id="takeover" class="primary wide">Take control</button>
         <button id="resume" class="primary wide" hidden>
-          完成，交还给 Agent ↗
+          Hand back to Agent ↗
         </button>
         <p id="storage-mode" class="hint"></p>
-        <button id="extend" class="secondary wide" disabled>延长会话</button>
-        <button id="end-session" class="quiet wide">结束会话</button>
-        <a id="recover" class="button secondary wide" href="/" hidden>返回首页，重新打开会话</a>
+        <button id="extend" class="secondary wide" disabled>Extend session</button>
+        <button id="end-session" class="quiet wide">End session</button>
+        <a id="recover" class="button secondary wide" href="/" hidden>Return to the dashboard and open a new session</a>
         <div class="divider"></div>
-        <label for="text">输入到网页当前光标位置</label>
+        <label for="text">Type at the page cursor</label>
         <p class="hint">
-          可用于中文、粘贴或密码。先在左侧点击目标输入框。发送后此处清空。
+          Use this for pasted text, Unicode, or passwords. Click the target field first. This input is cleared after sending.
         </p>
         <form id="text-form">
           <input
             id="text"
             type="password"
             autocomplete="off"
-            placeholder="输入内容"
+            placeholder="Enter text"
             maxlength="16000"
             disabled
           /><button id="send-text" class="secondary wide" disabled>
-            发送输入
+            Send text
           </button>
         </form>
         <div class="key-buttons">
@@ -94,8 +94,8 @@
         </div>
         <p id="message" role="status" class="message"></p>
         <div class="note">
-          接管期间 Agent
-          无法通过操作接口查看画面或发送指令。完成登录后再交还。接管链接持有者可操作此会话，请勿公开。
+          While you have control, the Agent
+          cannot observe the page or send commands through its tools. Hand back control after signing in. Keep the handoff link private: anyone holding it can control this session.
         </div>
       </aside>
     </main>

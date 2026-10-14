@@ -28,6 +28,7 @@ const assets = new Map([
   ["/", ["index.html", "text/html; charset=utf-8"]],
   ["/public-demo.js", ["public-demo.js", "text/javascript; charset=utf-8"]],
   ["/public-browser.js", ["public-browser.js", "text/javascript; charset=utf-8"]],
+  ["/self-host", ["self-host.html", "text/html; charset=utf-8"]],
   ["/connect", ["connect.html", "text/html; charset=utf-8"]],
   ["/connect.js", ["connect.js", "text/javascript; charset=utf-8"]],
   ["/login", ["login.html", "text/html; charset=utf-8"]],
@@ -167,7 +168,7 @@ export function createHttpServer(
         return respond(response, 201, await publicDemo.start(request, response, origin));
       }
       if (guestMode && (url.pathname === '/api/auth/login' || url.pathname.startsWith('/api/credentials')))
-        throw new ServiceError(403, 'demo_restricted', '公共演示不提供成员登录或 Agent 凭据。');
+        throw new ServiceError(403, 'demo_restricted', 'The public demo does not provide member login or Agent credentials.');
       if (options.identity) {
         const result = await teamAuthRoute(options.identity, request, response, url.pathname, origin, readJson, registry.profiles);
         if (result !== undefined) return respond(response, 200, result);
@@ -176,7 +177,7 @@ export function createHttpServer(
       const token = bearer(request);
       if (options.identity) {
         principal = options.identity.request(request, isHuman);
-        if (guestMode && !principal.guest) throw new ServiceError(403, "demo_restricted", "演示只允许临时访客。");
+        if (guestMode && !principal.guest) throw new ServiceError(403, "demo_restricted", "Only temporary guests can use the demo.");
         if (principal.kind === "human" && method !== "GET") checkBrowserRequest(request, origin);
       }
       const ownerId = principal?.ownerId;
@@ -191,7 +192,7 @@ export function createHttpServer(
       }
       if (guestMode && url.pathname.startsWith('/api/profiles')) {
         if (method === 'GET' && url.pathname === '/api/profiles') return respond(response, 200, { available: false, profiles: [] });
-        throw new ServiceError(403, 'demo_restricted', '公共演示不保存或复用登录配置。');
+        throw new ServiceError(403, 'demo_restricted', 'The public demo does not save or reuse login profiles.');
       }
       if (url.pathname === "/api/profiles") {
         if (method === "GET") return respond(response, 200, {
@@ -199,16 +200,16 @@ export function createHttpServer(
           profiles: (await registry.profiles?.list(ownerId) ?? []).filter(profile => !agentHash || principal!.profileIds!.includes(profile.id)),
         });
         if (method === "POST") {
-          if (agentHash) throw new ServiceError(403, "human_required", "请由成员本人创建保存配置。");
-          if (!registry.profiles) throw new ServiceError(400, "profiles_unavailable", "保存登录状态需要远程桌面模式。");
+          if (agentHash) throw new ServiceError(403, "human_required", "The member must create saved profiles from their own account.");
+          if (!registry.profiles) throw new ServiceError(400, "profiles_unavailable", "Saving login state requires desktop mode.");
           const { name } = z.object({ name: profileName }).strict().parse(await readBody(request));
           return respond(response, 201, await registry.profiles.create(name, ownerId));
         }
       }
       const profileMatch = /^\/api\/profiles\/([a-f0-9-]{36})$/.exec(url.pathname);
       if (profileMatch && method === "DELETE") {
-        if (agentHash) throw new ServiceError(403, "human_required", "请由成员本人删除保存配置。");
-        if (!registry.profiles) throw new ServiceError(400, "profiles_unavailable", "保存登录状态需要远程桌面模式。");
+        if (agentHash) throw new ServiceError(403, "human_required", "The member must delete saved profiles from their own account.");
+        if (!registry.profiles) throw new ServiceError(400, "profiles_unavailable", "Saving login state requires desktop mode.");
         await registry.profiles.remove(profileMatch[1], ownerId);
         return respond(response, 200, { id: profileMatch[1], deleted: true });
       }
@@ -216,9 +217,9 @@ export function createHttpServer(
         if (method === "GET")
           return respond(response, 200, { sessions: registry.list(ownerId, agentHash) });
         if (method === "POST") {
-          if (guestMode) throw new ServiceError(403, "demo_restricted", "请使用当前演示模式提供的入口创建会话。");
+          if (guestMode) throw new ServiceError(403, "demo_restricted", "Create a session through the entry point provided by this demo mode.");
           const body = createSessionSchema.parse(await readBody(request));
-          if (agentHash && body.profileId && !principal!.profileIds!.includes(body.profileId)) throw new ServiceError(404, "profile_not_found", "登录配置不存在或未授权。");
+          if (agentHash && body.profileId && !principal!.profileIds!.includes(body.profileId)) throw new ServiceError(404, "profile_not_found", "The login profile does not exist or is not authorized.");
           const session = await registry.create(body.purpose, body.profileId, ownerId, agentHash);
           try {
             if (principal) options.identity!.assertCurrent(principal);
@@ -256,7 +257,7 @@ export function createHttpServer(
         const args = z.object({ control: z.enum(['agent', 'human']).default('agent'), timeoutMs: z.number().int().min(1).max(25000).default(20000), afterRevision: z.number().int().nonnegative().optional() }).strict().parse(await readBody(request));
         const key = principal?.credentialHash ?? 'legacy';
         if ((pendingWaits.get(key) ?? 0) >= 2 || [...pendingWaits.values()].reduce((a, b) => a + b, 0) >= 64)
-          throw new ServiceError(429, 'wait_limit', '已有等待请求，请先取消或等待其结束。');
+          throw new ServiceError(429, 'wait_limit', 'A wait request is already pending. Cancel it or wait for it to finish.');
         pendingWaits.set(key, (pendingWaits.get(key) ?? 0) + 1);
         const cancel = new AbortController();
         const disconnected = () => { if (!response.writableEnded) cancel.abort(); };
@@ -276,18 +277,18 @@ export function createHttpServer(
       if (method === "POST" && operation === "bind-agent" && actor === "human" && principal) {
         const { credentialId } = z.object({ credentialId: z.string().uuid() }).strict().parse(await readBody(request));
         const binding = options.identity!.agentHash(principal, credentialId);
-        await session.transfer("human", "已绑定 Agent，请在完成操作后交还。", authorize);
+        await session.transfer("human", "Agent connected. Hand back control when you have finished.", authorize);
         options.identity!.assertCurrent(principal);
         session.agentCredentialHash = binding;
         return respond(response, 200, session.info());
       }
       if (principal?.kind === "human" && actor === "agent" && ["actions", "screen"].includes(operation))
-        throw new ServiceError(403, "human_route_required", "请先从接管页面取得人工控制权。");
+        throw new ServiceError(403, "human_route_required", "Take control from the handoff page first.");
       if (method === "POST" && operation === "desktop-grant" && actor === "human" && principal && mirrorGrants) {
         z.object({}).strict().parse(await readBody(request));
         const current = session.info();
         if (current.control !== "human" || current.transport !== "desktop")
-          throw new ServiceError(409, "control_unavailable", "请先接管远程桌面。");
+          throw new ServiceError(409, "control_unavailable", "Take control of the remote desktop first.");
         return respond(response, 200, mirrorGrants.issue(id, current.revision, principal));
       }
       if (method === "POST" && operation === "extend") {

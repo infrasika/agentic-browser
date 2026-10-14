@@ -8,7 +8,7 @@ export function checkBrowserRequest(request: IncomingMessage, origin: string) {
   // Strict Origin plus a non-simple header prevents cross-site forms, fetches
   // and login CSRF. No wildcard CORS or trusted forwarded headers are enabled.
   if (request.headers.origin !== origin || request.headers['x-agentic-browser'] !== '1')
-    throw new ServiceError(403, 'origin_rejected', '请从当前服务的页面发起操作。');
+    throw new ServiceError(403, 'origin_rejected', 'Start this operation from the service website.');
 }
 function setCookie(response: ServerResponse, token: string, origin: string, expire = false) {
   response.setHeader('Set-Cookie', `ab_login=${token}; Path=/; HttpOnly; SameSite=Strict; Max-Age=${expire ? 0 : 43200}${origin.startsWith('https:') ? '; Secure' : ''}`);
@@ -40,7 +40,7 @@ export async function teamAuthRoute(
       checkBrowserRequest(request, origin);
       const { name, profileIds } = z.object({ name: z.string().trim().min(1).max(80), profileIds: z.array(z.string().uuid()).max(100).default([]) }).strict().parse(await readJson(request));
       for (const id of profileIds) {
-        if (!profiles) throw new ServiceError(400, 'profiles_unavailable', '保存配置不可用。');
+        if (!profiles) throw new ServiceError(400, 'profiles_unavailable', 'Saved profiles are unavailable.');
         await profiles.get(id, human.ownerId);
       }
       return store.issueAgent(human, name, profileIds);

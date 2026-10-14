@@ -10,9 +10,9 @@ export async function requireMember() {
   const response = await fetch('/api/auth/me');
   if (response.status === 401) {
     location.replace(['demo', 'public'].includes(authMode) ? '/' : `/login?next=${encodeURIComponent(location.pathname + location.hash)}`);
-    throw new Error('请先登录。');
+    throw new Error('Please sign in first.');
   }
-  if (!response.ok) throw new Error('无法确认登录状态，请稍后刷新。');
+  if (!response.ok) throw new Error('Unable to confirm your sign-in status. Refresh in a moment.');
   return response.json();
 }
 
@@ -38,8 +38,8 @@ export async function mountAccount(api) {
     const list = document.getElementById('credentials'); list.replaceChildren();
     for (const credential of credentials) {
       const row = document.createElement('p');
-      row.append(`${credential.name} · ${new Date(credential.expires).toLocaleDateString()} 到期 `);
-      const button = document.createElement('button'); button.className = 'quiet'; button.textContent = '撤销';
+      row.append(`${credential.name} · expires ${new Date(credential.expires).toLocaleDateString("en-US")} `);
+      const button = document.createElement('button'); button.className = 'quiet'; button.textContent = 'Revoke';
       button.onclick = async () => {
         try { await api(`/api/credentials/${credential.id}`, 'DELETE'); await refresh(); output.value = ''; output.hidden = true; }
         catch (error) { message.textContent = error.message; }
@@ -52,7 +52,7 @@ export async function mountAccount(api) {
     try {
       const result = await api('/api/credentials', 'POST', { name: document.getElementById('credential-name').value, profileIds: [...document.getElementById('credential-profiles').selectedOptions].map(option => option.value) });
       output.value = result.token; output.hidden = false;
-      message.textContent = '请复制到你使用的 Agent 配置中。关闭页面后不能再次查看，可撤销并重新创建。';
+      message.textContent = 'Copy this credential into your Agent configuration. It cannot be shown again after leaving this page. Revoke it and create another if needed.';
       await refresh();
     } catch (error) { message.textContent = error.message; }
   };

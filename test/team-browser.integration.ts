@@ -59,12 +59,12 @@ test('team browser: login UI, private credentials, human handoff and second-memb
   await page.locator('#resume').click();
   await page.locator('#takeover').waitFor({ state: 'visible' });
   const snapshot = await agent(`/api/sessions/${created.data.id}/actions`, 'POST', { type: 'snapshot' });
-  assert.equal(snapshot.status, 200); assert.match(snapshot.data.result.text, /演示用户名/);
+  assert.equal(snapshot.status, 200); assert.match(snapshot.data.result.text, /Demo username/);
   await page.goto(base);
   await page.locator('#member-name').filter({ hasText: 'alice' }).waitFor();
   await mkdir('output/playwright', { recursive: true });
   await page.screenshot({ path: 'output/playwright/team-dashboard.png', fullPage: true });
   await page.locator('#logout').click(); await page.waitForURL(base + '/login');
   assert.equal((await a.request.get(base + '/api/auth/me')).status(), 401);
-  assert.deepEqual(errors.filter(error => error !== '请先登录。'), []);
+  assert.deepEqual(errors.filter(error => error !== 'Please sign in first.'), []);
 });

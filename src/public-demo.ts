@@ -8,11 +8,11 @@ import { ServiceError } from './contracts.js';
 export class PublicDemo {
   constructor(private identity: IdentityStore, private registry: SessionRegistry) {}
   async start(request: IncomingMessage, response: ServerResponse, origin: string) {
-    if (request.headers.authorization) throw new ServiceError(403, 'demo_restricted', '请在演示页面开始体验。');
+    if (request.headers.authorization) throw new ServiceError(403, 'demo_restricted', 'Start from the demo page.');
     let principal: Principal | undefined;
     try { principal = this.identity.request(request, true); }
     catch (error) { if (!(error instanceof ServiceError && error.status === 401)) throw error; }
-    if (principal && !principal.guest) throw new ServiceError(403, 'demo_restricted', '该入口仅供临时访客演示。');
+    if (principal && !principal.guest) throw new ServiceError(403, 'demo_restricted', 'This entry point is only for temporary demo guests.');
     const guest = principal ? undefined : this.identity.createGuest(request.socket.remoteAddress ?? 'unknown');
     const ownerId = principal?.ownerId ?? guest!.ownerId;
     let session: BrowserSession | undefined;
@@ -23,14 +23,14 @@ export class PublicDemo {
           return { ...live.info(), humanUrl: `${origin}/view#${live.id}` };
         } catch { await this.registry.remove(previous.id, ownerId); }
       }
-      session = await this.registry.create('体验 Agent 与人工协作', undefined, ownerId);
-      if (response.destroyed || !this.identity.isActive(ownerId)) throw new ServiceError(499, 'request_cancelled', '演示启动已取消。');
+      session = await this.registry.create('Try Agent and human collaboration', undefined, ownerId);
+      if (response.destroyed || !this.identity.isActive(ownerId)) throw new ServiceError(499, 'request_cancelled', 'Demo startup was cancelled.');
       await session.run('agent', async workspace => {
         await workspace.perform({ type: 'navigate', url: 'https://agentic-browser.invalid/demo' });
         await workspace.perform({ type: 'click', selector: '#username' });
       });
-      await session.transfer('human', '请使用虚构用户名和密码完成演示登录，然后点击交还。');
-      if (response.destroyed || !this.identity.isActive(ownerId)) throw new ServiceError(499, 'request_cancelled', '演示启动已取消。');
+      await session.transfer('human', 'Sign in with a fictional username and password, then hand back control.');
+      if (response.destroyed || !this.identity.isActive(ownerId)) throw new ServiceError(499, 'request_cancelled', 'Demo startup was cancelled.');
       if (guest) response.setHeader('Set-Cookie', `ab_login=${guest.token}; Path=/; HttpOnly; SameSite=Strict; Max-Age=600${origin.startsWith('https:') ? '; Secure' : ''}`);
       return { ...session.info(), humanUrl: `${origin}/view#${session.id}` };
     } catch (error) {
@@ -43,12 +43,12 @@ export class PublicDemo {
     const completed = await session.run('agent', async workspace => {
       authorize();
       const snapshot = await workspace.perform({ type: 'snapshot' }) as { url: string; text: string };
-      if (snapshot.url !== 'http://127.0.0.1:8080/demo' || !snapshot.text.includes('已登录：')) return false;
+      if (snapshot.url !== 'http://127.0.0.1:8080/demo' || !snapshot.text.includes('Signed in: ')) return false;
       authorize();
       await workspace.perform({ type: 'click', selector: '#continue' });
       return true;
     });
     // Show the visitor what the fixed demo Agent completed in the same browser.
-    return session.transfer('human', completed ? '演示完成：Agent 已在同一会话继续任务。你可以查看结果或关闭这个临时环境。' : '演示登录尚未完成，请回到演示页面使用虚构账号登录，再交还。', authorize);
+    return session.transfer('human', completed ? 'Demo complete: the Agent continued in the same session. Review the result or close this temporary browser.' : 'The demo login is incomplete. Return to the demo page, sign in with fictional details, then hand back control.', authorize);
   }
 }

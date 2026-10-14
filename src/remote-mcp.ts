@@ -14,14 +14,14 @@ const secret = () => randomBytes(32).toString('base64url');
 const hash = (value: string) => createHash('sha256').update(value).digest('hex');
 const output = (value: unknown): CallToolResult => ({ content: [{ type: 'text', text: JSON.stringify(value) }] });
 function humanLinkOutput(value: { humanUrl: string; linkExpiresAt: string }): CallToolResult {
-  const userMessage = `请打开本次会话的接管链接：
+  const userMessage = `Open the handoff link for this session:
 
-[打开浏览器并接管](${value.humanUrl})
+[Open browser and take control](${value.humanUrl})
 
-如果链接无法点击，请复制下面的完整地址到浏览器：
+If the link is not clickable, copy the complete URL below into your browser:
 ${value.humanUrl}
 
-进入后点击“连接并接管”，完成登录或其他操作，再点击“完成，交还给 Agent”。请在 2 分钟内打开并领取链接；已使用或过期时，让我重新获取。`;
+Click “Connect and take control”, complete your login or other steps, then click “Hand back to Agent”. Claim this link within 2 minutes. Ask me for a new link if it has been used or has expired.`;
   const payload = { ...value, userMessage };
   const json = output(payload);
   return {
@@ -74,11 +74,11 @@ export class RemoteMcp {
   async claim(sessionId: string, ticket: string, origin: string, response: ServerResponse) {
     const lease = this.leases.get(sessionId);
     if (!lease?.claimHash || !sameToken(hash(ticket), lease.claimHash) || (lease.claimExpires ?? 0) <= this.now() || lease.expires <= this.now())
-      throw new ServiceError(410, 'link_expired', '接管链接已使用或过期，请让 Agent 获取新链接。');
+      throw new ServiceError(410, 'link_expired', 'This handoff link has been used or has expired. Ask your Agent for a new link.');
     const principal = this.identity.authenticate(lease.humanToken, 'human');
     const session = this.registry.get(sessionId, lease.owner, lease.keyHash);
     lease.claimHash = undefined; // Consume synchronously before any async work.
-    await session.transfer('human', '你正在操作；完成后点击交还给 Agent。', () => this.identity.assertCurrent(principal));
+    await session.transfer('human', 'You have control. Click Hand back to Agent when you are finished.', () => this.identity.assertCurrent(principal));
     this.identity.assertCurrent(principal);
     response.setHeader('Set-Cookie', `ab_login=${lease.humanToken}; Path=/; HttpOnly; SameSite=Strict; Max-Age=${Math.max(0, Math.floor((lease.expires - this.now()) / 1000))}${origin.startsWith('https:') ? '; Secure' : ''}`);
     return { humanUrl: `${origin}/view#${sessionId}` };
@@ -159,7 +159,7 @@ export class RemoteMcp {
     entry.active++; this.active++;
     const abort = new AbortController();
     const mcp = new McpServer({ name: 'agentic-browser-public', version: '0.1.0' }, {
-      instructions: 'Public temporary remote Chrome. browser_create returns sessionId and private sessionKey; pass both to every subsequent tool. For manual work, call browser_handoff and immediately send its userMessage to the current user BEFORE calling browser_wait. Always include the returned humanUrl as a clickable Markdown link AND a full raw URL, preserving the # fragment. Saying "click Connect" without the actual URL is not a handoff. Only share the latest humanUrl with the current user; never expose sessionKey or claim the human link yourself. If a link is missing or expired, call browser_human_link for the same session and display the new userMessage. Ask the user to click 连接并接管, complete manual work, then 完成，交还给 Agent. Never collect passwords in chat. While human has control, only check status, refresh a link, or wait. Close when done. Tools and network are limited; do not retry submissions blindly.' });
+      instructions: 'Public temporary remote Chrome. browser_create returns sessionId and private sessionKey; pass both to every subsequent tool. For manual work, call browser_handoff and immediately send its userMessage to the current user BEFORE calling browser_wait. Always include the returned humanUrl as a clickable Markdown link AND a full raw URL, preserving the # fragment. Saying "click Connect" without the actual URL is not a handoff. Only share the latest humanUrl with the current user; never expose sessionKey or claim the human link yourself. If a link is missing or expired, call browser_human_link for the same session and display the new userMessage. Ask the user to click Connect and take control, complete manual work, then Hand back to Agent. Never collect passwords in chat. While human has control, only check status, refresh a link, or wait. Close when done. Tools and network are limited; do not retry submissions blindly.' });
     const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined, enableJsonResponse: true, maxRequestBodySize: 65536 });
     const stop = () => { abort.abort(); void mcp.close(); };
     this.connections.add(stop);
@@ -191,7 +191,7 @@ export class RemoteMcp {
       const screen = await session.run('agent', workspace => { authorize(); return workspace.screenshot(true); }); authorize();
       return { content: [{ type: 'image', mimeType: 'image/jpeg', data: screen.toString('base64') }] };
     }));
-    mcp.registerTool('browser_handoff', { description: 'Pause Agent observation/input and return a one-use humanUrl plus userMessage, valid for 2 minutes. Immediately display userMessage to the current user, including the actual clickable link and full URL with its # fragment, BEFORE browser_wait. Never just say "click Connect" without the URL; never open it yourself.', inputSchema: { ...credentials, reason: z.string().min(1).max(500).default('请完成操作后交还给 Agent。') } }, args => using(args, async (session, lease, authorize) => {
+    mcp.registerTool('browser_handoff', { description: 'Pause Agent observation/input and return a one-use humanUrl plus userMessage, valid for 2 minutes. Immediately display userMessage to the current user, including the actual clickable link and full URL with its # fragment, BEFORE browser_wait. Never just say "click Connect" without the URL; never open it yourself.', inputSchema: { ...credentials, reason: z.string().min(1).max(500).default('Complete your steps, then hand control back to the Agent.') } }, args => using(args, async (session, lease, authorize) => {
       await session.transfer('human', args.reason, authorize); authorize(); return humanLinkOutput({ ...session.info(), ...this.humanLink(session, lease, origin) });
     }));
     mcp.registerTool('browser_human_link', { description: 'Issue a fresh one-use humanUrl plus userMessage when the user needs a missing or expired link. Immediately send userMessage with the full clickable URL to the current user before waiting. Invalidates the previous unclaimed link without changing control. Never open or claim it yourself.', inputSchema: credentials }, args => using(args, async (session, lease) => humanLinkOutput(this.humanLink(session, lease, origin))));

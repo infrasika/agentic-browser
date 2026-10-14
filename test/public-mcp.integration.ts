@@ -73,7 +73,7 @@ test('public Compose MCP: five-browser capacity, isolated visitors, human handba
   assert.deepEqual(await capacity(), { currentSessions: 5, maxSessions: 5, availableSessions: 0, full: true });
   const full = result(await a.callTool({ name: 'browser_create', arguments: {} }));
   assert.equal(full.error, 'session_limit', 'Global full notice takes precedence over a source limit');
-  assert.equal(full.status, 429); assert.match(full.userMessage, /5 \/ 5/); assert.match(full.userMessage, /稍后再试/);
+  assert.equal(full.status, 429); assert.match(full.userMessage, /5 \/ 5/); assert.match(full.userMessage, /try again later/);
   const runtimes = JSON.parse(await docker('inspect', ...await owned())); assert.equal(runtimes.length, 10);
   for (const runtime of runtimes) {
     assert.equal(runtime.HostConfig.Privileged, false); assert.equal(runtime.HostConfig.ReadonlyRootfs, true);
@@ -90,14 +90,14 @@ test('public Compose MCP: five-browser capacity, isolated visitors, human handba
   assert.equal(result(await reconnected.callTool({ name: 'browser_status', arguments: aa })).control, 'agent');
   await action(reconnected, aa, { type: 'click', selector: '#username' });
   const handoff = result(await reconnected.callTool({ name: 'browser_handoff', arguments: aa }));
-  const presentedLink = handoff.userMessage.match(/\[打开浏览器并接管\]\((https?:\/\/[^\s)]+)\)/)?.[1];
+  const presentedLink = handoff.userMessage.match(/\[Open browser and take control\]\((https?:\/\/[^\s)]+)\)/)?.[1];
   assert.equal(presentedLink, handoff.humanUrl, 'The user-facing message must contain the complete usable link');
   assert.equal((await action(reconnected, aa, { type: 'snapshot' })).status, 409);
   browser = await chromium.launch({ headless: true });
   const human = await browser.newContext(), other = await browser.newContext();
   const page = await human.newPage(); await page.goto(base);
   assert.match(await page.locator('#mcp-config').innerText(), /\/mcp/);
-  await page.waitForFunction(() => document.getElementById('capacity-status')?.textContent?.includes('容量已满'));
+  await page.waitForFunction(() => document.getElementById('capacity-status')?.textContent?.includes('All browser slots are in use'));
   assert.match(await page.locator('#capacity-status').innerText(), /5 \/ 5/);
   await extraClients[0].callTool({ name: 'browser_close', arguments: { sessionId: extras[0].id, sessionKey: extras[0].sessionKey } });
   await page.waitForFunction(() => document.getElementById('capacity-status')?.textContent?.includes('4 / 5'));
@@ -107,16 +107,16 @@ test('public Compose MCP: five-browser capacity, isolated visitors, human handba
   await Promise.all(extras.map((s, i) => extraClients[i].callTool({ name: 'browser_close', arguments: { sessionId: s.id, sessionKey: s.sessionKey } })));
   await page.waitForFunction(() => document.getElementById('capacity-status')?.textContent?.includes('2 / 5'));
   await page.route('**/api/public/capacity', route => route.fulfill({ status: 503, body: '{}' }));
-  await page.waitForFunction(() => document.getElementById('capacity-status')?.textContent?.includes('暂时无法获取'));
+  await page.waitForFunction(() => document.getElementById('capacity-status')?.textContent?.includes('Session counts are temporarily unavailable'));
   assert.equal(await page.locator('#copy-prompt').isEnabled(), true);
   await page.unroute('**/api/public/capacity');
   await page.waitForFunction(() => document.getElementById('capacity-status')?.textContent?.includes('2 / 5'));
   await page.goto(base + '/connect');
   assert.equal(await page.locator('#connect-browser').isDisabled(), true);
-  await page.waitForFunction(() => document.getElementById('connect-message')?.textContent?.includes('链接不完整'));
+  await page.waitForFunction(() => document.getElementById('connect-message')?.textContent?.includes('Incomplete handoff link'));
   await page.goto(one.humanUrl); // browser_handoff has revoked this initial link.
   await page.locator('#connect-browser').click();
-  await page.waitForFunction(() => document.getElementById('connect-message')?.textContent?.includes('已使用或过期'));
+  await page.waitForFunction(() => document.getElementById('connect-message')?.textContent?.includes('has been used or has expired'));
   assert.equal(await page.locator('#connect-browser').isDisabled(), true);
   // Same-document navigation must recover a tab opened without a fragment.
   await page.goto(presentedLink!);
@@ -127,14 +127,14 @@ test('public Compose MCP: five-browser capacity, isolated visitors, human handba
   assert.equal(page.url(), presentedLink, 'The unclaimed link survives refresh');
   await page.route('**/api/public/claim', route => route.abort('failed'));
   await page.locator('#connect-browser').click();
-  await page.waitForFunction(() => document.getElementById('connect-message')?.textContent?.includes('请重试'));
+  await page.waitForFunction(() => document.getElementById('connect-message')?.textContent?.includes('Please retry'));
   assert.equal(await page.locator('#connect-browser').isDisabled(), false, 'A transient failure allows retry');
   assert.equal(page.url(), presentedLink);
   await page.unroute('**/api/public/claim');
   await page.locator('#connect-browser').click();
   await page.waitForURL('**/view*');
   assert.ok(!page.url().includes(new URL(presentedLink!).hash), 'A successful claim removes the ticket from the current address');
-  const connected = () => page.waitForFunction(() => document.getElementById('connection')?.textContent === '连接正常' && !!document.querySelector('#desktop canvas'));
+  const connected = () => page.waitForFunction(() => document.getElementById('connection')?.textContent === 'Connected' && !!document.querySelector('#desktop canvas'));
   await connected(); await page.reload(); await connected();
   const otherPage = await other.newPage(); await otherPage.goto(two.humanUrl); await otherPage.locator('#connect-browser').click(); await otherPage.waitForURL('**/view*');
   assert.equal((await other.request.get(`${base}/api/human/${one.id}`)).status(), 404);
@@ -144,13 +144,13 @@ test('public Compose MCP: five-browser capacity, isolated visitors, human handba
   const waiting = reconnected.callTool({ name: 'browser_wait', arguments: { ...aa, afterRevision: handoff.revision, timeoutSeconds: 25 } });
   await page.locator('#resume').click();
   assert.equal(result(await waiting).status, 'ready');
-  const snap = await action(reconnected, aa, { type: 'snapshot' }); assert.match(snap.result.text, /已登录：public-mcp-fixture/);
-  assert.doesNotMatch(snap.result.text, /任务完成：Agent/);
+  const snap = await action(reconnected, aa, { type: 'snapshot' }); assert.match(snap.result.text, /Signed in: public-mcp-fixture/);
+  assert.doesNotMatch(snap.result.text, /Task complete: the Agent/);
   await action(reconnected, aa, { type: 'click', selector: '#continue' });
-  assert.match((await action(reconnected, aa, { type: 'snapshot' })).result.text, /任务完成：Agent/);
+  assert.match((await action(reconnected, aa, { type: 'snapshot' })).result.text, /Task complete: the Agent/);
   await otherPage.locator('#resume').click();
-  await otherPage.waitForFunction(() => document.getElementById('message')?.textContent?.startsWith('已交还'));
-  assert.doesNotMatch((await action(b, bb, { type: 'snapshot' })).result.text, /已登录：public-mcp-fixture/);
+  await otherPage.waitForFunction(() => document.getElementById('message')?.textContent?.startsWith('Control returned'));
+  assert.doesNotMatch((await action(b, bb, { type: 'snapshot' })).result.text, /Signed in: public-mcp-fixture/);
   const echo = `public-mcp-${randomUUID()}`;
   await action(reconnected, aa, { type: 'navigate', url: `https://httpbin.org/get?fixture=${echo}` });
   assert.ok((await action(reconnected, aa, { type: 'snapshot' })).result.text.includes(echo));

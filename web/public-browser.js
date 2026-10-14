@@ -11,11 +11,11 @@ async function refreshCapacity() {
     const response = await fetch('/api/public/capacity', { cache: 'no-store', signal: AbortSignal.timeout(5000) });
     if (!response.ok) throw new Error('Capacity unavailable');
     const capacity = await response.json();
-    status.textContent = `当前会话数 ${capacity.currentSessions} / ${capacity.maxSessions}。${capacity.full
-      ? '浏览器容量已满，请稍后再试（建议等待 30 秒）。'
-      : `当前可用 ${capacity.availableSessions} 个浏览器名额。`}`;
+    status.textContent = `Active sessions: ${capacity.currentSessions} / ${capacity.maxSessions}. ${capacity.full
+      ? 'All browser slots are in use. Please try again later (suggested wait: 30 seconds).'
+      : `${capacity.availableSessions} browser ${capacity.availableSessions === 1 ? "slot" : "slots"} available.`}`;
   } catch {
-    status.textContent = '暂时无法获取当前会话数，将自动重试。请以 Agent 创建浏览器时的结果为准。';
+    status.textContent = 'Session counts are temporarily unavailable. Retrying automatically. Your Agent will receive the current capacity when creating a browser.';
   } finally { capacityLoading = false; }
 }
 void refreshCapacity();
@@ -39,7 +39,7 @@ function enableCopy(buttonId, sourceId, statusId, successMessage) {
       const selection = window.getSelection();
       selection.removeAllRanges();
       selection.addRange(range);
-      status.textContent = '浏览器未允许自动复制，已选中文字，请按 ⌘C / Ctrl+C 复制。';
+      status.textContent = 'Automatic copying was blocked. The text is selected; press ⌘C / Ctrl+C to copy.';
     }
   };
   button.disabled = false;
@@ -55,37 +55,37 @@ try {
   const claudeCommand = `claude mcp add --transport http --scope user agentic-browser ${mcpUrl.href}`;
   const task = isHttps && mcpUrl.protocol === 'https:'
     ? document.getElementById('github-prompt').textContent
-    : '用 agentic-browser 打开 https://example.com，把浏览器交给我体验操作；等我交还后，读取页面标题并关闭会话。当前服务使用 HTTP，请仅使用公开网页和虚构数据。';
+    : 'Use agentic-browser to open https://example.com and hand the browser to me. After I return control, read the page title and close the session. This service uses HTTP; use public pages and fictional data only.';
   document.getElementById('mcp-config').textContent = content;
   document.getElementById('codex-command').textContent = `codex mcp add agentic-browser --url ${mcpUrl.href}`;
   document.getElementById('claude-command').textContent = claudeCommand;
-  document.getElementById('install-prompt').textContent = `请帮我在当前 Agent 客户端中安装并连接 Agentic Browser MCP，然后带我体验一次远程浏览器的人机协作。
+  document.getElementById('install-prompt').textContent = `Help me install and connect the Agentic Browser MCP server in this Agent client, then try a remote browser task with human handoff.
 
-服务名称：agentic-browser
-服务地址：${mcpUrl.href}
-传输方式：Streamable HTTP
-这是公共演示服务，无需注册 Agentic Browser 账号，也不需要 API Key；无需在本机部署浏览器或启动服务。
+Server name: agentic-browser
+Server URL: ${mcpUrl.href}
+Transport: Streamable HTTP
+This public demo requires no Agentic Browser account or API key. There is no browser or server to install locally.
 
-请先确认当前客户端的 MCP 配置方式，添加此远程服务，保留其他已有配置。如果已存在同名服务，请先核对地址，避免直接覆盖。下面是通用 JSON 配置参考，请按当前客户端实际支持的格式使用：
+Check how this client configures MCP servers and add this remote server while preserving existing settings. If a server with the same name already exists, check its URL before changing it. Adapt this generic JSON to the format supported by the current client:
 ${content}
 
-如果当前客户端是 Claude Code，可在本机终端使用下面的命令添加（user 范围，在当前用户的所有项目中可用）：
+For Claude Code, run this command in my local terminal. User scope makes it available across my projects:
 ${claudeCommand}
-添加后运行 claude mcp get agentic-browser 检查连接，并在 Claude Code 中用 /mcp 查看工具状态。
+Then check the connection with claude mcp get agentic-browser and inspect the tools with /mcp inside Claude Code.
 
-如果你不能直接修改客户端配置，请提供针对当前客户端的具体添加步骤。如果需要用户批准、刷新工具或重启客户端，请明确告知，并等配置生效后再继续。
+If you cannot edit the configuration directly, provide exact steps for this client. Explain any required approval, tool refresh, or restart, and wait until the connection is ready.
 
-连接后，确认能发现并调用 agentic-browser 的工具；未验证前不要声称安装成功。然后执行下面的体验任务：
+Verify that you can discover and call the tools before saying setup is complete. Then perform this task:
 ${task}
 
-调用 browser_handoff 后，先把返回的 userMessage 发到当前对话，展示可点击的 humanUrl 和完整原始地址（保留 # 后的全部内容），再调用 browser_wait 等待我。不要只说“点击 Connect”却不提供实际链接。没有链接或链接过期时，调用 browser_human_link 获取新链接并展示，不要猜测地址。
+After browser_handoff, send its userMessage in this conversation, including the clickable humanUrl and the full raw URL with everything after #. Only then call browser_wait. Do not say “click Connect” without providing the actual link. If it is missing or expired, call browser_human_link for a new one; do not guess a URL.
 
-如果创建时提示容量已满或当前网络达到上限，请展示返回的 userMessage、当前会话数和上限，让我稍后再试，不要自动循环重试或关闭其他会话。
+If browser creation reports full capacity or a limit for this network, show the returned userMessage and current session count/limit. Ask me to try again later. Do not loop over creation attempts or close other sessions.
 
-账号、密码和验证码由我在接管页面中输入，不要要求我在聊天里提供。接管链接只发给当前对话中的我，不要公开或转发给其他人；sessionKey 仅用于工具调用，不要展示。人工操作期间等待我交还控制权，再继续读取网页。公共会话初始 5 分钟，最长 10 分钟，完成后关闭会话。`;
-  enableCopy('copy-prompt', 'install-prompt', 'prompt-status', '提示词已复制，粘贴到你的 Agent 即可开始。');
-  enableCopy('copy-config', 'mcp-config', 'copy-status', '配置已复制。');
-  enableCopy('copy-claude', 'claude-command', 'claude-status', 'Claude Code 命令已复制，请在本机终端执行。');
+I will enter accounts, passwords, and verification codes in the remote browser. Do not request them in chat. Show handoff links only to me in this conversation; never publish or forward them. Use sessionKey only for tool calls and do not display it. Wait for me to return control before reading the page. Public sessions start with 5 minutes and last at most 10 minutes. Close the session when the task is complete.`;
+  enableCopy('copy-prompt', 'install-prompt', 'prompt-status', 'Prompt copied. Paste it into your Agent to begin.');
+  enableCopy('copy-config', 'mcp-config', 'copy-status', 'Configuration copied.');
+  enableCopy('copy-claude', 'claude-command', 'claude-status', 'Claude Code command copied. Run it in your local terminal.');
 } catch {
-  document.getElementById('prompt-status').textContent = '连接配置加载失败，请刷新页面后重试。';
+  document.getElementById('prompt-status').textContent = 'Unable to load the connection settings. Refresh the page to try again.';
 }

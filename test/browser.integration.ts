@@ -27,7 +27,7 @@ test("real Chromium: agent → human login → agent continues in the same conte
   };
   assert.match(
     (await act(agent, { type: "snapshot" })).result.text,
-    /演示用户名/,
+    /Demo username/,
   );
   await service.request(`${agent}/handoff`, "POST", {
     reason: "Please log in",
@@ -51,7 +51,7 @@ test("real Chromium: agent → human login → agent continues in the same conte
   await act(human, { type: "click", selector: "#login button" }, humanToken);
   assert.match(
     (await act(human, { type: "snapshot" }, humanToken)).result.text,
-    /已登录：demo-user/,
+    /Signed in: demo-user/,
   );
   assert.equal(
     (await service.request(`${human}/resume`, "POST", {}, humanToken)).status,
@@ -60,7 +60,7 @@ test("real Chromium: agent → human login → agent continues in the same conte
   await act(agent, { type: "reload" });
   await act(agent, { type: "click", selector: "#continue" });
   const final = await act(agent, { type: "snapshot" });
-  assert.match(final.result.text, /任务完成/);
+  assert.match(final.result.text, /Task complete/);
   assert.equal(JSON.stringify(final).includes("fake-password"), false);
   const screen = await service.request(`${agent}/screen`);
   assert.equal(screen.headers.get("content-type"), "image/jpeg");
@@ -71,7 +71,7 @@ test("real Chromium: agent → human login → agent continues in the same conte
     })
   ).json()) as { id: string };
   const clean = await act(`/api/sessions/${second.id}`, { type: "snapshot" });
-  assert.doesNotMatch(clean.result.text, /已登录：demo-user/);
+  assert.doesNotMatch(clean.result.text, /Signed in: demo-user/);
   await service.request(agent, "DELETE");
   assert.equal(
     (await service.request(`${human}/screen`, "GET", undefined, humanToken))

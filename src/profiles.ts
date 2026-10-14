@@ -33,7 +33,7 @@ export class ProfileStore {
   }
 
   private busy(): never {
-    throw new ServiceError(409, "profile_in_use", "此登录配置正在使用，请先结束对应会话。");
+    throw new ServiceError(409, "profile_in_use", "This profile is in use. Close its session first.");
   }
 
   private async lock(id: string, checkBrowser = true) {
@@ -76,7 +76,7 @@ export class ProfileStore {
       return info;
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code === "ENOENT")
-        throw new ServiceError(404, "profile_not_found", "登录配置不存在，请刷新列表。");
+        throw new ServiceError(404, "profile_not_found", "The login profile does not exist. Refresh the list.");
       throw error;
     }
   }
@@ -104,7 +104,7 @@ export class ProfileStore {
 
   async get(id: string, ownerId?: string) {
     const info = await this.read(id);
-    if (info.ownerId !== ownerId) throw new ServiceError(404, "profile_not_found", "登录配置不存在，请刷新列表。");
+    if (info.ownerId !== ownerId) throw new ServiceError(404, "profile_not_found", "The login profile does not exist. Refresh the list.");
     return info;
   }
 

@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Self-hosting guide · Agentic Browser</title>
+  <link rel="stylesheet" href="/app.css">
+</head>
+<body>
+<header><a class="brand" href="/">a<span class="brand-dot">●</span> Agentic Browser</a><a href="/">Back to the demo ↗</a></header>
+<main class="dashboard">
+  <div class="eyebrow">YOUR INFRASTRUCTURE / YOUR WORKSPACE</div>
+  <h1>Run your own<br><span class="muted">Agentic Browser.</span></h1>
+  <p class="intro">A personal or team workspace with separate member accounts, Agent credentials, and optional saved login profiles. Your Agent and you use the same remote browser, taking turns as needed.</p>
+  <p>Try the handoff flow at <a href="https://agentic-browser.zkpass.org/">the official demo</a>. Its public MCP endpoint is <code>https://agentic-browser.zkpass.org/mcp</code>. Your private deployment has its own accounts and Agent configuration.</p>
+  <section class="panel">
+    <h2>1. Get the deployment bundle</h2>
+    <p>Ask your deployment administrator for <code>agentic-browser-deploy.tar.gz</code>, <code>RELEASE.json</code>, and <code>SHA256SUMS</code>. The source repository and GitHub Release attachments are private. An administrator with repository access can download and distribute these files.</p>
+    <p>The controller and browser images are public on GHCR. No registry login is required:</p>
+    <ul>
+      <li><a href="https://github.com/users/infrasika/packages/container/package/agentic-browser-controller">agentic-browser-controller</a></li>
+      <li><a href="https://github.com/users/infrasika/packages/container/package/agentic-browser-runtime">agentic-browser-runtime</a></li>
+    </ul>
+    <p>The bundle pins both images by digest, so every installation uses the same tested image bytes. It includes Chrome, zkPass TransGate, and zkPass Schema Validator, with no personal website state.</p>
+  </section>
+  <section class="panel">
+    <h2>2. Prepare Docker</h2>
+    <p>Use Docker Engine 26+ and Compose 2.24.4+ on Ubuntu, or Docker Desktop with its Linux engine on a Mac. Bash is required. Node.js, Chrome, and extensions do not need to be installed on the host.</p>
+    <p>Images support Linux amd64 and arm64. Apple Silicon Macs use Linux arm64 through Docker Desktop. Native Linux ARM validation is complete; a physical Mac acceptance run for the published native image is still tracked separately.</p>
+    <p>Start with one concurrent session and measure resource use. Each browser has a 2 GiB memory and 2 CPU limit, plus its proxy and controller. Only the controller mounts the Docker socket to manage session containers. Use a trusted image: this permission gives it powerful access to the Docker host.</p>
+  </section>
+  <section class="panel">
+    <h2>3. Verify and install</h2>
+    <p>Run these commands beside the three bundle files. On macOS, replace the first command with <code>shasum -a 256 -c SHA256SUMS</code>.</p>
+    <pre tabindex="0">sha256sum -c SHA256SUMS
+tar -xzf agentic-browser-deploy.tar.gz
+cd agentic-browser
+cp .env.compose.example .env.compose
+bash scripts/release-compose.sh pull
+bash scripts/release-compose.sh up -d --wait --wait-timeout 90
+bash scripts/release-compose.sh exec controller node --import tsx src/doctor.ts
+bash scripts/release-compose.sh exec controller node --import tsx src/members-cli.ts create alice</pre>
+    <p>Enter the member password at the hidden terminal prompt. Open <code>http://127.0.0.1:3333</code>, sign in, and create a personal Agent credential. Passwords must contain at least 12 characters.</p>
+    <p>Edit <code>.env.compose</code> before startup to change the settings:</p>
+    <pre tabindex="0">AB_PROJECT_NAME=agentic-browser
+AB_PORT=3333
+AB_PUBLIC_URL=http://127.0.0.1:3333
+AB_MAX_SESSIONS=1</pre>
+    <p><code>AB_PUBLIC_URL</code> is the origin users open. Compose passes it into the application as <code>PUBLIC_URL</code>. Recreate the controller after changes. Keep the project name stable: it selects your private data volume.</p>
+  </section>
+  <section class="panel">
+    <h2>4. Connect your Agent</h2>
+    <p>For a personal deployment where your Agent already has access to the same Docker engine, add this MCP configuration. Replace the credential with the one shown in your dashboard:</p>
+    <pre tabindex="0">{
+  "mcpServers": {
+    "agentic-browser": {
+      "command": "docker",
+      "args": ["exec", "-i", "-e", "AGENT_BROWSER_TOKEN", "-e", "AGENT_BROWSER_URL", "-e", "AGENT_BROWSER_VIEW_URL", "agentic-browser-controller-1", "node", "--import", "tsx", "src/mcp.ts"],
+      "env": {
+        "AGENT_BROWSER_URL": "http://127.0.0.1:3333",
+        "AGENT_BROWSER_TOKEN": "YOUR_PERSONAL_AGENT_CREDENTIAL",
+        "AGENT_BROWSER_VIEW_URL": "http://127.0.0.1:3333"
+      }
+    }
+  }
+}</pre>
+    <p>The controller must be running. Adjust its name if you changed the project name. Refresh or restart your MCP client, then ask your Agent to open a website and hand the browser to you. Use the actual session link it returns, complete your steps, and click <strong>Hand back to Agent</strong>.</p>
+    <p>Give each team member their own account and credential. Remote members can use the local stdio adapter to connect to your service over HTTPS; they do not need server Docker permissions. Full instructions are in <code>docs/AGENT_CLIENT.md</code> inside the bundle.</p>
+  </section>
+  <section class="panel">
+    <h2>Remote access and day-to-day operation</h2>
+    <p>For an Ubuntu server reached from a Mac, forward the service port and keep the tunnel open:</p>
+    <pre tabindex="0">ssh -N -L 3333:127.0.0.1:3333 ubuntu@SERVER_IP</pre>
+    <p>Open <code>http://127.0.0.1:3333</code> locally. Cursor's port forwarding works too; use the local port it actually provides. <code>AGENT_BROWSER_VIEW_URL</code> must match the address reachable from your browser. It does not create the tunnel.</p>
+    <p>For direct remote access, use HTTPS and a trusted reverse proxy with WebSocket support. Only the service port is needed. Use <code>docs/UBUNTU_PUBLIC_DEMO.md</code> and <code>deploy/nginx-public.conf</code> for proxy and public-demo configuration; keep team authentication for your private workspace.</p>
+    <p>Temporary sessions remove their browser state on close. Saved profiles are opt-in and belong to one member. A saved profile is opened in a new session after restart; old tasks are not replayed. The deployment administrator can access the host and stored data.</p>
+    <p>Before upgrading, finish sessions, stop the controller, and back up the private volume. Keep the previous bundle and digests. Do not use <code>down --volumes</code> for an ordinary upgrade. Chrome profile downgrades may require restoring a pre-upgrade backup.</p>
+    <p>The bundle's <code>docs/SELF_HOST.md</code> covers member administration, configuration, recovery, and upgrades. Its architecture, release, and progress guides record supported behavior and remaining validation.</p>
+  </section>
+</main>
+</body>
+</html>

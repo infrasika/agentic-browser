@@ -4,7 +4,6 @@
     -apple-system,
     BlinkMacSystemFont,
     "Segoe UI",
-    "PingFang SC",
     sans-serif;
   color: #222723;
   background: #f6f7f3;
@@ -498,5 +497,14 @@ footer {
 
 #account { margin-bottom: 24px; }
 #credential-secret { width: 100%; overflow-wrap: anywhere; }
-#mcp-config, #codex-command, #claude-command, #install-prompt { white-space: pre-wrap; overflow-wrap: anywhere; padding: 16px; background: #eef2e9; border-radius: 8px; }
+.dashboard pre { white-space: pre-wrap; overflow-wrap: anywhere; padding: 16px; background: #eef2e9; border-radius: 8px; }
 #prompt-preview summary { cursor: pointer; color: var(--green); }
+
+.dashboard > .panel + .panel { margin-top: 24px; }
+.dashboard code { overflow-wrap: anywhere; }
+header > a:not(.brand) { color: var(--green); font-size: 13px; text-align: right; }
+@media (max-width: 600px) {
+  header { gap: 12px; }
+  header > a:not(.brand) { max-width: 110px; font-size: 11px; }
+  .brand { flex-shrink: 0; }
+}

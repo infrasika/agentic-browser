@@ -12,10 +12,10 @@ function showLink() {
   const valid = !!readLink();
   button.disabled = !valid || location.hash === rejectedLink;
   message.textContent = !valid
-    ? '接管链接不完整，请从 Agent 复制完整地址（包括 # 后的内容）；也可以让 Agent 使用 browser_human_link 获取新链接。'
+    ? 'Incomplete handoff link. Copy the full URL from your Agent, including everything after #, or ask it to call browser_human_link for a new link.'
     : location.hash === rejectedLink
-      ? '此链接已使用或过期，请让 Agent 使用 browser_human_link 获取新链接。'
-      : '链接已就绪，请点击“连接并接管”。';
+      ? 'This link has been used or has expired. Ask your Agent to call browser_human_link for a new link.'
+      : 'Link ready. Click “Connect and take control”.';
 }
 window.addEventListener('hashchange', showLink);
 showLink();
@@ -25,12 +25,12 @@ button.onclick = async () => {
   const claimingLink = location.hash;
   connecting = true;
   button.disabled = true;
-  message.textContent = '正在连接浏览器…';
+  message.textContent = 'Connecting to the browser…';
   try {
     const response = await fetch('/api/public/claim', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Agentic-Browser': '1' }, body: JSON.stringify({ sessionId: match[1], ticket: match[2] }) });
     const result = await response.json();
     if (response.status === 410) rejectedLink = claimingLink;
-    if (!response.ok) throw new Error(result.message || '无法连接，请获取新链接。');
+    if (!response.ok) throw new Error(result.message || 'Unable to connect. Request a new link.');
     try { sessionStorage.removeItem('viewer-session'); sessionStorage.removeItem('team-viewer-id'); } catch { /* Storage may be disabled. */ }
     // Replace this history entry only after receiving the scoped human cookie.
     location.replace(result.humanUrl);
@@ -38,6 +38,6 @@ button.onclick = async () => {
     connecting = false;
     showLink();
     if (location.hash === claimingLink && claimingLink !== rejectedLink)
-      message.textContent = `${error.message} 请重试；若链接已使用或过期，请让 Agent 获取新链接。`;
+      message.textContent = `${error.message} Please retry. If the link has been used or has expired, ask your Agent for a new one.`;
   }
 };

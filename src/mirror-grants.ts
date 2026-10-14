@@ -12,8 +12,8 @@ export class MirrorGrants {
   constructor(private now = Date.now) {}
   issue(sessionId: string, revision: number, human: Principal) {
     for (const [id, grant] of this.grants) if (grant.expires <= this.now()) this.grants.delete(id);
-    if (human.kind !== 'human') throw new ServiceError(403, 'human_required', '请由成员本人登录接管页面。');
-    if (this.grants.size >= 512) throw new ServiceError(429, 'mirror_grant_limit', '连接请求繁忙，请稍后重试。');
+    if (human.kind !== 'human') throw new ServiceError(403, 'human_required', 'The member must sign in to the handoff page.');
+    if (this.grants.size >= 512) throw new ServiceError(429, 'mirror_grant_limit', 'Too many connection requests. Please try again later.');
     // A new reconnect attempt invalidates unused tickets of the same login.
     for (const [id, grant] of this.grants)
       if (grant.sessionId === sessionId && grant.credentialHash === human.credentialHash) this.grants.delete(id);

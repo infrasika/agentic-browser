@@ -1,14 +1,71 @@
-# 外部 Agent 接入
+# Agent clients
 
-公共演示现在提供 URL 形式的 Streamable HTTP `/mcp`，无需本地运行适配器，见 [Ubuntu 部署与客户端配置](UBUNTU_PUBLIC_DEMO.md)。公共模式有 9 个工具，每次 `browser_create` 返回独立 `sessionId`、`sessionKey`，后续工具都须传入二者；不提供会话/Profile 列表。接管链接是一次性临时授权，Agent 只应展示给用户。
+## Public demo: remote HTTP MCP
 
-公共模式的 `browser_handoff` / `browser_human_link` 同时返回 `humanUrl`、`userMessage`、结构化结果和独立文本消息。Agent 应先把 `userMessage` 发给当前用户，包含真实可点击链接及完整 URL（保留 `#` 片段），再调用 `browser_wait`。不能只说“点击 Connect”或用首页代替会话链接；链接遗漏、已用或过期时重新签发，`sessionKey` 始终只用于工具调用。
+- Website: **https://agentic-browser.zkpass.org/**
+- MCP endpoint: **https://agentic-browser.zkpass.org/mcp**
+- No Agentic Browser registration, API key, or local adapter is needed.
 
-公共模式满额时，`browser_create` 返回 `isError: true`，内容包含 `status: 429`、`error: session_limit`（全站）或 `source_limit`（当前来源 IP）、`capacity` 汇总、`retryAfterSeconds: 30` 和 `userMessage`。请直接向当前用户展示消息中的当前会话数/上限及稍后重试提示，不要自动循环创建或关闭其他会话。工具错误仍通过正常 MCP HTTP 响应传递；30 秒为建议间隔，不是名额预约。主页也会显示实时容量，统计包括启动和清理中的名额，不公开会话列表。
+```json
+{
+  "mcpServers": {
+    "agentic-browser": {
+      "type": "http",
+      "url": "https://agentic-browser.zkpass.org/mcp"
+    }
+  }
+}
+```
 
-下文说明**团队自部署**的 HTTP API 和 11 个 stdio MCP 工具。成员先登录工作台，创建个人 Agent 凭据；需要复用登录状态时，明确勾选允许使用的 Profile。Agent 默认只创建临时会话，不能创建/删除 Profile、读取人工 Cookie 或取得镜像票据。
+For Codex CLI:
 
-发行镜像部署可直接使用控制器内的 Node/适配器，无需在宿主机安装 Node。MCP 客户端与 Docker engine 在同一台机器时，使用下面配置（默认容器名；自定义项目名时相应修改）：
+```sh
+codex mcp add agentic-browser --url https://agentic-browser.zkpass.org/mcp
+```
+
+For Claude Code:
+
+```sh
+claude mcp add --transport http --scope user agentic-browser https://agentic-browser.zkpass.org/mcp
+claude mcp get agentic-browser
+```
+
+Use `/mcp` inside Claude Code to inspect the connection. Refresh tools or restart the client if needed. Client configuration formats can differ; the homepage's **Copy prompt** includes the endpoint and setup guidance. Codex and Claude Code public flows have been manually verified.
+
+Try this task:
+
+> Use agentic-browser to open https://github.com/login and hand the browser to me so I can sign in. Show the returned humanUrl as a clickable link and the full URL before waiting. Once I have signed in and handed control back, count all private repositories owned by my account and list their names, checking every page. Close the session when finished.
+
+Each `browser_create` starts one separate temporary environment and returns a `sessionId` and `sessionKey`. Subsequent calls reuse that session and require both values; a new environment is not created for every tool call. Public mode provides 9 tools and no account-wide session or saved-profile listing.
+
+## Handoff contract
+
+1. Create a session and navigate to the task page.
+2. When human input is needed, call `browser_handoff`.
+3. **Display its actual `humanUrl` to the current user before waiting**, both as a clickable link and as the complete URL. Keep the `#` fragment intact. Never substitute the homepage, `/connect` without its fragment, or the `sessionKey`.
+4. The person opens the link, clicks **Connect and take control**, completes the step, and clicks **Hand back to Agent**.
+5. Call `browser_wait`, using the handoff `revision` as `afterRevision` when available. Continue browser actions only when the result confirms Agent control.
+6. Close the session with `browser_close` when finished.
+
+`browser_handoff` and `browser_human_link` return `humanUrl`, `userMessage`, structured content, and a separate text message for clients that render tool output differently. Show `userMessage` instead of merely telling the person to click an undisplayed “Connect” link.
+
+Public handoff links expire after 2 minutes and are single-use. If missing, expired, or already consumed, call `browser_human_link` to issue a new one. The fragment is removed after a successful claim. Treat links and session keys as secrets. Team links instead require the owning member's website login.
+
+The Agent cannot take screenshots, read page contents, or perform browser actions during human control. After handback it can read the signed-in page. Passwords and verification codes belong in the remote browser, not in the Agent conversation. Website anti-bot and sign-in restrictions still apply.
+
+## Capacity and waiting
+
+Public sessions start with 5 minutes and have a maximum lifetime of 10 minutes. Renewal never exceeds that maximum. The official demo allows 5 concurrent sessions and 2 per source IP; users behind one NAT share the IP limit.
+
+When full, `browser_create` returns MCP `isError: true` with `status: 429`, `error: session_limit` or `source_limit`, current `capacity`, `retryAfterSeconds: 30`, and an English `userMessage`. Show that message and the current count. Do not automatically loop creation or close another user's sessions. The retry interval does not reserve a slot. The MCP transport can still return HTTP 200 while the tool result contains the error.
+
+`browser_wait` waits at most 25 seconds. `timed_out` means only this wait ended; it does not hand back control or close the browser. A canceled wait releases the request but leaves the session intact. Waiting does not renew the session. Team mode allows 2 concurrent waits per credential and 64 per instance.
+
+## Private deployment: personal credentials
+
+A team administrator creates your member account. Sign in to the workspace and create a personal Agent credential. It allows temporary sessions by default; grant specific saved profiles only when you want the Agent to reuse them. Do not share a credential between members.
+
+For a personal deployment where the Agent already has access to the same Docker engine, the published controller contains the stdio adapter:
 
 ```json
 {
@@ -18,7 +75,7 @@
       "args": ["exec", "-i", "-e", "AGENT_BROWSER_TOKEN", "-e", "AGENT_BROWSER_URL", "-e", "AGENT_BROWSER_VIEW_URL", "agentic-browser-controller-1", "node", "--import", "tsx", "src/mcp.ts"],
       "env": {
         "AGENT_BROWSER_URL": "http://127.0.0.1:3333",
-        "AGENT_BROWSER_TOKEN": "替换为工作台一次显示的个人Agent凭据",
+        "AGENT_BROWSER_TOKEN": "REPLACE_WITH_YOUR_PERSONAL_AGENT_CREDENTIAL",
         "AGENT_BROWSER_VIEW_URL": "http://127.0.0.1:3333"
       }
     }
@@ -26,9 +83,9 @@
 }
 ```
 
-这里的 API 地址从控制器内部访问，接管地址则必须是用户浏览器可访问的入口。控制器须已启动；`docker exec` 不使用 `-t`，以保持标准 MCP stdio 通道。此方式要求 Agent 所在主机有部署端的 Docker 权限，适合个人本机部署；团队远程成员应使用下面的本地适配器连接 HTTP API，不应仅为接入 MCP 获得服务器 Docker 权限。
+Adjust the container name if you changed `AB_PROJECT_NAME`. Keep `-i` and omit `-t` so MCP has a clean stdio stream. Here the API URL is reached inside the controller, while the view URL must be reachable from your own browser.
 
-源码安装的 MCP 启动示例（路径按实际安装位置修改）：
+Remote team members should not receive server Docker access just to use MCP. They can run the Node.js 24 stdio adapter from an authorized local source installation with dependencies installed:
 
 ```json
 {
@@ -38,62 +95,31 @@
       "args": ["--import", "tsx", "/absolute/path/agentic-browser/src/mcp.ts"],
       "cwd": "/absolute/path/agentic-browser",
       "env": {
-        "AGENT_BROWSER_URL": "http://127.0.0.1:3333",
-        "AGENT_BROWSER_TOKEN": "替换为工作台一次显示的个人Agent凭据",
-        "AGENT_BROWSER_VIEW_URL": "http://localhost:50350"
+        "AGENT_BROWSER_URL": "https://YOUR_PRIVATE_BROWSER_DOMAIN",
+        "AGENT_BROWSER_TOKEN": "REPLACE_WITH_YOUR_PERSONAL_AGENT_CREDENTIAL",
+        "AGENT_BROWSER_VIEW_URL": "https://YOUR_PRIVATE_BROWSER_DOMAIN"
       }
     }
   }
 }
 ```
 
-示例采用通用 MCP JSON 结构；具体客户端的配置入口和 `cwd` 支持可能不同。当前已使用官方 MCP TypeScript SDK 的真实 stdio 客户端验收完整链路，尚未对每个桌面客户端逐个人工配置验收。
+The generic example assumes the client supports `cwd`. Otherwise launch from the installation directory or use a small local wrapper. `AGENT_BROWSER_VIEW_URL` only rewrites human links; it does not create an SSH tunnel. Both URL settings accept HTTP(S) origins, not paths or embedded credentials. A separately distributed remote-team adapter package is not yet provided.
 
-`AGENT_BROWSER_URL` 是 MCP 进程实际能访问的服务地址。`AGENT_BROWSER_VIEW_URL` 可选，仅将交给人的接管链接改成 Mac 上已经转发成功的入口，不负责创建 SSH 隧道。若 MCP 在 Ubuntu、用户在 Mac，这两个地址可能不同；本地端口变更后需要更新后者。地址只能是 HTTP(S) origin，不接受内嵌用户名密码或路径。
+Team mode exposes 11 tools, including authorized session and profile listings. A credential cannot read other credentials' sessions or create/delete saved profiles. Rebinding a member-owned session to another credential enters human control and invalidates old queued operations; the member then explicitly hands control back.
 
-## 推荐任务流程
+## HTTP errors and recovery
 
-1. `browser_create` 创建一次连续任务的 Session，可省略 `profileId`，或使用已授权配置。内置隔离演示地址是 `https://agentic-browser.invalid/demo`。
-2. 用 `browser_action` 的 `navigate`、`snapshot`、`click`、`fill` 等执行网页任务。状态确认不使用重复提交表单的方法。
-3. 遇到登录或人工确认，调用 `browser_handoff` 并向用户展示 `humanUrl`。团队链接不含人工秘密，需要对应成员登录工作台后才能打开。
-4. `browser_wait` 等待 `control=agent`，可传入交接结果的 `revision` 作为 `afterRevision`。每次最多等待 25 秒。
-5. 结果为 `ready` 后继续；`timed_out` 表示本次等待结束，浏览器及控制权保持原状，可以再次等待或向用户说明仍待人工操作。
-6. 完成任务调用 `browser_close`。临时环境回收；主动保存的 Profile 保留到成员删除。
-
-取消 MCP `browser_wait` 请求会通过 SDK 的标准取消信号中止 HTTP 等待，不会模拟人工交还或关闭浏览器。明确关闭请用 `browser_close`。网页操作遇到超时不能盲目重放，先用状态及页面快照确认已经发生的变化。
-
-同一成员的多个 Agent 也互相隔离会话；工作台“绑定并接管”可把自己的会话明确交给某个个人凭据。重新绑定先进入人工控制并隔离旧的排队操作，需由本人再交还。
-
-## HTTP 等待接口
-
-```http
-POST /api/sessions/<session-id>/wait
-Authorization: Bearer <个人Agent凭据>
-Content-Type: application/json
-
-{"control":"agent","afterRevision":1,"timeoutMs":20000}
-```
-
-成功返回 `{ "status": "ready" | "timed_out", "session": ... }`。每个凭据最多同时两个等待，全实例最多 64 个。断开 HTTP 请求会释放等待；等待期间仍反复检查凭据和会话绑定，撤销、停用或更换绑定会使旧等待结束。等待不会延长 Session 寿命。
-
-| 结果 | 含义与处理 |
+| Status / error | Action |
 | --- | --- |
-| 401 `unauthorized` | 凭据失效、过期或成员停用；重新配置，不能改用人工凭据。 |
-| 404 `session_not_found` | 不存在或未授权给当前凭据；不暴露其他成员信息。 |
-| 409 `control_unavailable` | 人工或其他交接阶段，停止浏览器操作。 |
-| 410 `session_ended` | 会话已结束；需要时创建新 Session，不复活旧链接。 |
-| 429 `session_limit` / `wait_limit` | 达到配额；结束闲置会话或取消多余等待。 |
-| 503 `runtime_stopped` | 隔离运行环境已停止；保存配置需在回收确认后重新打开。 |
-| 504 `operation_timeout` / `runtime_timeout` | 操作未及时完成；确认会话和网页状态，不自动重试提交。 |
+| 401 `unauthorized` | Replace an expired or revoked personal credential; do not substitute a human cookie. |
+| 404 `session_not_found` | The session is absent or not authorized for this credential. |
+| 409 `control_unavailable` | Stop browser actions while human control or a transition is active. |
+| 410 `session_ended` | Create a new session if still needed; old links cannot revive it. |
+| 429 `session_limit` / `source_limit` / `wait_limit` | Report the limit and reduce requests or retry later. |
+| 503 `runtime_stopped` | Wait for cleanup before opening a new session or saved profile. |
+| 504 `operation_timeout` / `runtime_timeout` | Inspect state before retrying; do not blindly resubmit a form. |
 
-MCP 错误内容保留上述 `error`、`status`、`message`，便于客户端区分认证、人工等待和浏览器故障。其他工具包括会话列表、状态、截图、Profile 列表、续期和接管入口恢复，共 11 项。
+The team wait endpoint is `POST /api/sessions/<session-id>/wait`, with a personal Bearer credential and JSON such as `{"control":"agent","afterRevision":1,"timeoutMs":20000}`. It returns `ready` or `timed_out` plus session state, and rechecks credentials and session binding while waiting.
 
-## 自动验收
-
-`npm test` 验证实际 stdio MCP 协议、等待/超时/取消、转发地址以及权限。完整链路使用：
-
-```sh
-AGENTIC_TEST_DOCKER=1 AGENTIC_TEST_MCP=1 npx tsx --test test/team-desktop.integration.ts
-```
-
-该验收包括个人凭据 → MCP → HTTP → 独立容器 Chrome → 成员 Cookie/noVNC → 原生虚构登录 → 交还 → `browser_wait` 唤醒 → Agent 读取结果。真实账号登录和 zkPass 证明另行记录，不混作此自动化的验收结果。
+Protocol tests run with `npm test`. The containerized end-to-end flow runs in `npm run test:controller`; public flow and capacity tests run in `npm run test:public-mcp`. They use synthetic accounts, not real login credentials.

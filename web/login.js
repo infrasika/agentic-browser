@@ -8,7 +8,7 @@ $('login-form').onsubmit = async event => {
     const response = await fetch('/api/auth/login', { method: 'POST', headers: browserHeaders(), body: JSON.stringify({ username: $('username').value, password: $('password').value }) });
     $('password').value = '';
     const data = await response.json();
-    if (!response.ok) throw new Error(data.message || '登录失败，请稍后重试。');
+    if (!response.ok) throw new Error(data.message || 'Sign-in failed. Please try again later.');
     location.assign(next);
   } catch (error) { $('message').textContent = error.message; }
   finally { $('submit').disabled = false; }
