@@ -61,6 +61,8 @@ Remote members can now use `pull-client` and `mcp-remote` to run the MCP client 
 
 TypeScript and all 53 unit/API tests passed, including extracted-bundle command dispatch, immutable image selection, credential handling, and remote-client mount restrictions. A separate clean-directory installation from the generated setup archive passed on the existing Ubuntu amd64 host using the published images. It verified the hidden interactive member password prompt, the doctor helper, both MCP client modes (11 tools, authenticated create, snapshot, handoff protection, close), rejection of an invalid credential, and removal of the disposable installation. The external test harness was not part of the deployment directory. Evidence is under `output/self-host-client-check/`. Published image digests are unchanged.
 
+Deployed `7f307dfb9477` as `agentic-browser:source-free-7f307dfb9477` after confirming zero active public sessions. The official HTTPS guide and anonymous archive download matched the tested files; checksum and all manifest hashes passed. Playwright verified both client configurations, the remote-client disclosure, and desktop/390-pixel layouts without horizontal overflow. Service health passed and capacity remained 0 / 5. This controller-only update replaces the earlier self-hosting page patch; the public release image pins remain unchanged.
+
 ## Validation still required
 
 - The user previously verified Mac deployment, but the newly published native arm64 image still needs its own physical Mac acceptance run. Linux ARM CI is not a substitute.
