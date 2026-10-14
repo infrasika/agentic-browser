@@ -4,6 +4,7 @@ import argparse
 import hashlib
 import io
 import json
+import platform
 from pathlib import Path
 import struct
 import subprocess
@@ -88,20 +89,28 @@ def inspect_crx(data, expected_id):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--refresh-lock', action='store_true')
+    parser.add_argument('--arch', choices=['amd64', 'arm64'], default='arm64' if platform.machine() in ['aarch64', 'arm64'] else 'amd64')
     args = parser.parse_args()
     if not LOCK.exists() and not args.refresh_lock:
         raise SystemExit('Missing assets lock. Review versions and use --refresh-lock explicitly.')
-    old = json.loads(LOCK.read_text()) if LOCK.exists() and not args.refresh_lock else {}
+    old = json.loads(LOCK.read_text()) if LOCK.exists() else {}
+    chrome_key = 'chromeArm64' if args.arch == 'arm64' else 'chrome'
+    expected_chrome = old.get(chrome_key, {})
+    if not expected_chrome and not args.refresh_lock:
+        raise SystemExit(f'Missing Chrome lock for {args.arch}')
     ASSETS.mkdir(parents=True, exist_ok=True)
-    chrome_url = 'https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb'
-    chrome = download(chrome_url, ASSETS / 'chrome.deb', old.get('chrome', {}).get('sha256'))
-    chrome_version = subprocess.check_output(['dpkg-deb', '-f', str(ASSETS / 'chrome.deb'), 'Version'], text=True).strip()
-    result = {'format': 1, 'chrome': {'version': chrome_version, 'url': chrome_url, 'sha256': hashlib.sha256(chrome).hexdigest()}, 'extensions': []}
+    chrome_url = f'https://dl.google.com/linux/direct/google-chrome-stable_current_{args.arch}.deb'
+    chrome_path = ASSETS / f'chrome-{args.arch}.deb'
+    chrome = download(chrome_url, chrome_path, None if args.refresh_lock else expected_chrome.get('sha256'))
+    if subprocess.check_output(['dpkg-deb', '-f', str(chrome_path), 'Architecture'], text=True).strip() != args.arch:
+        raise RuntimeError('Chrome package architecture mismatch')
+    chrome_version = subprocess.check_output(['dpkg-deb', '-f', str(chrome_path), 'Version'], text=True).strip()
+    result = {**old, 'format': 1, chrome_key: {'version': chrome_version, 'url': chrome_url, 'sha256': hashlib.sha256(chrome).hexdigest()}, 'extensions': []}
     for extension_id, name in EXTENSIONS.items():
         query = urllib.parse.urlencode({'response': 'redirect', 'prodversion': chrome_version.split('-')[0], 'acceptformat': 'crx3', 'x': f'id={extension_id}&uc'})
         url = 'https://clients2.google.com/service/update2/crx?' + query
         previous = next((e for e in old.get('extensions', []) if e['id'] == extension_id), {})
-        data = download(url, ASSETS / f'{extension_id}.crx', previous.get('sha256'))
+        data = download(url, ASSETS / f'{extension_id}.crx', None if args.refresh_lock else previous.get('sha256'))
         manifest = inspect_crx(data, extension_id)
         result['extensions'].append({'id': extension_id, 'name': name, 'version': manifest['version'], 'sha256': hashlib.sha256(data).hexdigest(), 'manifestVersion': manifest['manifest_version'], 'permissions': manifest.get('permissions', []), 'popup': manifest.get('action', {}).get('default_popup'), 'source': f'https://chromewebstore.google.com/detail/{extension_id}'})
         print(f"Verified package metadata: {name} {manifest['version']}", flush=True)

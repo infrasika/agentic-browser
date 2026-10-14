@@ -1,6 +1,8 @@
 import { randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
 import {
   ServiceError,
+  SessionCapacityError,
+  BrowserAllocationError,
   type Actor,
   type BrowserEngine,
   type BrowserWorkspace,
@@ -181,6 +183,7 @@ export class SessionRegistry {
   private sessions = new Map<string, BrowserSession>();
   private pending = new Set<Promise<BrowserSession>>();
   private pendingOwners = new Map<string, number>();
+  private failedAllocations = new Set<{ ownerId?: string; workspace: BrowserWorkspace }>();
   private stopping = false;
 
   constructor(
@@ -191,6 +194,18 @@ export class SessionRegistry {
 
   get profiles() { return this.engine.profiles; }
 
+  capacity() {
+    // Allocation reserves a slot synchronously; removal releases it only after
+    // close succeeds, including expiry and cleanup retries.
+    const currentSessions = this.sessions.size + this.pending.size + this.failedAllocations.size;
+    const maxSessions = this.options.maxSessions;
+    return { currentSessions, maxSessions, availableSessions: Math.max(0, maxSessions - currentSessions), full: currentSessions >= maxSessions };
+  }
+
+  pendingCleanup(ownerId?: string) {
+    return [...this.failedAllocations].filter(allocation => allocation.ownerId === ownerId).length;
+  }
+
   create(purpose: string, profileId?: string, ownerId?: string, agentCredentialHash?: string): Promise<BrowserSession> {
     if (profileId && !this.profiles)
       return Promise.reject(new ServiceError(400, "profiles_unavailable", "保存登录状态需要远程桌面模式。"));
@@ -198,8 +213,9 @@ export class SessionRegistry {
       return Promise.reject(
         new ServiceError(503, "shutting_down", "Service is shutting down"),
       );
-    if (this.sessions.size + this.pending.size >= this.options.maxSessions ||
-      (ownerId && this.list(ownerId).length + (this.pendingOwners.get(ownerId) ?? 0) >= (this.options.maxSessionsPerOwner ?? this.options.maxSessions))) {
+    const capacity = this.capacity();
+    if (capacity.full) return Promise.reject(new SessionCapacityError(capacity));
+    if (ownerId && this.list(ownerId).length + (this.pendingOwners.get(ownerId) ?? 0) + this.pendingCleanup(ownerId) >= (this.options.maxSessionsPerOwner ?? this.options.maxSessions)) {
       return Promise.reject(
         new ServiceError(
           429,
@@ -235,7 +251,10 @@ export class SessionRegistry {
       this.pending.delete(work);
       if (ownerId) { const remaining = (this.pendingOwners.get(ownerId) ?? 1) - 1; if (remaining) this.pendingOwners.set(ownerId, remaining); else this.pendingOwners.delete(ownerId); }
     };
-    void work.then(finished, finished);
+    void work.then(finished, error => {
+      if (error instanceof BrowserAllocationError) this.failedAllocations.add({ ownerId, workspace: error.workspace });
+      finished();
+    });
     return work;
   }
 
@@ -272,16 +291,21 @@ export class SessionRegistry {
   }
 
   async reap() {
-    await Promise.allSettled(
-      [...this.sessions.values()]
+    await Promise.allSettled([
+      ...[...this.failedAllocations].map(async allocation => {
+        await allocation.workspace.close();
+        this.failedAllocations.delete(allocation);
+      }),
+      ...[...this.sessions.values()]
         .filter((session) => session.expiresAt <= this.now() || session.info().control === 'closed')
         .map((session) => this.removeAny(session.id)),
-    );
+    ]);
   }
 
   async close() {
     this.stopping = true;
     await Promise.allSettled(this.pending);
+    await this.reap();
     await Promise.allSettled(
       [...this.sessions.keys()].map((id) => this.removeAny(id)),
     );

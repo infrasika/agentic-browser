@@ -3,7 +3,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 controller_image="${AB_CONTROLLER_IMAGE:-agentic-browser:controller-preview}"
 runtime_image="${AB_RUNTIME_IMAGE:-agentic-browser:zkpass-prototype}"
-# Controller uses the builder's native architecture; Chrome remains amd64.
+# Both images use the builder's native architecture; release CI uses native runners.
 docker build -f runtime/controller.Dockerfile -t "$controller_image" .
 mkdir -p output/runtime/packages
 docker run --rm --read-only --cap-drop ALL --security-opt no-new-privileges \
@@ -11,4 +11,4 @@ docker run --rm --read-only --cap-drop ALL --security-opt no-new-privileges \
   --user "$(id -u):$(id -g)" \
   --mount "type=bind,src=$PWD/output/runtime/packages,dst=/app/output/runtime/packages" \
   "$controller_image" python3 scripts/fetch-runtime-assets.py
-docker build --platform linux/amd64 -f runtime/Dockerfile -t "$runtime_image" .
+docker build -f runtime/Dockerfile -t "$runtime_image" .

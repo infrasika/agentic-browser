@@ -4,9 +4,31 @@
 
 公共模式的 `browser_handoff` / `browser_human_link` 同时返回 `humanUrl`、`userMessage`、结构化结果和独立文本消息。Agent 应先把 `userMessage` 发给当前用户，包含真实可点击链接及完整 URL（保留 `#` 片段），再调用 `browser_wait`。不能只说“点击 Connect”或用首页代替会话链接；链接遗漏、已用或过期时重新签发，`sessionKey` 始终只用于工具调用。
 
+公共模式满额时，`browser_create` 返回 `isError: true`，内容包含 `status: 429`、`error: session_limit`（全站）或 `source_limit`（当前来源 IP）、`capacity` 汇总、`retryAfterSeconds: 30` 和 `userMessage`。请直接向当前用户展示消息中的当前会话数/上限及稍后重试提示，不要自动循环创建或关闭其他会话。工具错误仍通过正常 MCP HTTP 响应传递；30 秒为建议间隔，不是名额预约。主页也会显示实时容量，统计包括启动和清理中的名额，不公开会话列表。
+
 下文说明**团队自部署**的 HTTP API 和 11 个 stdio MCP 工具。成员先登录工作台，创建个人 Agent 凭据；需要复用登录状态时，明确勾选允许使用的 Profile。Agent 默认只创建临时会话，不能创建/删除 Profile、读取人工 Cookie 或取得镜像票据。
 
-MCP 启动示例（路径按实际安装位置修改）：
+发行镜像部署可直接使用控制器内的 Node/适配器，无需在宿主机安装 Node。MCP 客户端与 Docker engine 在同一台机器时，使用下面配置（默认容器名；自定义项目名时相应修改）：
+
+```json
+{
+  "mcpServers": {
+    "agentic-browser": {
+      "command": "docker",
+      "args": ["exec", "-i", "-e", "AGENT_BROWSER_TOKEN", "-e", "AGENT_BROWSER_URL", "-e", "AGENT_BROWSER_VIEW_URL", "agentic-browser-controller-1", "node", "--import", "tsx", "src/mcp.ts"],
+      "env": {
+        "AGENT_BROWSER_URL": "http://127.0.0.1:3333",
+        "AGENT_BROWSER_TOKEN": "替换为工作台一次显示的个人Agent凭据",
+        "AGENT_BROWSER_VIEW_URL": "http://127.0.0.1:3333"
+      }
+    }
+  }
+}
+```
+
+这里的 API 地址从控制器内部访问，接管地址则必须是用户浏览器可访问的入口。控制器须已启动；`docker exec` 不使用 `-t`，以保持标准 MCP stdio 通道。此方式要求 Agent 所在主机有部署端的 Docker 权限，适合个人本机部署；团队远程成员应使用下面的本地适配器连接 HTTP API，不应仅为接入 MCP 获得服务器 Docker 权限。
+
+源码安装的 MCP 启动示例（路径按实际安装位置修改）：
 
 ```json
 {

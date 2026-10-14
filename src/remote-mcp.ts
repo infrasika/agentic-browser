@@ -5,7 +5,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import { z } from 'zod';
-import { actionSchema, ServiceError, webUrl } from './contracts.js';
+import { actionSchema, ServiceError, SessionCapacityError, webUrl } from './contracts.js';
 import { IdentityStore } from './identity.js';
 import { SessionRegistry, type BrowserSession, sameToken } from './sessions.js';
 import { waitForSession } from './session-wait.js';
@@ -51,6 +51,7 @@ export function publicClientAddress(request: IncomingMessage, trustProxy = false
 export class RemoteMcp {
   private leases = new Map<string, Lease>();
   private creating = new Map<string, number>();
+  private failedSources = new Map<string, string>();
   private requests = new Map<string, { count: number; until: number; active: number }>();
   private active = 0;
   private closing = false;
@@ -85,8 +86,11 @@ export class RemoteMcp {
   private async create(source: string, origin: string, args: { purpose: string; url?: string }, signal: AbortSignal) {
     await this.reap(); signal.throwIfAborted();
     if (this.closing) throw new ServiceError(503, 'shutting_down', 'The service is stopping.');
-    const count = [...this.leases.values()].filter(lease => lease.source === source).length + (this.creating.get(source) ?? 0);
-    if (count >= (this.options.maxSessionsPerIp ?? 2)) throw new ServiceError(429, 'source_limit', 'This network has reached its demo session limit. Close an existing session first.');
+    const capacity = this.registry.capacity();
+    if (capacity.full) throw new SessionCapacityError(capacity);
+    const count = [...this.leases.values()].filter(lease => lease.source === source).length +
+      [...this.failedSources.values()].filter(address => address === source).length + (this.creating.get(source) ?? 0);
+    if (count >= (this.options.maxSessionsPerIp ?? 2)) throw new SessionCapacityError(capacity, { currentSessions: count, maxSessions: this.options.maxSessionsPerIp ?? 2 });
     this.creating.set(source, (this.creating.get(source) ?? 0) + 1);
     let guest: ReturnType<IdentityStore['createGuest']> | undefined, session: BrowserSession | undefined;
     try {
@@ -112,7 +116,10 @@ export class RemoteMcp {
           throw error;
         }
       }
-      if (guest) this.identity.deleteGuest(guest.ownerId);
+      if (guest) {
+        if (this.registry.pendingCleanup(guest.ownerId)) this.failedSources.set(guest.ownerId, source);
+        this.identity.deleteGuest(guest.ownerId);
+      }
       throw error;
     } finally {
       const left = (this.creating.get(source) ?? 1) - 1;
@@ -123,6 +130,8 @@ export class RemoteMcp {
     return this.reaping ??= this.reapOnce().finally(() => { this.reaping = undefined; });
   }
   private async reapOnce() {
+    await this.registry.reap();
+    for (const owner of this.failedSources.keys()) if (!this.registry.pendingCleanup(owner)) this.failedSources.delete(owner);
     for (const [id, lease] of this.leases) {
       let expired = lease.expires <= this.now() || !this.identity.isActive(lease.owner);
       if (!expired) { try { this.registry.get(id, lease.owner, lease.keyHash); } catch { expired = true; } }
@@ -157,7 +166,14 @@ export class RemoteMcp {
     const finished = new Promise<void>(resolve => response.once('close', () => { stop(); resolve(); }));
     const safe = async (work: () => Promise<CallToolResult>): Promise<CallToolResult> => {
       try { abort.signal.throwIfAborted(); return await work(); }
-      catch (error) { return { ...output(error instanceof ServiceError ? { error: error.code, status: error.status, message: error.message } : { error: abort.signal.aborted ? 'cancelled' : 'browser_operation_failed', status: abort.signal.aborted ? 499 : 502, message: 'Operation cancelled or failed. Check session status before retrying.' }), isError: true }; }
+      catch (error) {
+        if (error instanceof SessionCapacityError) {
+          const payload = error.payload();
+          return { ...output(payload), structuredContent: payload, isError: true,
+            content: [...output(payload).content, { type: 'text', text: `Show this capacity notice to the current user, including the current count and limit. Do not retry automatically or close another session to make room.\n\n${payload.userMessage}` }] };
+        }
+        return { ...output(error instanceof ServiceError ? { error: error.code, status: error.status, message: error.message } : { error: abort.signal.aborted ? 'cancelled' : 'browser_operation_failed', status: abort.signal.aborted ? 499 : 502, message: 'Operation cancelled or failed. Check session status before retrying.' }), isError: true };
+      }
     };
     const using = async (args: Access, work: (session: BrowserSession, lease: Lease, authorize: () => void) => Promise<CallToolResult>) => safe(async () => {
       const { session, lease } = this.access(args);
@@ -166,7 +182,7 @@ export class RemoteMcp {
       const authorize = () => { abort.signal.throwIfAborted(); this.access(args); };
       try { return await work(session, lease, authorize); } finally { lease.pending--; }
     });
-    mcp.registerTool('browser_create', { description: 'Create a separate temporary Chrome container. Optional HTTP(S) URL; defaults to the built-in fictional login demo. Returns sessionId, sessionKey and an initial humanUrl. For manual work call browser_handoff BEFORE showing any link: handoff replaces the initial URL, so only display the latest userMessage it returns. No saved profiles. Do not repeat an uncertain creation.', inputSchema: { purpose: z.string().min(1).max(300).default('Public browser demo'), url: webUrl.optional() } }, args => safe(async () => output(await this.create(source, origin, args, abort.signal))));
+    mcp.registerTool('browser_create', { description: 'Create a separate temporary Chrome container. Optional HTTP(S) URL; defaults to the built-in fictional login demo. Returns sessionId, sessionKey and an initial humanUrl. For manual work call browser_handoff BEFORE showing any link: handoff replaces the initial URL, so only display the latest userMessage it returns. On session_limit or source_limit, show userMessage with the current count/limit and ask the user to try later; do not automatically retry or close other sessions. No saved profiles. Do not repeat an uncertain creation.', inputSchema: { purpose: z.string().min(1).max(300).default('Public browser demo'), url: webUrl.optional() } }, args => safe(async () => output(await this.create(source, origin, args, abort.signal))));
     mcp.registerTool('browser_status', { description: 'Read this session control state and expiry only.', inputSchema: credentials }, args => using(args, async session => output(session.info())));
     mcp.registerTool('browser_action', { description: 'Operate or inspect the page only when control is agent. HTTP(S) public sites are permitted; private networks and host management services are blocked.', inputSchema: { ...credentials, action: actionSchema } }, args => using(args, async (session, _lease, authorize) => {
       const result = await session.run('agent', workspace => { authorize(); return workspace.perform(args.action); }); authorize(); return output({ result });

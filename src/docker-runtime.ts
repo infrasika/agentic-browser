@@ -7,7 +7,7 @@ import { Duplex } from 'node:stream';
 import { promisify } from 'node:util';
 import { setTimeout as delay } from 'node:timers/promises';
 import { z } from 'zod';
-import { ServiceError, type Actor, type BrowserAction, type BrowserEngine, type BrowserWorkspace } from './contracts.js';
+import { BrowserAllocationError, ServiceError, type Actor, type BrowserAction, type BrowserEngine, type BrowserWorkspace } from './contracts.js';
 import { ProfileStore, type ProfileLease } from './profiles.js';
 import { runtimeMount, type RuntimeVolume } from './runtime-mounts.js';
 
@@ -22,11 +22,13 @@ export class DockerEngine implements BrowserEngine {
   private initialized?: Promise<void>;
   private instance = '';
   private image = '';
+  private platform: 'linux/amd64' | 'linux/arm64';
   private releaseLock?: () => Promise<void>;
   private workspaces = new Map<string, DockerWorkspace>();
   private stopping = false;
   private reaping?: Promise<void>;
-  constructor(private options: { dataDirectory: string; image?: string; seccompPath?: string; network?: 'none' | 'public'; denyHosts?: string[]; volume?: RuntimeVolume }) {
+  constructor(private options: { dataDirectory: string; image?: string; platform?: 'linux/amd64' | 'linux/arm64'; seccompPath?: string; network?: 'none' | 'public'; denyHosts?: string[]; volume?: RuntimeVolume }) {
+    this.platform = options.platform ?? (process.arch === 'arm64' ? 'linux/arm64' : 'linux/amd64');
     this.root = resolve(options.dataDirectory, 'runtimes');
     this.profiles = new ProfileStore(options.dataDirectory);
   }
@@ -53,13 +55,14 @@ export class DockerEngine implements BrowserEngine {
         if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
         this.instance = randomUUID(); await writeFile(path, this.instance, { flag: 'wx', mode: 0o600 });
       }
-      const inspectPlatform = process.arch === 'arm64' ? ['--platform', 'linux/amd64'] : [];
+      const nativePlatform = process.arch === 'arm64' ? 'linux/arm64' : 'linux/amd64';
+      const inspectPlatform = this.platform === nativePlatform ? [] : ['--platform', this.platform];
       // Pin the top-level image ID first. With containerd, platform inspection
       // returns a child manifest digest that cannot be resolved as an image ID.
       this.image = (await docker(['image', 'inspect', this.options.image ?? 'agentic-browser:zkpass-prototype', '--format', '{{.Id}}'])).stdout.trim();
       if (!/^sha256:[a-f0-9]{64}$/.test(this.image)) throw new Error('Runtime image is not available locally');
-      if ((await docker(['image', 'inspect', ...inspectPlatform, this.image, '--format', '{{.Os}}/{{.Architecture}}'])).stdout.trim() !== 'linux/amd64')
-        throw new Error('The current Chrome runtime requires a linux/amd64 image');
+      if ((await docker(['image', 'inspect', ...inspectPlatform, this.image, '--format', '{{.Os}}/{{.Architecture}}'])).stdout.trim() !== this.platform)
+        throw new Error('Chrome runtime platform does not match the configured platform');
       await this.reap();
     } catch (error) { await this.releaseLock(); this.releaseLock = undefined; throw error; }
   }
@@ -81,7 +84,7 @@ export class DockerEngine implements BrowserEngine {
       const proxyDirectory = join(this.root, `${id}-proxy`);
       if (this.options.network === 'public') {
         await mkdir(proxyDirectory, { mode: 0o700 });
-        await docker(['run', '--platform', 'linux/amd64', '-d', '--rm', '--init', '--name', `agentic-egress-${id}`,
+        await docker(['run', '--platform', this.platform, '-d', '--rm', '--init', '--name', `agentic-egress-${id}`,
           '--label', `dev.agentic-browser.instance=${this.instance}`, '--label', `dev.agentic-browser.runtime=${id}`,
           '--network', 'bridge', '--read-only', '--user', `${process.getuid?.() ?? 1000}:${process.getgid?.() ?? 1000}`,
           '--tmpfs', '/tmp:rw,nosuid,nodev,size=16m', '--memory', '128m', '--cpus', '0.5', '--pids-limit', '64',
@@ -96,7 +99,7 @@ export class DockerEngine implements BrowserEngine {
         }
         if (!ready) throw new Error('Egress proxy did not start');
       }
-      const args = ['run', '--platform', 'linux/amd64', '--rm', '--init', '-i', '--name', record.name, '--hostname', record.hostname,
+      const args = ['run', '--platform', this.platform, '--rm', '--init', '-i', '--name', record.name, '--hostname', record.hostname,
         '--label', `dev.agentic-browser.instance=${this.instance}`, '--label', `dev.agentic-browser.runtime=${id}`,
         '--network', 'none', '--read-only', '--user', `${process.getuid?.() ?? 1000}:${process.getgid?.() ?? 1000}`,
         '--tmpfs', '/tmp:rw,nosuid,nodev,size=768m', '--shm-size', '512m', '--memory', '2g', '--cpus', '2', '--pids-limit', '512',
@@ -106,7 +109,11 @@ export class DockerEngine implements BrowserEngine {
       args.push(this.image, 'node', '--import', 'tsx', 'src/runtime-worker.ts');
       await workspace.start(args, this.options.network === 'public');
       return workspace;
-    } catch (error) { await workspace.close(); throw error; }
+    } catch (error) {
+      try { await workspace.close(); }
+      catch { throw new BrowserAllocationError(workspace); }
+      throw error;
+    }
   }
   private async removeContainer(name: string, runtimeId: string) {
     // Never stop by an unverified name: inspect immutable instance/runtime labels.

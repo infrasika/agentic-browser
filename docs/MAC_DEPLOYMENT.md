@@ -1,5 +1,7 @@
 # M 系列 Mac 部署适配
 
+> 新发行路线（2026-10-14）：官方已提供 Linux ARM64 Chrome，本项目新增原生 amd64/arm64 镜像构建与 GitHub Actions 验收。固定发行镜像安装见 [自部署指南](SELF_HOST.md)。下文 amd64 模拟、Seccomp-BPF 失败及旧部署命令是此前原型的历史记录；原生 ARM 发行在 Mac Docker Desktop 上需重新实测，不能沿用旧结论。
+
 更新日期：2026-10-13，北京时间。目标机器：Apple Silicon Mac，32 GiB 内存。Linux amd64 完整验收已通过；Apple Silicon 已完成构建、控制器部署和基础人机交接，但实机 Chrome 的 Seccomp-BPF 检查失败，完整验收未通过。
 
 ## 本次 Mac 实机结果

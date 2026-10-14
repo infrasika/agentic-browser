@@ -159,7 +159,7 @@ Nginx 同时转发 MCP HTTP 和镜像 WebSocket；保留 `Upgrade`、`Connection
 
 | 项目 | 当前行为 |
 | --- | --- |
-| 全站浏览器并发 | 默认 2，`.env.public` 的 `AB_MAX_SESSIONS` 可配置 1–32，包含创建中的浏览器。 |
+| 全站浏览器并发 | 模板默认 2，`.env.public` 的 `AB_MAX_SESSIONS` 可配置 1–32，包含创建中、运行中和尚未完成清理的浏览器。当前公共服务器配置为 5。 |
 | 每来源 IP 并发 | 默认 2，`AB_MAX_SESSIONS_PER_IP` 可配置 1–8，包含创建中与尚未完成清理的浏览器。 |
 | 创建速率 | 每来源 IP 每分钟最多 6 次访客身份创建尝试。 |
 | MCP 请求 | 每来源 IP 每分钟 120 次；同时最多 8 个请求，全站 64 个；请求体最多 64 KiB。 |
@@ -171,6 +171,23 @@ Nginx 同时转发 MCP HTTP 和镜像 WebSocket；保留 `Upgrade`、`Connection
 | 出网 | 通过独立代理访问公网 HTTP(S) 的 80/443；阻止私网、回环、云元数据及配置的管理地址，Chrome 容器本身 `network=none`。 |
 
 同一公司/家庭 NAT 出口可能共享 IP 配额，这不是实名“每用户”配额。当前没有账户日额度、出口流量计费或分布式反滥用；先小范围邀请验证容量，再考虑扩大开放。
+
+### 修改容量与满额提示
+
+公共部署修改 `.env.public`，例如允许全站最多 5 个浏览器、同一来源 IP 最多 2 个：
+
+```dotenv
+AB_MAX_SESSIONS=5
+AB_MAX_SESSIONS_PER_IP=2
+```
+
+修改后需在无活跃访客会话时执行 `bash scripts/public-demo.sh up -d --force-recreate --wait --wait-timeout 90`；重建控制器会结束临时会话。此上限是管理员配置的接入名额，不是服务器自动测出的性能容量；每浏览器资源上限不代表实际常驻占用，增加名额后仍需结合网页负载观察 CPU/内存。
+
+主页每 10 秒读取 `GET /api/public/capacity`，显示当前会话数、上限及剩余名额；隐藏标签页暂停轮询。接口仅公开四个汇总字段 `currentSessions`、`maxSessions`、`availableSessions`、`full`，不返回会话 ID、身份、网址或凭据。启动中的预留名额和清理失败等待重试的会话都继续计数，清理成功才释放。即使浏览器尚未启动成功，若容器回收失败，也保留全站和来源 IP 名额，等待后台重试；不会向用户交付这种失败会话的凭据。
+
+满额时 `browser_create` 不启动新容器，返回 MCP 工具错误（`isError: true`，JSON 中 `status: 429`，并非 HTTP 传输层 429）。`session_limit` 表示全站满额；`source_limit` 表示当前来源 IP 满额，后者还包含 `sourceCapacity`。两种结果都返回汇总 `capacity`、建议 `retryAfterSeconds: 30` 和可直接给用户展示的 `userMessage`，并附独立文本，要求 Agent 显示数量和稍后重试提示，不自动循环创建或关闭其他会话。
+
+例如：**“浏览器容量已满。当前全站会话数 5 / 5（含启动中和清理中的会话）。请稍后再试。”** 重试间隔是建议，不承诺届时有空位；主页显示有余量也不预留名额，以创建时的原子配额检查为准。暂时获取不到容量时，主页明确显示无法获取并自动重试，避免保留过期的可用数量；MCP 安装与配置复制继续可用。
 
 `PUBLIC_URL` 的 hostname 会自动加入浏览器出网拒绝名单。主机其他公网管理 IP/域名应通过 `AB_EGRESS_DENY_HOSTS=management.example.com,203.0.113.10` 补充；它不能替代安全组、主机权限和独立部署。公网网站访问与访客间隔离是两件事，不应因为独立容器就允许访问服务器内网。
 

@@ -3,6 +3,7 @@ name: ${AB_PROJECT_NAME:-agentic-browser}
 services:
   controller:
     image: ${AB_CONTROLLER_IMAGE:-agentic-browser:controller-preview}
+    platform: ${AB_CONTROLLER_PLATFORM:-}
     pull_policy: never
     init: true
     user: "1000:1000"
@@ -23,6 +24,7 @@ services:
       BROWSER_AUTH_MODE: team
       BROWSER_MODE: docker
       BROWSER_RUNTIME_IMAGE: ${AB_RUNTIME_IMAGE:-agentic-browser:zkpass-prototype}
+      BROWSER_RUNTIME_PLATFORM: ${AB_RUNTIME_PLATFORM:-auto}
       BROWSER_NETWORK: public
       BROWSER_EGRESS_DENY_HOSTS: ${AB_EGRESS_DENY_HOSTS:-}
       BROWSER_DATA_DIR: /data

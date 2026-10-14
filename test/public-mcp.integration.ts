@@ -14,7 +14,7 @@ import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/
 
 const exec = promisify(execFile);
 const result = (value: any) => JSON.parse(value.content[0].text);
-test('public Compose MCP: two isolated visitors, public egress, human login, external Agent continuation and cleanup', { timeout: 240000 }, async t => {
+test('public Compose MCP: five-browser capacity, isolated visitors, human handback and cleanup', { timeout: 300000 }, async t => {
   const root = await mkdtemp(join(tmpdir(), 'agentic-public-compose-'));
   const configFile = join(root, 'public.env'); await writeFile(configFile, '');
   const project = `ab-public-test-${randomUUID()}`;
@@ -22,7 +22,7 @@ test('public Compose MCP: two isolated visitors, public egress, human login, ext
   const port = (probe.address() as { port: number }).port; await new Promise<void>(resolve => probe.close(() => resolve()));
   const base = `http://127.0.0.1:${port}`;
   const env = { ...process.env, AB_PROJECT_NAME: project, AB_PORT: String(port), AB_PUBLIC_URL: base,
-    AB_BIND_ADDRESS: '127.0.0.1', AB_TRUST_PROXY: 'false', AB_MAX_SESSIONS: '2', AB_MAX_SESSIONS_PER_IP: '2', AB_COMPOSE_ENV_FILE: configFile };
+    AB_BIND_ADDRESS: '127.0.0.1', AB_TRUST_PROXY: 'true', AB_MAX_SESSIONS: '5', AB_MAX_SESSIONS_PER_IP: '2', AB_COMPOSE_ENV_FILE: configFile };
   const compose = async (...args: string[]) => (await exec('bash', ['scripts/public-demo.sh', ...args], { env, timeout: 120000, maxBuffer: 2 ** 20 })).stdout.trim();
   const docker = async (...args: string[]) => (await exec('docker', args, { timeout: 30000, maxBuffer: 2 ** 20 })).stdout.trim();
   const clients: Client[] = []; let browser: Browser | undefined, instance = '';
@@ -38,6 +38,7 @@ test('public Compose MCP: two isolated visitors, public egress, human login, ext
   const rendered = JSON.parse(await compose('config', '--format', 'json'));
   assert.equal(rendered.services.controller.ports.length, 1);
   assert.equal(rendered.services.controller.environment.BROWSER_AUTH_MODE, 'public');
+  assert.equal(rendered.services.controller.environment.MAX_SESSIONS, '5');
   assert.equal(rendered.volumes.data.name, `${project}-data`);
   // Health probes must work when PUBLIC_URL uses a public IP, with no local
   // loopback exception. This reserved address need not be reachable externally.
@@ -49,9 +50,13 @@ test('public Compose MCP: two isolated visitors, public egress, human login, ext
   const inside = (source: string) => docker('exec', controller, 'node', '--import', 'tsx', '--input-type=module', '-e', source);
   instance = await inside("import {readFile} from 'node:fs/promises';console.log(await readFile('/data/public-browser/runtimes/instance-id','utf8'))");
   assert.equal((await fetch(base + '/api/auth/config').then(r => r.json())).mcpUrl, base + '/mcp');
-  async function client() {
+  const capacity = () => fetch(base + '/api/public/capacity').then(r => r.json());
+  assert.deepEqual(await capacity(), { currentSessions: 0, maxSessions: 5, availableSessions: 5, full: false });
+  async function client(source = '198.51.100.1') {
     const client = new Client({ name: 'public-compose-test', version: '1' }); clients.push(client);
-    await client.connect(new StreamableHTTPClientTransport(new URL(base + '/mcp'))); return client;
+    // This isolated loopback-only fixture simulates a trusted proxy; production
+    // receives an overwritten client IP from Nginx.
+    await client.connect(new StreamableHTTPClientTransport(new URL(base + '/mcp'), { requestInit: { headers: { 'X-Real-IP': source } } })); return client;
   }
   const a = await client(), b = await client(); assert.equal((await a.listTools()).tools.length, 9);
   const one = result(await a.callTool({ name: 'browser_create', arguments: { purpose: 'Synthetic public visitor A' } }));
@@ -60,8 +65,16 @@ test('public Compose MCP: two isolated visitors, public egress, human login, ext
   const aa = { sessionId: one.id, sessionKey: one.sessionKey }, bb = { sessionId: two.id, sessionKey: two.sessionKey };
   const action = async (client: Client, access: typeof aa, action: object) => result(await client.callTool({ name: 'browser_action', arguments: { ...access, action } }));
   assert.equal(result(await b.callTool({ name: 'browser_status', arguments: { ...bb, sessionId: one.id } })).status, 404);
-  assert.equal(result(await a.callTool({ name: 'browser_create', arguments: {} })).status, 429);
-  const runtimes = JSON.parse(await docker('inspect', ...await owned())); assert.equal(runtimes.length, 4);
+  const sourceLimited = result(await a.callTool({ name: 'browser_create', arguments: {} }));
+  assert.equal(sourceLimited.error, 'source_limit'); assert.equal(sourceLimited.capacity.currentSessions, 2);
+  const extraClients = await Promise.all([2, 3, 4].map(i => client(`198.51.100.${i}`)));
+  const extras = await Promise.all(extraClients.map(async c => result(await c.callTool({ name: 'browser_create', arguments: { purpose: 'Synthetic capacity fixture' } }))));
+  assert.ok(extras.every(s => s.sessionKey));
+  assert.deepEqual(await capacity(), { currentSessions: 5, maxSessions: 5, availableSessions: 0, full: true });
+  const full = result(await a.callTool({ name: 'browser_create', arguments: {} }));
+  assert.equal(full.error, 'session_limit', 'Global full notice takes precedence over a source limit');
+  assert.equal(full.status, 429); assert.match(full.userMessage, /5 \/ 5/); assert.match(full.userMessage, /稍后再试/);
+  const runtimes = JSON.parse(await docker('inspect', ...await owned())); assert.equal(runtimes.length, 10);
   for (const runtime of runtimes) {
     assert.equal(runtime.HostConfig.Privileged, false); assert.equal(runtime.HostConfig.ReadonlyRootfs, true);
     assert.deepEqual(runtime.HostConfig.PortBindings, {});
@@ -70,7 +83,7 @@ test('public Compose MCP: two isolated visitors, public egress, human login, ext
       assert.match(mount.VolumeOptions.Subpath, /^public-browser\/runtimes\//);
     }
   }
-  assert.equal(runtimes.filter((r: any) => r.HostConfig.NetworkMode === 'none').length, 2);
+  assert.equal(runtimes.filter((r: any) => r.HostConfig.NetworkMode === 'none').length, 5);
   // A fresh MCP transport can continue with its explicit capability. No shared
   // transport ID, cookies, or global session list is used as Agent authority.
   await a.close(); const reconnected = await client();
@@ -84,6 +97,20 @@ test('public Compose MCP: two isolated visitors, public egress, human login, ext
   const human = await browser.newContext(), other = await browser.newContext();
   const page = await human.newPage(); await page.goto(base);
   assert.match(await page.locator('#mcp-config').innerText(), /\/mcp/);
+  await page.waitForFunction(() => document.getElementById('capacity-status')?.textContent?.includes('容量已满'));
+  assert.match(await page.locator('#capacity-status').innerText(), /5 \/ 5/);
+  await extraClients[0].callTool({ name: 'browser_close', arguments: { sessionId: extras[0].id, sessionKey: extras[0].sessionKey } });
+  await page.waitForFunction(() => document.getElementById('capacity-status')?.textContent?.includes('4 / 5'));
+  extras[0] = result(await extraClients[0].callTool({ name: 'browser_create', arguments: {} }));
+  assert.ok(extras[0].sessionKey, 'A closed browser releases a slot for a new visitor');
+  assert.equal((await capacity()).currentSessions, 5);
+  await Promise.all(extras.map((s, i) => extraClients[i].callTool({ name: 'browser_close', arguments: { sessionId: s.id, sessionKey: s.sessionKey } })));
+  await page.waitForFunction(() => document.getElementById('capacity-status')?.textContent?.includes('2 / 5'));
+  await page.route('**/api/public/capacity', route => route.fulfill({ status: 503, body: '{}' }));
+  await page.waitForFunction(() => document.getElementById('capacity-status')?.textContent?.includes('暂时无法获取'));
+  assert.equal(await page.locator('#copy-prompt').isEnabled(), true);
+  await page.unroute('**/api/public/capacity');
+  await page.waitForFunction(() => document.getElementById('capacity-status')?.textContent?.includes('2 / 5'));
   await page.goto(base + '/connect');
   assert.equal(await page.locator('#connect-browser').isDisabled(), true);
   await page.waitForFunction(() => document.getElementById('connect-message')?.textContent?.includes('链接不完整'));
@@ -132,8 +159,10 @@ test('public Compose MCP: two isolated visitors, public egress, human login, ext
   assert.equal(result(await reconnected.callTool({ name: 'browser_close', arguments: aa })).control, 'closed');
   assert.equal((await human.request.get(base + '/api/auth/me')).status(), 401);
   assert.equal((await owned()).length, 2);
+  assert.equal((await capacity()).currentSessions, 1);
   await compose('stop', '--timeout', '60', 'controller'); assert.deepEqual(await owned(), []);
   await compose('up', '-d', '--wait', '--wait-timeout', '90'); controller = await compose('ps', '-q', 'controller');
+  assert.equal((await capacity()).currentSessions, 0);
   assert.equal(result(await b.callTool({ name: 'browser_status', arguments: bb })).status, 404, 'Restart ends temporary capabilities');
   assert.equal(await inside("import {ProfileStore} from './src/profiles.ts';console.log((await new ProfileStore('/data/public-browser').list()).length)"), '0');
 });

@@ -122,6 +122,8 @@ export function createHttpServer(
       }
       if (method === "GET" && url.pathname === "/health")
         return respond(response, 200, { status: "ok" });
+      if (remoteMcp && method === 'GET' && url.pathname === '/api/public/capacity')
+        return respond(response, 200, registry.capacity());
       if (method === "GET" && url.pathname === "/favicon.ico") {
         response.writeHead(204);
         response.end();

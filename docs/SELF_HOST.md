@@ -1,12 +1,42 @@
 # 自部署预览版
 
-当前交付是本地源码预览版。控制服务运行在 Linux 主机上，每个 Session 的 Chrome 与镜像服务运行在独立 Docker 容器中；不要求 Mac 安装扩展。先核对 [进度记录](PROGRESS.md)，其中分别列出自动化结果和真实账号待验收项。
+## 使用固定的发行镜像
+
+发行版通过 GitHub Actions 在原生 `linux/amd64` 和 `linux/arm64` runner 上分别构建控制器、Chrome/zkPass 运行镜像。两个平台均完成扩展、Chrome 沙箱、团队隔离、人工接管和公共容量验收后，才合并发布版本标签。Ubuntu x86_64 使用 amd64，Ubuntu ARM64 和 M 系列 Mac 的 Docker Desktop 使用 Linux arm64；不包含 32 位 ARM。
+
+从发行页或管理员取得 `agentic-browser-deploy.tar.gz`、`SHA256SUMS`、`RELEASE.json`。发行清单记录源代码提交、两个多架构镜像 digest、Chrome/扩展锁定版本。仓库可保持私有，管理员可单独分发部署包，GHCR 镜像须公开并通过匿名拉取验证才算对外可用。
+
+```sh
+# Linux；Mac 可用 shasum -a 256 -c SHA256SUMS
+sha256sum -c SHA256SUMS
+tar -xzf agentic-browser-deploy.tar.gz
+cd agentic-browser
+cp .env.compose.example .env.compose
+bash scripts/release-compose.sh pull
+bash scripts/release-compose.sh up -d --wait --wait-timeout 90
+bash scripts/release-compose.sh exec controller node --import tsx src/doctor.ts
+bash scripts/release-compose.sh exec controller node --import tsx src/members-cli.ts create alice
+```
+
+密码在终端内隐藏输入。打开 `http://127.0.0.1:3333`，登录成员账户后创建个人 Agent 凭据；团队 MCP 配置见包内 [客户端说明](AGENT_CLIENT.md) 的发行镜像示例。此路径仅需 Docker Engine 26+、Compose 2.24.4+ 和 Bash，无需本机安装 Node、Chrome 或扩展。Mac 使用 Docker Desktop 的 Linux engine。新发行镜像的 Mac 实机结果须单独记录，不能用 Linux ARM runner 的结果替代 Mac 验收。
+
+`deploy/release.env` 的两个镜像引用均为 `ghcr.io/infrasika/agentic-browser-*@sha256:...`。脚本拒绝仅有可变标签的发行配置，先拉取控制器和运行镜像，再沿用现有 Compose 私有数据卷与隔离配置。只给控制器挂载 Docker socket；浏览器和代理没有此权限。`.env.compose` 可设置项目名、端口和并发数，不能覆盖发行文件锁定的镜像；测试其他发行文件可设置 `AB_RELEASE_FILE=/绝对路径/release.env`。
+
+源码 checkout 在尚未取得发行文件时不包含虚构 digest，脚本会明确报缺少 `deploy/release.env`。可从该版本部署包复制此文件。管理员如需公共演示，先复制 `.env.public.example` 为 `.env.public`，再使用 `AB_COMPOSE_VARIANT=public bash scripts/release-compose.sh up -d --wait`；真实团队使用保持默认 team 模式。
+
+升级时保留旧部署包及其 digest 配置，先结束活动会话、停止控制器，再在同一项目名和私有卷上启动新版本。不要执行 `down --volumes` 作为普通升级步骤。旧镜像可按旧 digest 恢复，但 Chrome Profile 的跨版本降级仍需验证或恢复升级前备份。
+
+这里的“可复现”指通过摘要部署同一份已验收镜像。源码构建的基础镜像、npm、Chrome 与扩展已锁定；Debian apt 源仍会更新，因此不宣称不同日期从源码构建会得到逐字节相同的镜像。Chrome/CRX 官方端点不保证旧文件长期存在，Actions 按锁文件使用缓存或核验下载；不匹配时失败，不能自动刷新锁绕过检查。
+
+## 从源码构建
+
+源码构建入口继续保留。控制服务运行在 Linux 主机上，每个 Session 的 Chrome 与镜像服务运行在独立 Docker 容器中；不要求 Mac 安装扩展。先核对 [进度记录](PROGRESS.md)，其中分别列出自动化结果和真实账号待验收项。
 
 M 系列 Mac 使用 Linux 控制器容器和数据卷，完整 Compose 链路已在 Linux amd64 验收，Mac 实机仍待确认。请按 [Mac 部署指南](MAC_DEPLOYMENT.md) 操作；本文下方是控制服务直接运行于 Linux 宿主机的方式。
 
 ## 安装和成员初始化
 
-要求 Linux amd64、Node 24、npm、Python 3、Docker、util-linux 的 flock。控制服务使用非 root 用户，该用户需有 Docker 权限。每个浏览器容器上限 2 GiB 内存和 2 CPU，另有出网代理开销；根据主机资源降低 `MAX_SESSIONS`。当前 Docker 后端不支持 Mac 原生控制服务、Windows 或 rootless Docker 的保证性兼容。
+要求 Linux amd64 或 arm64、Node 24、npm、Python 3、Docker、util-linux 的 flock。控制服务使用非 root 用户，该用户需有 Docker 权限。每个浏览器容器上限 2 GiB 内存和 2 CPU，另有出网代理开销；根据主机资源降低 `MAX_SESSIONS`。当前 Docker 后端不支持 Mac 原生控制服务、Windows 或 rootless Docker 的保证性兼容。
 
 在独立目录取得源码，保留来源说明。首次构建需下载官方 Chrome 与两个扩展，包摘要必须与锁文件一致。若上游已变更，不会静默采用新包；应恢复部署者保留的旧缓存，或审核升级并重新验收。
 

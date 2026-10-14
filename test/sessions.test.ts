@@ -190,6 +190,29 @@ test("capacity accounts for browser launches still in progress", async () => {
   await registry.close();
 });
 
+test('expired sessions keep capacity occupied until cleanup succeeds; failed launches release their slot', async () => {
+  let now = 0, cleanupReady = false, launchFails = false;
+  const registry = new SessionRegistry({ async create() {
+    if (launchFails) throw new Error('launch failed');
+    return { ...fakeWorkspace(), async close() { if (!cleanupReady) throw new Error('cleanup failed'); } };
+  }, async close() {} }, { ttlMs: 1000, maxSessions: 1 }, () => now);
+  await registry.create('Expiry fixture');
+  now = 1000;
+  await registry.reap();
+  assert.deepEqual(registry.capacity(), { currentSessions: 1, maxSessions: 1, availableSessions: 0, full: true });
+  await assert.rejects(registry.create('Still full'), { code: 'session_limit', status: 429 });
+  cleanupReady = true;
+  await registry.reap();
+  assert.equal(registry.capacity().currentSessions, 0);
+  launchFails = true;
+  await assert.rejects(registry.create('Failed launch'), /launch failed/);
+  assert.equal(registry.capacity().currentSessions, 0);
+  launchFails = false;
+  await registry.create('Replacement');
+  await registry.close();
+  assert.equal(registry.capacity().currentSessions, 0);
+});
+
 test("shutdown disposes a browser context that finishes starting late", async () => {
   const workspace = fakeWorkspace();
   const pending = deferred<typeof workspace>();

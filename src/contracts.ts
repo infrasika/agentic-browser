@@ -11,6 +11,28 @@ export class ServiceError extends Error {
   }
 }
 
+export type SessionCapacity = {
+  currentSessions: number;
+  maxSessions: number;
+  availableSessions: number;
+  full: boolean;
+};
+
+export class SessionCapacityError extends ServiceError {
+  readonly retryAfterSeconds = 30;
+  constructor(readonly capacity: SessionCapacity, readonly source?: { currentSessions: number; maxSessions: number }) {
+    const total = `当前全站会话数 ${capacity.currentSessions} / ${capacity.maxSessions}（含启动中和清理中的会话）`;
+    super(429, source ? 'source_limit' : 'session_limit', source
+      ? `当前网络的并发浏览器已达上限（${source.currentSessions} / ${source.maxSessions}）。${total}。请关闭自己的空闲会话，或稍后再试（建议等待 30 秒）。`
+      : `浏览器容量已满。${total}。请稍后再试（建议等待 30 秒，不保证届时有空位）。`);
+  }
+  payload() {
+    return { error: this.code, status: this.status, message: this.message, userMessage: this.message,
+      capacity: this.capacity, retryAfterSeconds: this.retryAfterSeconds,
+      ...(this.source ? { sourceCapacity: this.source } : {}) };
+  }
+}
+
 export const webUrl = z
   .string()
   .max(8192)
@@ -73,6 +95,14 @@ export interface BrowserEngine {
   readonly profiles?: import("./profiles.js").ProfileStore;
   create(options?: { profileId?: string; ownerId?: string }): Promise<BrowserWorkspace>;
   close(): Promise<void>;
+}
+
+// A failed launch can still own resources if cleanup failed. The registry must
+// keep its reservation until this workspace is confirmed closed.
+export class BrowserAllocationError extends Error {
+  constructor(readonly workspace: BrowserWorkspace) {
+    super('Browser startup failed and cleanup is pending');
+  }
 }
 
 export const createSessionSchema = z

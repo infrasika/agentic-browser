@@ -17,3 +17,5 @@
 !output/runtime/packages/
 !output/runtime/packages/*.crx
 !output/runtime/packages/chrome.deb
+!output/runtime/packages/chrome-amd64.deb
+!output/runtime/packages/chrome-arm64.deb

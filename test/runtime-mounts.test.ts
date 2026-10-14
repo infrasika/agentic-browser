@@ -26,3 +26,12 @@ test('demo volume paths preserve the parent volume root while isolating demo dat
   assert.deepEqual(config.runtimeVolume, { name: 'fixture-private-data', root: '/data' });
   assert.throws(() => readConfig({ BROWSER_AUTH_MODE: 'team', BROWSER_MODE: 'docker', BROWSER_DATA_VOLUME: 'name,other=mount' }));
 });
+
+test('runtime platform is native by default and an explicit architecture remains constrained', () => {
+  const base = { BROWSER_AUTH_MODE: 'team', BROWSER_MODE: 'docker' };
+  assert.equal(readConfig(base).runtimePlatform, process.arch === 'arm64' ? 'linux/arm64' : 'linux/amd64');
+  for (const platform of ['linux/amd64', 'linux/arm64']) {
+    assert.equal(readConfig({ ...base, BROWSER_RUNTIME_PLATFORM: platform }).runtimePlatform, platform);
+  }
+  assert.throws(() => readConfig({ ...base, BROWSER_RUNTIME_PLATFORM: 'linux/arm/v7' }));
+});

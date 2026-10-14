@@ -2,6 +2,26 @@ const isHttps = location.protocol === 'https:';
 document.getElementById('transport-warning').hidden = isHttps;
 document.getElementById('github-task').hidden = !isHttps;
 
+let capacityLoading = false;
+async function refreshCapacity() {
+  if (capacityLoading || document.hidden) return;
+  capacityLoading = true;
+  const status = document.getElementById('capacity-status');
+  try {
+    const response = await fetch('/api/public/capacity', { cache: 'no-store', signal: AbortSignal.timeout(5000) });
+    if (!response.ok) throw new Error('Capacity unavailable');
+    const capacity = await response.json();
+    status.textContent = `当前会话数 ${capacity.currentSessions} / ${capacity.maxSessions}。${capacity.full
+      ? '浏览器容量已满，请稍后再试（建议等待 30 秒）。'
+      : `当前可用 ${capacity.availableSessions} 个浏览器名额。`}`;
+  } catch {
+    status.textContent = '暂时无法获取当前会话数，将自动重试。请以 Agent 创建浏览器时的结果为准。';
+  } finally { capacityLoading = false; }
+}
+void refreshCapacity();
+setInterval(() => { void refreshCapacity(); }, 10000);
+document.addEventListener('visibilitychange', () => { void refreshCapacity(); });
+
 function enableCopy(buttonId, sourceId, statusId, successMessage) {
   const button = document.getElementById(buttonId);
   const source = document.getElementById(sourceId);
@@ -59,6 +79,8 @@ ${claudeCommand}
 ${task}
 
 调用 browser_handoff 后，先把返回的 userMessage 发到当前对话，展示可点击的 humanUrl 和完整原始地址（保留 # 后的全部内容），再调用 browser_wait 等待我。不要只说“点击 Connect”却不提供实际链接。没有链接或链接过期时，调用 browser_human_link 获取新链接并展示，不要猜测地址。
+
+如果创建时提示容量已满或当前网络达到上限，请展示返回的 userMessage、当前会话数和上限，让我稍后再试，不要自动循环重试或关闭其他会话。
 
 账号、密码和验证码由我在接管页面中输入，不要要求我在聊天里提供。接管链接只发给当前对话中的我，不要公开或转发给其他人；sessionKey 仅用于工具调用，不要展示。人工操作期间等待我交还控制权，再继续读取网页。公共会话初始 5 分钟，最长 10 分钟，完成后关闭会话。`;
   enableCopy('copy-prompt', 'install-prompt', 'prompt-status', '提示词已复制，粘贴到你的 Agent 即可开始。');

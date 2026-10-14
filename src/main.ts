@@ -21,7 +21,7 @@ try {
 }
 const engine =
   config.browserMode === "docker"
-    ? new DockerEngine({ dataDirectory: config.dataDirectory, image: config.runtimeImage, network: config.runtimeNetwork,
+    ? new DockerEngine({ dataDirectory: config.dataDirectory, image: config.runtimeImage, platform: config.runtimePlatform, network: config.runtimeNetwork,
         volume: config.runtimeVolume,
         denyHosts: [...new Set([new URL(config.publicUrl).hostname.replace(/^\[|\]$/g, ''), ...config.egressDenyHosts])] })
     : config.browserMode === "desktop"

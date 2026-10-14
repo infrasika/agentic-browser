@@ -23,6 +23,7 @@ export function readConfig(env: NodeJS.ProcessEnv = process.env) {
       HEADLESS: z.enum(["true", "false"]).default("true"),
       BROWSER_MODE: z.enum(["playwright", "desktop", "docker"]).default("playwright"),
       BROWSER_RUNTIME_IMAGE: z.string().min(1).default("agentic-browser:zkpass-prototype"),
+      BROWSER_RUNTIME_PLATFORM: z.enum(['auto', 'linux/amd64', 'linux/arm64']).default('auto'),
       BROWSER_NETWORK: z.enum(["none", "public"]).default("public"),
       BROWSER_EGRESS_DENY_HOSTS: z.string().default(""),
       BROWSER_DATA_DIR: z.string().min(1).default(".data"),
@@ -49,6 +50,8 @@ export function readConfig(env: NodeJS.ProcessEnv = process.env) {
     );
   }
   const temporary = ["demo", "public"].includes(parsed.BROWSER_AUTH_MODE);
+  const runtimePlatform: 'linux/amd64' | 'linux/arm64' = parsed.BROWSER_RUNTIME_PLATFORM === 'auto'
+    ? (process.arch === 'arm64' ? 'linux/arm64' : 'linux/amd64') : parsed.BROWSER_RUNTIME_PLATFORM;
   return {
     token: parsed.AGENT_BROWSER_TOKEN,
     authMode: parsed.BROWSER_AUTH_MODE,
@@ -65,6 +68,7 @@ export function readConfig(env: NodeJS.ProcessEnv = process.env) {
     headless: parsed.HEADLESS === "true",
     browserMode: parsed.BROWSER_MODE,
     runtimeImage: parsed.BROWSER_RUNTIME_IMAGE,
+    runtimePlatform,
     runtimeNetwork: parsed.BROWSER_AUTH_MODE === "demo" ? "none" as const : parsed.BROWSER_NETWORK,
     egressDenyHosts: parsed.BROWSER_EGRESS_DENY_HOSTS.split(',').map(host => host.trim()).filter(Boolean),
     dataDirectory: parsed.BROWSER_AUTH_MODE === "demo" ? `${parsed.BROWSER_DATA_DIR}/public-demo` : parsed.BROWSER_AUTH_MODE === "public" ? `${parsed.BROWSER_DATA_DIR}/public-browser` : parsed.BROWSER_DATA_DIR,

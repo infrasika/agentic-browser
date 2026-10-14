@@ -7,7 +7,7 @@ npm run runtime:build
 npm run test:extensions
 ```
 
-第一次获取包需要网络；之后优先使用 `output/runtime/packages/` 缓存。`assets.lock.json` 固定 Chrome 155.0.8059.39、TransGate 0.5.5、Schema Validator 0.1.3 的摘要。上游内容变化时构建会失败，不会静默更新。审阅更新后才运行 `python3 scripts/fetch-runtime-assets.py --refresh-lock`，并重跑验收。官方更新端点不保证长期提供旧版本；锁文件并不能替代部署者保存的原始包缓存。
+第一次获取包需要网络；之后优先使用 `output/runtime/packages/` 缓存。`assets.lock.json` 分别固定 amd64/arm64 Chrome 155.0.8059.79、TransGate 0.5.5、Schema Validator 0.1.3 的摘要。上游内容变化时构建会失败，不会静默更新。审阅更新后才运行 `python3 scripts/fetch-runtime-assets.py --refresh-lock`，并重跑验收。官方更新端点不保证长期提供旧版本；锁文件并不能替代部署者保存的原始包缓存。
 
 `test:extensions` 在全新、断网、只读根文件系统的容器里执行，临时数据位于 tmpfs，退出删除容器。只挂载测试截图输出目录，不挂载宿主机用户数据、Docker socket 或真实 Profile。测试包括：
 

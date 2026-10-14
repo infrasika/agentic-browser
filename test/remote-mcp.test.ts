@@ -11,18 +11,19 @@ import { SessionRegistry } from '../src/sessions.js';
 import { createHttpServer } from '../src/http.js';
 import { RemoteMcp, publicClientAddress } from '../src/remote-mcp.js';
 import { readConfig } from '../src/config.js';
+import { BrowserAllocationError } from '../src/contracts.js';
 import { deferred, fakeWorkspace } from './helpers.js';
 import { request, type IncomingMessage, type ServerResponse } from 'node:http';
 
 const result = (value: any) => JSON.parse(value.content[0].text);
-async function fixture(t: any, maxPerIp = 2, createHook?: () => Promise<void>) {
+async function fixture(t: any, maxPerIp = 2, createHook?: () => Promise<void>, maxSessions = 4) {
   const directory = await mkdtemp(join(tmpdir(), 'agentic-remote-mcp-'));
   const identity = new IdentityStore(directory);
   let closed = 0;
   const registry = new SessionRegistry({ async create({ ownerId } = {}) {
     await createHook?.();
     return { ...fakeWorkspace(), async perform() { return { text: `private ${ownerId}`, url: 'https://example.com/' }; }, async close() { closed++; } };
-  }, async close() {} }, { ttlMs: 300000, maxSessions: 4, maxSessionsPerOwner: 1, maxLifetimeMs: 600000 });
+  }, async close() {} }, { ttlMs: 300000, maxSessions, maxSessionsPerOwner: 1, maxLifetimeMs: 600000 });
   const server = createHttpServer(registry, { publicUrl: 'http://127.0.0.1', identity, publicBrowser: true, publicMaxSessionsPerIp: maxPerIp });
   server.listen(0, '127.0.0.1'); await once(server, 'listening');
   const base = `http://127.0.0.1:${(server.address() as { port: number }).port}`;
@@ -118,10 +119,77 @@ test('public MCP: reserves per-source quota during creation and ignores untruste
   const a = await f.client(), b = await f.client({ 'X-Real-IP': '198.51.100.27', 'X-Forwarded-For': '198.51.100.28' });
   const creating = a.callTool({ name: 'browser_create', arguments: {} }); await entered.promise;
   const extra = await b.callTool({ name: 'browser_create', arguments: {} });
-  assert.equal(result(extra).status, 429); gate.resolve();
+  const limited = result(extra);
+  assert.equal(limited.status, 429);
+  assert.equal(limited.error, 'source_limit');
+  assert.deepEqual(limited.sourceCapacity, { currentSessions: 1, maxSessions: 1 });
+  assert.equal(limited.capacity.currentSessions, 1);
+  assert.equal(limited.capacity.full, false);
+  assert.match(limited.userMessage, /当前网络/);
+  gate.resolve();
   const created = result(await creating);
   assert.equal(result(await b.callTool({ name: 'browser_create', arguments: {} })).status, 429);
   await a.callTool({ name: 'browser_close', arguments: { sessionId: created.id, sessionKey: created.sessionKey } });
+});
+
+test('public MCP: five concurrent allocations fill capacity, expose only totals, and closing releases a slot', async t => {
+  const gate = deferred(), entered = deferred(); let starts = 0;
+  const f = await fixture(t, 8, async () => { if (++starts === 5) entered.resolve(); await gate.promise; }, 5);
+  const client = await f.client();
+  const capacity = async () => {
+    const response = await fetch(f.base + '/api/public/capacity');
+    assert.equal(response.status, 200);
+    assert.equal(response.headers.get('cache-control'), 'no-store');
+    return response.json();
+  };
+  assert.deepEqual(await capacity(), { currentSessions: 0, maxSessions: 5, availableSessions: 5, full: false });
+  const creating = Array.from({ length: 5 }, (_, i) => client.callTool({ name: 'browser_create', arguments: { purpose: `Private fixture ${i}` } }));
+  try {
+    await entered.promise;
+    const full = { currentSessions: 5, maxSessions: 5, availableSessions: 0, full: true };
+    assert.deepEqual(await capacity(), full, 'Allocations reserve slots before launch finishes');
+    const denied = await client.callTool({ name: 'browser_create', arguments: {} });
+    const payload = result(denied);
+    assert.equal(denied.isError, true); assert.equal(payload.error, 'session_limit'); assert.equal(payload.status, 429);
+    assert.deepEqual(payload.capacity, full); assert.deepEqual(denied.structuredContent, payload);
+    assert.equal(payload.retryAfterSeconds, 30);
+    assert.match(payload.userMessage, /5 \/ 5/); assert.match(payload.userMessage, /稍后再试/);
+    assert.ok(Array.isArray(denied.content) && denied.content.some((part: any) => part.type === 'text' && part.text.includes('Show this capacity notice')));
+    assert.equal(starts, 5, 'No sixth browser was launched');
+  } finally { gate.resolve(); }
+  const sessions = (await Promise.all(creating)).map(result);
+  assert.equal((await capacity()).currentSessions, 5);
+  const access = { sessionId: sessions[0].id, sessionKey: sessions[0].sessionKey };
+  await client.callTool({ name: 'browser_close', arguments: access });
+  assert.deepEqual(await capacity(), { currentSessions: 4, maxSessions: 5, availableSessions: 1, full: false });
+  assert.ok(result(await client.callTool({ name: 'browser_create', arguments: {} })).sessionKey);
+  assert.equal(starts, 6);
+});
+
+test('public MCP: failed startup with failed cleanup retains global and source slots until retry succeeds', async t => {
+  for (const maxSessions of [1, 3]) await t.test(`maximum ${maxSessions}`, async t => {
+    let first = true, cleanupReady = false, cleaned = false;
+    const f = await fixture(t, 1, async () => {
+      if (!first) return;
+      first = false;
+      throw new BrowserAllocationError({ ...fakeWorkspace(), async close() {
+        if (!cleanupReady) throw new Error('synthetic Docker cleanup failure');
+        cleaned = true;
+      } });
+    }, maxSessions);
+    const client = await f.client();
+    assert.equal(result(await client.callTool({ name: 'browser_create', arguments: {} })).status, 502);
+    assert.equal(f.registry.capacity().currentSessions, 1);
+    const denied = result(await client.callTool({ name: 'browser_create', arguments: {} }));
+    assert.equal(denied.status, 429);
+    assert.equal(denied.error, maxSessions === 1 ? 'session_limit' : 'source_limit');
+    assert.equal(denied.capacity.currentSessions, 1);
+    assert.equal(f.identity.listMembers().length, 0);
+    cleanupReady = true;
+    assert.ok(result(await client.callTool({ name: 'browser_create', arguments: {} })).sessionKey);
+    assert.equal(cleaned, true);
+    assert.equal(f.registry.capacity().currentSessions, 1, 'Only the replacement occupies a slot');
+  });
 });
 
 test('public MCP: client cancelling a wait never changes control; origin and body guards', async t => {

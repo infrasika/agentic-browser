@@ -1,0 +1,30 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { mkdtemp, writeFile, rm, access } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
+
+const exec = promisify(execFile);
+test('release deployment pins override local tags and reject executable or mutable image configuration', async t => {
+  const directory = await mkdtemp(join(tmpdir(), 'agentic-release-'));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const pins = join(directory, 'release.env'), settings = join(directory, 'compose.env');
+  const controller = `ghcr.io/infrasika/agentic-browser-controller@sha256:${'a'.repeat(64)}`;
+  const runtime = `ghcr.io/infrasika/agentic-browser-runtime@sha256:${'b'.repeat(64)}`;
+  await writeFile(settings, 'AB_CONTROLLER_IMAGE=untrusted:latest\nAB_PROJECT_NAME=release-fixture\n');
+  const env = { ...process.env, AB_RELEASE_FILE: pins, AB_COMPOSE_ENV_FILE: settings, AB_DOCKER_GID: '0', AB_CONTROLLER_IMAGE: 'untrusted:latest' };
+  const run = () => exec('bash', ['scripts/release-compose.sh', 'config', '--format', 'json'], { env });
+  await writeFile(pins, `AB_CONTROLLER_IMAGE=${controller}\nAB_RUNTIME_IMAGE=${runtime}\n`);
+  const rendered = JSON.parse((await run()).stdout);
+  assert.equal(rendered.services.controller.image, controller);
+  assert.equal(rendered.services.controller.environment.BROWSER_RUNTIME_IMAGE, runtime);
+  assert.equal(rendered.services.controller.environment.BROWSER_RUNTIME_PLATFORM, 'auto');
+  await writeFile(pins, `AB_CONTROLLER_IMAGE=ghcr.io/infrasika/agentic-browser-controller:latest\nAB_RUNTIME_IMAGE=${runtime}\n`);
+  await assert.rejects(run(), /sha256 digest/);
+  const sentinel = join(directory, 'must-not-exist');
+  await writeFile(pins, `AB_CONTROLLER_IMAGE=$(touch ${sentinel})\nAB_RUNTIME_IMAGE=${runtime}\n`);
+  await assert.rejects(run(), /sha256 digest/);
+  await assert.rejects(access(sentinel));
+});

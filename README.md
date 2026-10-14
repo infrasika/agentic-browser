@@ -15,6 +15,8 @@
 
 ## 自部署与演示
 
+预构建发行镜像使用 GitHub Actions 原生 amd64/arm64 构建和验收，再推送 GHCR。部署包通过 SHA256 digest 固定控制器和 Chrome/zkPass 镜像；支持 Ubuntu x86_64、Linux ARM64 与 M 系列 Mac 的 Linux 容器环境，新发行的 Mac 实机结果单独记录。安装、升级和回退入口见 [固定镜像自部署](docs/SELF_HOST.md#使用固定的发行镜像)。
+
 真实使用从 [自部署指南](docs/SELF_HOST.md) 开始，使用成员身份和每 Session 独立 Docker Runtime。面向外部 Agent 的演示使用 [Ubuntu 公共 MCP 部署指南](docs/UBUNTU_PUBLIC_DEMO.md)：URL 即可连接，允许公网网页，独立临时容器，并发和时长有限额。另保留只运行虚构登录和固定步骤的 [断网访客演示](docs/PUBLIC_DEMO.md)。
 
 Apple Silicon Mac 使用容器化控制器与浏览器，启动命令见 [Mac 部署指南](docs/MAC_DEPLOYMENT.md)。用户已反馈 Mac 本地部署测试通过；此前 Seccomp-BPF 检查失败的历史记录仍保留在 [进度文档](docs/PROGRESS.md)，本轮未重新验收 Mac 沙箱。
