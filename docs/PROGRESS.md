@@ -51,6 +51,8 @@ Validation passed: TypeScript; all 52 unit/API tests; reproducible archive gener
 
 Playwright verified task copying, the four-step order, the setup download button, and both pages at a 390-pixel width. Documentation links and English-only maintained content checks passed. Evidence is under `output/self-host-check/` and `output/playwright/`.
 
+Deployed source commit `265949af9c03` to the official demo as `agentic-browser:self-host-265949af9c03` after confirming no active sessions. Live HTTPS downloads matched the committed archive byte-for-byte; its checksum and every manifest file hash passed. The live homepage, Copy task button, and self-hosting page were verified in Playwright. Health remained OK and capacity stayed at 5 browsers. This replaces the previous homepage-only controller patch; published controller/runtime pins remain `v0.1.0-preview.2` until the next image release.
+
 ## Validation still required
 
 - The user previously verified Mac deployment, but the newly published native arm64 image still needs its own physical Mac acceptance run. Linux ARM CI is not a substitute.
