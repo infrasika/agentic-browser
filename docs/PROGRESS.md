@@ -22,7 +22,9 @@
 
 再从新的临时目录解压实际 Release 部署包，先校验原附件 SHA256，再通过包内 `release-compose.sh pull` 匿名拉取本机镜像，并完成团队 Compose 流程复验（约 40 秒）：成员隔离、原生接管、保存配置、重启和崩溃恢复均通过；独立测试项目、卷和目录已清理。此轮为同一 Ubuntu 主机上的干净目录安装，不标记为另一台全新主机验收。
 
-公开验收记录见 [固定版本记录](../deploy/releases/v0.1.0-preview.1-public-verification.json)，同时追加到 Release 的 `PUBLIC-VERIFICATION.json` 附件。证据日志在 `output/releases/v0.1.0-preview.1/pull-anonymous-*.log`、`install-anonymous-pull.log`、`public-clean-install-controller.log`。原 `RELEASE.json` 的 `publicPullVerified: false` 保留发布时事实；后续成功结果由新附件记录，不覆盖原部署包、清单或校验和。当前镜像无需 GHCR 登录即可拉取；私有源码仓库及其 Release 附件仍需仓库权限或管理员分发。
+公开验收记录见 [固定版本记录](../deploy/releases/v0.1.0-preview.1-public-verification.json)，同时追加到 Release 的 `PUBLIC-VERIFICATION.json` 附件。证据日志在 `output/releases/v0.1.0-preview.1/pull-anonymous-*.log`、`install-anonymous-pull.log`、`public-clean-install-controller.log`。原 `RELEASE.json` 的 `publicPullVerified: false` 保留发布时事实；后续成功结果由新附件记录，不覆盖原部署包、清单或校验和。当前镜像无需 GHCR 登录即可拉取；Release 附件的访问权限由源码仓库的当前可见性决定，仓库为 private 时需仓库权限或管理员分发。
+
+公开设置期间发现源码仓库也被设为 Public，随后用户明确选择“恢复源码私有，仅公开镜像”。已将源码仓库恢复 Private，核对 controller/runtime 两个包仍为 Public，并在恢复后使用空 Docker 凭据目录再次拉取两镜像，均通过。后续发布沿用这一可见性约定；部署包从私有 Release 获取后由管理员分发。证据为 `output/releases/v0.1.0-preview.1/repository-private-verification.json` 与 `pull-after-repository-private-*.log`。
 
 新原生 ARM 镜像的 Mac Docker Desktop 验收仍需单独记录。可复现保证是拉取同一镜像 digest；apt 源和上游历史文件可用性尚不保证逐字节源码重建。
 

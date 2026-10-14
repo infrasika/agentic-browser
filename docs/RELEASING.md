@@ -2,6 +2,8 @@
 
 镜像仓库为 `ghcr.io/infrasika/agentic-browser-controller` 和 `ghcr.io/infrasika/agentic-browser-runtime`。代码仓库的可见性不随镜像发布改变。
 
+按用户已确认的发布约定，源码仓库保持 Private，仅上述两个 GHCR 镜像包为 Public；Release 部署包由有仓库权限的管理员下载分发。
+
 首个预览版为 [v0.1.0-preview.1](https://github.com/infrasika/agentic-browser/releases/tag/v0.1.0-preview.1)，[双架构 Actions 验收与发布](https://github.com/infrasika/agentic-browser/actions/runs/38508756846) 已通过，来源提交 `737c2f1793c66733faf9f39fc6053022e2e9ca4e`。两个 GHCR 包已公开，两个镜像、两个架构的匿名拉取和独立目录部署复验均通过。当前默认摘要记录在 `deploy/release.env`，后续公开验证记录见 `deploy/releases/v0.1.0-preview.1-public-verification.json` 和 Release 的 `PUBLIC-VERIFICATION.json`。
 
 ## 触发发布
