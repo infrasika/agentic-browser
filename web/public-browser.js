@@ -59,30 +59,16 @@ try {
   document.getElementById('mcp-config').textContent = content;
   document.getElementById('codex-command').textContent = `codex mcp add agentic-browser --url ${mcpUrl.href}`;
   document.getElementById('claude-command').textContent = claudeCommand;
-  document.getElementById('install-prompt').textContent = `Help me install and connect the Agentic Browser MCP server in this Agent client, then try a remote browser task with human handoff.
+  document.getElementById('install-prompt').textContent = `Help me connect this Agent to Agentic Browser, then try a browser task together.
 
-Server name: agentic-browser
-Server URL: ${mcpUrl.href}
-Transport: Streamable HTTP
-This public demo requires no Agentic Browser account or API key. There is no browser or server to install locally.
+Connection: ${mcpUrl.href} (remote MCP server, named agentic-browser).
+Keep my existing connections. No Agentic Browser account or API key is needed. If setup needs my help or a restart, guide me through it and confirm the connection works before starting.
 
-Check how this client configures MCP servers and add this remote server while preserving existing settings. If a server with the same name already exists, check its URL before changing it. Adapt this generic JSON to the format supported by the current client:
-${content}
-
-For Claude Code, run this command in my local terminal. User scope makes it available across my projects:
-${claudeCommand}
-Then check the connection with claude mcp get agentic-browser and inspect the tools with /mcp inside Claude Code.
-
-If you cannot edit the configuration directly, provide exact steps for this client. Explain any required approval, tool refresh, or restart, and wait until the connection is ready.
-
-Verify that you can discover and call the tools before saying setup is complete. Then perform this task:
+Once connected:
 ${task}
 
-After browser_handoff, send its userMessage in this conversation, including the clickable humanUrl and the full raw URL with everything after #. Only then call browser_wait. Do not say “click Connect” without providing the actual link. If it is missing or expired, call browser_human_link for a new one; do not guess a URL.
-
-If browser creation reports full capacity or a limit for this network, show the returned userMessage and current session count/limit. Ask me to try again later. Do not loop over creation attempts or close other sessions.
-
-I will enter accounts, passwords, and verification codes in the remote browser. Do not request them in chat. Show handoff links only to me in this conversation; never publish or forward them. Use sessionKey only for tool calls and do not display it. Wait for me to return control before reading the page. Public sessions start with 5 minutes and last at most 10 minutes. Close the session when the task is complete.`;
+I will enter my password and any verification codes directly in the browser, not in this chat. If the browser link stops working, send me a new one. If all browsers are busy, tell me how many are in use and ask me to try again later.`;
+  enableCopy('copy-task', 'github-prompt', 'task-status', 'Task copied. Paste it into your connected Agent.');
   enableCopy('copy-prompt', 'install-prompt', 'prompt-status', 'Prompt copied. Paste it into your Agent to begin.');
   enableCopy('copy-config', 'mcp-config', 'copy-status', 'Configuration copied.');
   enableCopy('copy-claude', 'claude-command', 'claude-status', 'Claude Code command copied. Run it in your local terminal.');

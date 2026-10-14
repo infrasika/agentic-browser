@@ -18,7 +18,7 @@ claude mcp add --transport http --scope user agentic-browser https://agentic-bro
 
 Restart or refresh your client's tools if necessary, then send:
 
-> Use agentic-browser to open https://github.com/login and hand the browser to me so I can sign in. Show the returned humanUrl as both a clickable link and the full URL before waiting. After I hand control back, count all private repositories owned by my account and list their names, checking every page. Close the session when finished.
+> Open GitHub in Agentic Browser and send me a link to sign in. Wait until I hand control back, then count all the private repositories I own and list their names. Check every page and close the browser when finished.
 
 Open the link your Agent provides, click **Connect and take control**, sign in in the remote browser, then click **Hand back to Agent**. Do not send passwords or verification codes in chat. Website login restrictions still apply.
 

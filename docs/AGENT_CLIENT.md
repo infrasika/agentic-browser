@@ -34,7 +34,7 @@ Use `/mcp` inside Claude Code to inspect the connection. Refresh tools or restar
 
 Try this task:
 
-> Use agentic-browser to open https://github.com/login and hand the browser to me so I can sign in. Show the returned humanUrl as a clickable link and the full URL before waiting. Once I have signed in and handed control back, count all private repositories owned by my account and list their names, checking every page. Close the session when finished.
+> Open GitHub in Agentic Browser and send me a link to sign in. Wait until I hand control back, then count all the private repositories I own and list their names. Check every page and close the browser when finished.
 
 Each `browser_create` starts one separate temporary environment and returns a `sessionId` and `sessionKey`. Subsequent calls reuse that session and require both values; a new environment is not created for every tool call. Public mode provides 9 tools and no account-wide session or saved-profile listing.
 

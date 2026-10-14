@@ -20,11 +20,12 @@
   </section>
   <section class="panel">
     <h2>Connect your Agent</h2>
-    <p>Copy this prompt into your Agent to set up the remote MCP server and try a task. Your client must support Streamable HTTP MCP.</p>
+    <p>Copy this prompt into your Agent. It will help you connect and try your first browser task.</p>
     <button id="copy-prompt" class="primary" type="button" disabled>Copy prompt</button>
     <p id="prompt-status" class="message" role="status"></p>
     <details id="prompt-preview"><summary>Read the full prompt</summary><pre id="install-prompt" tabindex="0"></pre></details>
-    <p class="hint">Some clients need manual configuration, a tool refresh, or a restart. The prompt asks your Agent to guide you through the steps for your client.</p>
+    <p class="hint">Your Agent will guide you if setup needs a restart or another step.</p>
+    <details id="manual-setup"><summary>Set up manually: Codex, Claude Code, or another client</summary>
     <h3>Generic MCP configuration</h3>
     <pre id="mcp-config" tabindex="0"></pre><button id="copy-config" class="quiet" type="button" disabled>Copy configuration</button>
     <p id="copy-status" class="message" role="status"></p>
@@ -33,17 +34,20 @@
     <pre id="claude-command" tabindex="0"></pre><button id="copy-claude" class="quiet" type="button" disabled>Copy Claude Code command</button>
     <p id="claude-status" class="message" role="status"></p>
     <p class="small"><code>--scope user</code> makes the server available across your local projects. Check it with <code>claude mcp get agentic-browser</code>, then use <code>/mcp</code> inside Claude Code to check the tools. <a href="https://code.claude.com/docs/en/mcp#option-1-add-a-remote-http-server" target="_blank" rel="noopener noreferrer">Claude Code documentation</a></p>
+    </details>
   </section>
   <section class="panel">
     <h2>Try it with your private GitHub repositories</h2>
     <p>Sign in to GitHub in the remote browser. Hand control back, and your Agent can count and list the private repositories owned by your account.</p>
     <div id="github-task" hidden>
       <p>After connecting, send this task to your Agent:</p>
-      <blockquote id="github-prompt">Use agentic-browser to open https://github.com/login and hand the browser to me so I can sign in. After calling browser_handoff, show the returned humanUrl in this conversation as both a clickable link and the full URL before waiting. Once I have signed in and handed control back, count all private repositories owned by my account and list their names, checking every page of results. Close the session when finished.</blockquote>
+      <blockquote id="github-prompt" tabindex="0">Open GitHub in Agentic Browser and send me a link to sign in. Wait until I hand control back, then count all the private repositories I own and list their names. Check every page and close the browser when finished.</blockquote>
+      <button id="copy-task" class="primary" type="button" disabled>Copy task</button>
+      <p id="task-status" class="message" role="status"></p>
       <p>Enter your username, password, and verification codes in the remote browser. You do not need to send them to your Agent in chat.</p>
     </div>
     <p>You can also choose another public website. Each session has a separate temporary browser, starts with 5 minutes, and lasts at most 10 minutes. Concurrency and request limits apply. Login profiles are not saved. Websites such as Google and X may require verification or refuse sign-in.</p>
-    <p class="hint">The deployment administrator can manage the environment. After handback, your Agent can read the page. Keep handoff links and session keys private. Use a self-hosted instance for everyday work.</p>
+    <p class="hint">The deployment administrator can manage the environment. After handback, your Agent can read the page. Keep your browser link private. Use a self-hosted instance for everyday work.</p>
     <p id="transport-warning" class="message">This HTTP connection does not encrypt the browser display or your input. The GitHub task is available over HTTPS. For now, use public pages and fictional data only.</p>
   </section>
   <section class="panel">

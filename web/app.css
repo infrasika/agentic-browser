@@ -498,7 +498,7 @@ footer {
 #account { margin-bottom: 24px; }
 #credential-secret { width: 100%; overflow-wrap: anywhere; }
 .dashboard pre { white-space: pre-wrap; overflow-wrap: anywhere; padding: 16px; background: #eef2e9; border-radius: 8px; }
-#prompt-preview summary { cursor: pointer; color: var(--green); }
+#prompt-preview summary, #manual-setup summary { cursor: pointer; color: var(--green); }
 
 .dashboard > .panel + .panel { margin-top: 24px; }
 .dashboard code { overflow-wrap: anywhere; }
