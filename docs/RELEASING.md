@@ -31,6 +31,8 @@ The Release contains:
 
 The allowlist excludes source code, private environment files, user profiles, logs, and credentials. Actions also retains validation artifacts. The source-preview archive is a different artifact for authorized source recipients.
 
+The public website also serves `agentic-browser-self-host.tar.gz` and `SHA256SUMS` at `/self-host/download/`. `npm run package:self-host` builds this configuration-only archive from the same deployment allowlist and the accepted `deploy/release.env`. The controller Docker build generates it automatically; `npm start` and `npm run dev` generate it for source deployments. Only the two named download routes are public. `SETUP.json` records the configuration hashes and both image pins. This setup archive may include newer instructions while retaining the last accepted image release; it never modifies historical release assets. Verify an anonymous download and a clean-directory installation whenever changing the kit or pins.
+
 New GHCR packages default to private. On first publication, set **only the two package visibilities** to Public and verify anonymous pulls for both images on both platforms. Keep the source repository private. For later releases, verify that visibility and anonymous access still work.
 
 The initial `RELEASE.json` has `publicPullVerified: false` because the publishing job has not independently verified unauthenticated downloads. Record later checks in a separate `PUBLIC-VERIFICATION.json`; do not overwrite the original manifest, archive, or checksums.

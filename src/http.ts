@@ -29,6 +29,8 @@ const assets = new Map([
   ["/public-demo.js", ["public-demo.js", "text/javascript; charset=utf-8"]],
   ["/public-browser.js", ["public-browser.js", "text/javascript; charset=utf-8"]],
   ["/self-host", ["self-host.html", "text/html; charset=utf-8"]],
+  ["/self-host/download/agentic-browser-self-host.tar.gz", ["self-host-downloads/agentic-browser-self-host.tar.gz", "application/gzip"]],
+  ["/self-host/download/SHA256SUMS", ["self-host-downloads/SHA256SUMS", "text/plain; charset=utf-8"]],
   ["/connect", ["connect.html", "text/html; charset=utf-8"]],
   ["/connect.js", ["connect.js", "text/javascript; charset=utf-8"]],
   ["/login", ["login.html", "text/html; charset=utf-8"]],

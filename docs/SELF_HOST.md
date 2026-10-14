@@ -11,19 +11,27 @@ The current pinned English release is `v0.1.0-preview.2`.
 - Linux amd64 or arm64. Apple Silicon Macs run the Linux arm64 images through Docker Desktop. Windows and rootless Docker are not currently validated.
 - Enough memory for your configured concurrency. Each browser has a 2 GiB memory and 2 CPU limit, plus its proxy and the controller. Start with one session and measure actual usage before raising the limit.
 
-Obtain `agentic-browser-deploy.tar.gz`, `RELEASE.json`, and `SHA256SUMS` from the deployment administrator or a GitHub account with access to the private repository's Releases. The two GHCR image packages are public and need no registry credentials; GitHub Release attachments are not public.
+Download the setup files directly from the [public self-hosting page](https://agentic-browser.zkpass.org/self-host). They contain Compose configuration, helper scripts, and documentation. Installation pulls the two public GHCR images; it needs no source checkout, image build, GitHub account, or registry login. The controller runs continuously and starts separate containers from the runtime image for each browser session.
+
+The source repository and historical GitHub Release attachments remain private. Administrators with repository access can still use the original release bundles; they are no longer required for a new installation.
 
 `deploy/release.env` pins the controller and runtime to immutable multi-platform digests. Docker selects the native architecture. Do not replace these digests with `latest` when reproducing a release. Linux amd64 and arm64 are tested natively in CI; a native arm64 release on Docker Desktop still needs its own Mac acceptance run.
 
 ## Install
 
+Start in a new directory. If you already extracted the public setup archive or an administrator-supplied release bundle, skip downloading and extracting it again and continue inside its `agentic-browser` directory.
+
 ```sh
+curl -fSLO https://agentic-browser.zkpass.org/self-host/download/agentic-browser-self-host.tar.gz
+curl -fSLO https://agentic-browser.zkpass.org/self-host/download/SHA256SUMS
 # Linux; on macOS use: shasum -a 256 -c SHA256SUMS
 sha256sum -c SHA256SUMS
-tar -xzf agentic-browser-deploy.tar.gz
+tar -xzf agentic-browser-self-host.tar.gz
 cd agentic-browser
 cp .env.compose.example .env.compose
 ```
+
+Stop if checksum verification fails; download both files again. `SETUP.json` in the public archive records its image references and file hashes. Keep this archive and its checksum for reproducible installation. The public setup files follow the currently accepted pins in `deploy/release.env`; they are separate from immutable historical GitHub release assets.
 
 Review `.env.compose` before starting:
 

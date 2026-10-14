@@ -38,13 +38,16 @@
   </section>
   <section class="panel">
     <h2>Try it with your private GitHub repositories</h2>
-    <p>Sign in to GitHub in the remote browser. Hand control back, and your Agent can count and list the private repositories owned by your account.</p>
+    <p>Once Agentic Browser is connected to your Agent, send it the task below. Your Agent will open GitHub and give you a link to sign in.</p>
     <div id="github-task" hidden>
-      <p>After connecting, send this task to your Agent:</p>
+      <p><strong>1. Send this task to your Agent.</strong></p>
       <blockquote id="github-prompt" tabindex="0">Open GitHub in Agentic Browser and send me a link to sign in. Wait until I hand control back, then count all the private repositories I own and list their names. Check every page and close the browser when finished.</blockquote>
       <button id="copy-task" class="primary" type="button" disabled>Copy task</button>
       <p id="task-status" class="message" role="status"></p>
-      <p>Enter your username, password, and verification codes in the remote browser. You do not need to send them to your Agent in chat.</p>
+      <p><strong>2. Open the link your Agent sends you.</strong> Click <strong>Connect and take control</strong> to enter your remote browser.</p>
+      <p><strong>3. Sign in to GitHub.</strong> Enter your username, password, and any verification codes in the remote browser.</p>
+      <p><strong>4. Click Hand back to Agent.</strong> Your Agent will continue, count and list your private repositories, and close the browser when finished.</p>
+      <p class="hint">Keep passwords and verification codes in the remote browser; do not send them in chat.</p>
     </div>
     <p>You can also choose another public website. Each session has a separate temporary browser, starts with 5 minutes, and lasts at most 10 minutes. Concurrency and request limits apply. Login profiles are not saved. Websites such as Google and X may require verification or refuse sign-in.</p>
     <p class="hint">The deployment administrator can manage the environment. After handback, your Agent can read the page. Keep your browser link private. Use a self-hosted instance for everyday work.</p>

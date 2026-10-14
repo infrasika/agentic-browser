@@ -13,8 +13,15 @@ COPY src/ ./src/
 COPY web/ ./web/
 COPY test/ ./test/
 COPY scripts/fetch-runtime-assets.py ./scripts/
+COPY scripts/package-self-host.py scripts/release-manifest.py scripts/compose.sh scripts/public-demo.sh scripts/release-compose.sh ./scripts/
+COPY compose.yaml compose.public.yaml .env.compose.example .env.public.example README.md ./
+COPY docs/ ./docs/
+COPY deploy/release.env deploy/nginx-public.conf ./deploy/
+COPY deploy/releases/ ./deploy/releases/
 COPY runtime/assets.lock.json runtime/chrome-seccomp.json ./runtime/
 COPY runtime/DISTRIBUTION-NOTICES.md runtime/PLAYWRIGHT-LICENSE ./runtime/
+COPY runtime/README.md ./runtime/
+RUN python3 scripts/package-self-host.py
 RUN mkdir /data && chown node:node /data && chmod 700 /data
 ARG AB_VERSION=development
 ARG AB_REVISION=unknown

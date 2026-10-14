@@ -8,7 +8,9 @@
   },
   "scripts": {
     "setup": "node scripts/setup.mjs",
+    "predev": "npm run package:self-host",
     "dev": "tsx watch src/main.ts",
+    "prestart": "npm run package:self-host",
     "start": "tsx src/main.ts",
     "mcp": "tsx src/mcp.ts",
     "check": "tsc --noEmit",
@@ -28,6 +30,7 @@
     "test:public-mcp": "tsx --test test/public-mcp.integration.ts",
     "doctor": "tsx src/doctor.ts",
     "package:preview": "python3 scripts/package-preview.py",
+    "package:self-host": "python3 scripts/package-self-host.py",
     "verify": "bash scripts/acceptance.sh"
   },
   "dependencies": {

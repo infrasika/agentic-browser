@@ -15,6 +15,24 @@ REPOS = {kind: f'ghcr.io/infrasika/agentic-browser-{kind}' for kind in ['control
 DIGEST = re.compile(r'sha256:[a-f0-9]{64}')
 
 
+def deployment_contents(root=ROOT):
+    """Public configuration and documentation only; never discover source or local state."""
+    files = ['compose.yaml', 'compose.public.yaml', '.env.compose.example', '.env.public.example',
+             'scripts/compose.sh', 'scripts/public-demo.sh', 'scripts/release-compose.sh',
+             'README.md', 'docs/SELF_HOST.md', 'docs/UBUNTU_PUBLIC_DEMO.md', 'docs/AGENT_CLIENT.md',
+             'docs/ARCHITECTURE.md', 'docs/RELEASING.md', 'docs/PLAN.md', 'docs/PROGRESS.md',
+             'runtime/README.md', 'deploy/nginx-public.conf', 'deploy/release.env',
+             'runtime/DISTRIBUTION-NOTICES.md', 'runtime/PLAYWRIGHT-LICENSE']
+    files += sorted(str(path.relative_to(root)) for path in (root / 'deploy/releases').glob('*-public-verification.json'))
+    contents = {}
+    for name in files:
+        path = root / name
+        if not path.is_file() or path.is_symlink() or any(parent.is_symlink() for parent in path.parents if parent.is_relative_to(root)):
+            raise SystemExit(f'Missing or unsafe deployment file: {name}')
+        contents[name] = path.read_bytes()
+    return contents
+
+
 def command(*args):
     return subprocess.check_output(args, text=True).strip()
 
@@ -72,14 +90,7 @@ def publish(version, directory):
                 'publicPullVerified': False}
     manifest_bytes = (json.dumps(manifest, indent=2) + '\n').encode()
     (output / 'RELEASE.json').write_bytes(manifest_bytes)
-    files = ['compose.yaml', 'compose.public.yaml', '.env.compose.example', '.env.public.example',
-             'scripts/compose.sh', 'scripts/public-demo.sh', 'scripts/release-compose.sh',
-             'README.md', 'docs/SELF_HOST.md', 'docs/UBUNTU_PUBLIC_DEMO.md', 'docs/AGENT_CLIENT.md',
-             'docs/ARCHITECTURE.md', 'docs/RELEASING.md', 'docs/PLAN.md', 'docs/PROGRESS.md',
-             'runtime/README.md', 'deploy/nginx-public.conf',
-             'runtime/DISTRIBUTION-NOTICES.md', 'runtime/PLAYWRIGHT-LICENSE']
-    files += sorted(str(path.relative_to(ROOT)) for path in (ROOT / 'deploy/releases').glob('*-public-verification.json'))
-    contents = {name: (ROOT / name).read_bytes() for name in files}
+    contents = deployment_contents()
     contents['deploy/release.env'] = ''.join(f'AB_{kind.upper()}_IMAGE={ref}\n' for kind, ref in images.items()).encode()
     contents['RELEASE.json'] = manifest_bytes
     archive = output / 'agentic-browser-deploy.tar.gz'

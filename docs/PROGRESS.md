@@ -15,7 +15,7 @@ The [first multi-platform preview](https://github.com/infrasika/agentic-browser/
 
 Both architectures passed type/unit/API checks, extension and Chrome sandbox checks, team/controller integration, and public MCP capacity/handoff tests. Both controller/runtime images were pulled anonymously for both platforms. A clean-directory installation of the deployment bundle passed on the existing Ubuntu amd64 host. The receipt is [v0.1.0-preview.1-public-verification.json](../deploy/releases/v0.1.0-preview.1-public-verification.json).
 
-The source repository is private. Both GHCR packages are public, and anonymous pulls were rechecked after restoring repository privacy. Public images do not make GitHub Release attachments public; an administrator supplies the deployment bundle.
+The source repository is private. Both GHCR packages are public, and anonymous pulls were rechecked after restoring repository privacy. At this release, an administrator supplied the deployment bundle because GitHub Release attachments remained private. The public setup download described below removes that prerequisite for new installations.
 
 ## English documentation and product update — 2026-10-14
 
@@ -40,6 +40,16 @@ Replaced the GitHub example with a plain-language task: open GitHub, send a sign
 JavaScript syntax and Playwright checks passed for task/setup copying, the Claude command, clipboard-denial fallback, and a 390-pixel mobile layout. The real HTTPS homepage and its Copy task button were verified after deployment.
 
 The official demo uses the locally built controller `agentic-browser:homepage-c1abc10d262f` for this frontend update. Its published runtime, five-browser capacity, and release `v0.1.0-preview.2` image pins are unchanged. A future image release will include this homepage update; running the pinned release deployment command restores the published controller version.
+
+## Public self-hosting download and demo steps — 2026-10-14
+
+The self-hosting page now offers a direct setup download and checksum. Users can pull the two accepted public images, configure `.env.compose`, start the controller, and create a member without a source checkout or GitHub access. The controller creates separate browsers from the runtime image on demand. The public archive shares the release deployment allowlist; it contains configuration, helpers, documentation, notices, image pins, and a file-hash manifest. Private environment files, source files, and browser state are excluded. Historical release assets and the `v0.1.0-preview.2` image pins are unchanged.
+
+The homepage now presents the GitHub task in the actual order: connect the Agent, send the task, open the Agent's link, sign in, and hand control back. The Agent then counts and lists the owned private repositories and closes the browser.
+
+Validation passed: TypeScript; all 52 unit/API tests; reproducible archive generation, fixed image pins, symlink rejection, and unauthenticated download routes; anonymous pulls of both pinned images; and a clean-directory Ubuntu amd64 install from the downloaded setup files. The installation passed scoped mounts, synthetic member isolation, native handoff/handback, saved profiles, restart/crash recovery, and cleanup. The test harness stayed outside the deployment directory; the installed service required only the downloaded configuration and public images. This was on the existing host, not an independent new server.
+
+Playwright verified task copying, the four-step order, the setup download button, and both pages at a 390-pixel width. Documentation links and English-only maintained content checks passed. Evidence is under `output/self-host-check/` and `output/playwright/`.
 
 ## Validation still required
 
