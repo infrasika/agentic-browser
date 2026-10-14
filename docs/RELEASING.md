@@ -2,14 +2,14 @@
 
 镜像仓库为 `ghcr.io/infrasika/agentic-browser-controller` 和 `ghcr.io/infrasika/agentic-browser-runtime`。代码仓库的可见性不随镜像发布改变。
 
-首个预览版为 [v0.1.0-preview.1](https://github.com/infrasika/agentic-browser/releases/tag/v0.1.0-preview.1)，[双架构 Actions 验收与发布](https://github.com/infrasika/agentic-browser/actions/runs/38508756846) 已通过，来源提交 `737c2f1793c66733faf9f39fc6053022e2e9ca4e`。当前默认摘要记录在 `deploy/release.env`；是否已完成匿名下载验收以 [进度](PROGRESS.md) 为准。
+首个预览版为 [v0.1.0-preview.1](https://github.com/infrasika/agentic-browser/releases/tag/v0.1.0-preview.1)，[双架构 Actions 验收与发布](https://github.com/infrasika/agentic-browser/actions/runs/38508756846) 已通过，来源提交 `737c2f1793c66733faf9f39fc6053022e2e9ca4e`。两个 GHCR 包已公开，两个镜像、两个架构的匿名拉取和独立目录部署复验均通过。当前默认摘要记录在 `deploy/release.env`，后续公开验证记录见 `deploy/releases/v0.1.0-preview.1-public-verification.json` 和 Release 的 `PUBLIC-VERIFICATION.json`。
 
 ## 触发发布
 
-先将审核完成的代码推送到 `main`。在 GitHub 仓库的 **Actions → Publish verified browser images → Run workflow** 中选择 `main`，填写从未使用过的版本号，例如 `v0.1.0-preview.1`。也可以使用已授权的 GitHub CLI：
+先将审核完成的代码推送到 `main`。在 GitHub 仓库的 **Actions → Publish verified browser images → Run workflow** 中选择 `main`，填写从未使用过的版本号，例如 `v0.1.0-preview.2`。也可以使用已授权的 GitHub CLI：
 
 ```sh
-gh workflow run publish-images.yml --ref main -f version=v0.1.0-preview.1
+gh workflow run publish-images.yml --ref main -f version=v0.1.0-preview.2
 ```
 
 无需在 Ubuntu 主机执行 `docker login`，也不需要配置个人 GHCR token secret。工作流使用限于当前作业的 `GITHUB_TOKEN` 和 `packages: write` 权限；创建 Release 的作业另有 `contents: write`。GitHub 账户需允许 Actions 和原生 ARM runner 运行，私有仓库适用其 Actions 配额及计费规则。

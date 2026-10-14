@@ -2,7 +2,7 @@
 
 更新日期：2026-10-14，北京时间。当前为自部署预览版，Ubuntu 公共 MCP 已通过 Cloudflare 域名 HTTPS 入口验证；用户已明确将 Cloudflare 到源站的 TLS 配置暂缓，不作为当前功能体验的阻塞项。公共演示见 [Ubuntu 部署指南](UBUNTU_PUBLIC_DEMO.md)，真实使用见 [自部署指南](SELF_HOST.md)，总体路线见 [计划](PLAN.md)。
 
-## 最新追加：GHCR 双架构发行准备
+## 最新追加：GHCR 双架构公开发行已验收
 
 2026-10-14，用户确认 Codex 和 Claude 命令行体验均通过，选择 `ghcr.io/infrasika/agentic-browser-*` 发布公共镜像，并要求覆盖 x86、M 系列 Mac 与 ARM 服务器。发行改由 GitHub Actions 使用 `GITHUB_TOKEN`，无需服务器保存个人镜像仓库令牌。源代码仓库保持现有可见性。
 
@@ -18,7 +18,11 @@
 
 已通过临时 registry 凭据拉取两个 amd64 索引引用，随后立即删除临时 Docker 登录配置。从实际部署包的独立解压目录、使用发布 digest 再跑团队 Compose 验收，通过成员隔离、原生接管、保存配置、重启与崩溃恢复（约 39 秒）。测试项目/卷已清理；证据为 `output/releases/v0.1.0-preview.1/clean-install-controller.log`。本机没有构建或替换这些已发布镜像，线上公共控制器继续运行原版本。
 
-剩余公开步骤：GHCR 两个新包目前仍为 private，已请用户在两个包的设置页面完成首次 Public 切换。无凭据客户端访问两包的 registry token 端点均返回 HTTP 401，因此匿名拉取尚未通过，不能把“推送成功”记录为公共发布验收完成。切换后应再对两个镜像、两个平台执行匿名拉取并追加记录。Release 附件中的 `publicPullVerified: false` 是发布时事实，不覆盖附件及其校验和。
+2026-10-14，用户完成两个 GHCR 包的 Public 切换后，公开发行验收通过：无账号 HTTP 客户端取得两个镜像索引，原始内容的 SHA256 与发行 digest 一致，均包含 `linux/amd64` 和 `linux/arm64`。随后使用空 Docker 凭据目录完成 controller/runtime × amd64/arm64 四种组合的匿名拉取，全部成功。
+
+再从新的临时目录解压实际 Release 部署包，先校验原附件 SHA256，再通过包内 `release-compose.sh pull` 匿名拉取本机镜像，并完成团队 Compose 流程复验（约 40 秒）：成员隔离、原生接管、保存配置、重启和崩溃恢复均通过；独立测试项目、卷和目录已清理。此轮为同一 Ubuntu 主机上的干净目录安装，不标记为另一台全新主机验收。
+
+公开验收记录见 [固定版本记录](../deploy/releases/v0.1.0-preview.1-public-verification.json)，同时追加到 Release 的 `PUBLIC-VERIFICATION.json` 附件。证据日志在 `output/releases/v0.1.0-preview.1/pull-anonymous-*.log`、`install-anonymous-pull.log`、`public-clean-install-controller.log`。原 `RELEASE.json` 的 `publicPullVerified: false` 保留发布时事实；后续成功结果由新附件记录，不覆盖原部署包、清单或校验和。当前镜像无需 GHCR 登录即可拉取；私有源码仓库及其 Release 附件仍需仓库权限或管理员分发。
 
 新原生 ARM 镜像的 Mac Docker Desktop 验收仍需单独记录。可复现保证是拉取同一镜像 digest；apt 源和上游历史文件可用性尚不保证逐字节源码重建。
 

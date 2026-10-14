@@ -2,6 +2,8 @@
 
 ## 使用固定的发行镜像
 
+当前预览版为 `v0.1.0-preview.1`，两个 GHCR 镜像均已公开，amd64/arm64 匿名拉取验收通过；安装时无需执行 `docker login`。版本摘要见 `deploy/release.env`，验收记录见 [进度](PROGRESS.md)。
+
 发行版通过 GitHub Actions 在原生 `linux/amd64` 和 `linux/arm64` runner 上分别构建控制器、Chrome/zkPass 运行镜像。两个平台均完成扩展、Chrome 沙箱、团队隔离、人工接管和公共容量验收后，才合并发布版本标签。Ubuntu x86_64 使用 amd64，Ubuntu ARM64 和 M 系列 Mac 的 Docker Desktop 使用 Linux arm64；不包含 32 位 ARM。
 
 从发行页或管理员取得 `agentic-browser-deploy.tar.gz`、`SHA256SUMS`、`RELEASE.json`。发行清单记录源代码提交、两个多架构镜像 digest、Chrome/扩展锁定版本。仓库可保持私有，管理员可单独分发部署包，GHCR 镜像须公开并通过匿名拉取验证才算对外可用。

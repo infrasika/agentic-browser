@@ -1,0 +1,47 @@
+{
+  "version": "v0.1.0-preview.1",
+  "revision": "737c2f1793c66733faf9f39fc6053022e2e9ca4e",
+  "publicPullVerified": true,
+  "verificationStartedAt": "2026-10-14T04:13:33.449166+00:00",
+  "images": {
+    "controller": {
+      "reference": "ghcr.io/infrasika/agentic-browser-controller@sha256:deb472408efa8511e8628fed50225da225859e8d83c3c91a0f7a5ed8b1f9a170",
+      "platforms": [
+        "linux/amd64",
+        "linux/arm64"
+      ],
+      "anonymousManifestVerified": true,
+      "anonymousPulls": {
+        "linux/arm64": true,
+        "linux/amd64": true
+      }
+    },
+    "runtime": {
+      "reference": "ghcr.io/infrasika/agentic-browser-runtime@sha256:856e292cb46ea2aac54db39148cda9611aeb970d74db980f3d3b791215f37d54",
+      "platforms": [
+        "linux/amd64",
+        "linux/arm64"
+      ],
+      "anonymousManifestVerified": true,
+      "anonymousPulls": {
+        "linux/arm64": true,
+        "linux/amd64": true
+      }
+    }
+  },
+  "verifiedAt": "2026-10-14T04:14:33.256404+00:00",
+  "deploymentVerification": {
+    "platform": "linux/amd64",
+    "anonymousInstallerPull": true,
+    "isolatedBundleComposeTest": true,
+    "checks": [
+      "member isolation",
+      "human handoff",
+      "saved profile",
+      "restart",
+      "crash recovery",
+      "resource cleanup"
+    ],
+    "verifiedAt": "2026-10-14T04:16:25.823606+00:00"
+  }
+}
