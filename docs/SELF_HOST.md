@@ -22,7 +22,7 @@ bash scripts/release-compose.sh exec controller node --import tsx src/members-cl
 
 `deploy/release.env` 的两个镜像引用均为 `ghcr.io/infrasika/agentic-browser-*@sha256:...`。脚本拒绝仅有可变标签的发行配置，先拉取控制器和运行镜像，再沿用现有 Compose 私有数据卷与隔离配置。只给控制器挂载 Docker socket；浏览器和代理没有此权限。`.env.compose` 可设置项目名、端口和并发数，不能覆盖发行文件锁定的镜像；测试其他发行文件可设置 `AB_RELEASE_FILE=/绝对路径/release.env`。
 
-源码 checkout 在尚未取得发行文件时不包含虚构 digest，脚本会明确报缺少 `deploy/release.env`。可从该版本部署包复制此文件。管理员如需公共演示，先复制 `.env.public.example` 为 `.env.public`，再使用 `AB_COMPOSE_VARIANT=public bash scripts/release-compose.sh up -d --wait`；真实团队使用保持默认 team 模式。
+当前源码的 `deploy/release.env` 固定到已发布的 `v0.1.0-preview.1`。较早源码版本缺少此文件时，脚本会明确报错，可从所需版本部署包复制；不使用虚构 digest。管理员如需公共演示，先复制 `.env.public.example` 为 `.env.public`，再使用 `AB_COMPOSE_VARIANT=public bash scripts/release-compose.sh up -d --wait`；真实团队使用保持默认 team 模式。
 
 升级时保留旧部署包及其 digest 配置，先结束活动会话、停止控制器，再在同一项目名和私有卷上启动新版本。不要执行 `down --volumes` 作为普通升级步骤。旧镜像可按旧 digest 恢复，但 Chrome Profile 的跨版本降级仍需验证或恢复升级前备份。
 

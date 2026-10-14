@@ -12,7 +12,15 @@
 
 首次 [Actions 运行](https://github.com/infrasika/agentic-browser/actions/runs/38508385940) 中，两个原生架构均完成镜像构建，但扩展截图因 runner UID 与容器 UID 不同而写入失败，发布被正确阻止。测试脚本改用专属临时截图目录，退出时复制证据并清理，不修改源码或实际 Profile 权限；随后重跑完整双架构验收。维护者流程见 [发布指南](RELEASING.md)。
 
-此记录时尚未发布：GitHub Actions 双架构全程通过、GHCR 公开可见性、匿名拉取、干净部署包验收均待执行；不能将本机 amd64 结果当作 ARM64 或 Mac 实机结果。新原生 ARM 镜像的 Mac Docker Desktop 验收仍需单独记录。可复现保证是拉取同一镜像 digest；apt 源和上游历史文件可用性尚不保证逐字节源码重建。
+修复后的 [Actions 运行](https://github.com/infrasika/agentic-browser/actions/runs/38508756846) 全部通过，已发布 [v0.1.0-preview.1](https://github.com/infrasika/agentic-browser/releases/tag/v0.1.0-preview.1)，来源提交 `737c2f1793c66733faf9f39fc6053022e2e9ca4e`。两个架构各通过 51 项单元/API、2 项扩展实际测试、团队 Compose 和公共五浏览器验收，Chrome Namespace / Seccomp-BPF / TSYNC 均启用。日志保存在 `output/runtime/actions-{amd64,arm64}-verified.log`。
+
+镜像索引摘要已写入 `deploy/release.env`：controller 为 `sha256:deb472408efa8511e8628fed50225da225859e8d83c3c91a0f7a5ed8b1f9a170`，runtime 为 `sha256:856e292cb46ea2aac54db39148cda9611aeb970d74db980f3d3b791215f37d54`。实际 Release 的部署包、清单和校验和已下载并校验成功；源码仓库仍为 private。
+
+已通过临时 registry 凭据拉取两个 amd64 索引引用，随后立即删除临时 Docker 登录配置。从实际部署包的独立解压目录、使用发布 digest 再跑团队 Compose 验收，通过成员隔离、原生接管、保存配置、重启与崩溃恢复（约 39 秒）。测试项目/卷已清理；证据为 `output/releases/v0.1.0-preview.1/clean-install-controller.log`。本机没有构建或替换这些已发布镜像，线上公共控制器继续运行原版本。
+
+剩余公开步骤：GHCR 两个新包目前仍为 private，已请用户在两个包的设置页面完成首次 Public 切换。无凭据客户端访问两包的 registry token 端点均返回 HTTP 401，因此匿名拉取尚未通过，不能把“推送成功”记录为公共发布验收完成。切换后应再对两个镜像、两个平台执行匿名拉取并追加记录。Release 附件中的 `publicPullVerified: false` 是发布时事实，不覆盖附件及其校验和。
+
+新原生 ARM 镜像的 Mac Docker Desktop 验收仍需单独记录。可复现保证是拉取同一镜像 digest；apt 源和上游历史文件可用性尚不保证逐字节源码重建。
 
 ## 前一批：5 个并发浏览器、容量展示与满额提示
 

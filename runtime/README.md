@@ -1,6 +1,6 @@
 # 预装扩展运行镜像原型
 
-已在 Ubuntu / Docker、linux/amd64 验证。镜像包含 Chrome、远程桌面依赖和两个未修改的官方 CRX 包；不包含网站登录数据。每个新 Profile 从镜像本地安装扩展，安装不需要连接商店。
+已在 Ubuntu / Docker 原生 linux/amd64 和 linux/arm64 验证，发行版为 `v0.1.0-preview.1`。镜像包含 Chrome、远程桌面依赖和两个未修改的官方 CRX 包；不包含网站登录数据。每个新 Profile 从镜像本地安装扩展，安装不需要连接商店。Mac Docker Desktop 上的新原生 ARM 镜像仍须单独实机验收。
 
 ```sh
 npm run runtime:build
