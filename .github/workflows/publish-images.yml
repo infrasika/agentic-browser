@@ -66,6 +66,9 @@ jobs:
           AGENTIC_TEST_IMAGE="$AB_RUNTIME_IMAGE" npm run test:extensions
           npm run test:controller
           npm run test:public-mcp
+      - name: Verify repeated capacity and failure recovery
+        timeout-minutes: 15
+        run: npm run test:reliability
       - name: Sign in to GHCR
         uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
         with:
@@ -90,6 +93,7 @@ jobs:
           path: |
             output/runtime/*.log
             output/runtime/screenshots/
+            output/reliability/**/report.json
           retention-days: 14
   publish:
     needs: build

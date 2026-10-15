@@ -19,6 +19,18 @@ The workflow uses a job-scoped `GITHUB_TOKEN` with `packages: write`; the Releas
 
 Native `ubuntu-24.04` and `ubuntu-24.04-arm` runners each build and test controller/runtime images. Checks include TypeScript, unit/API tests, locked browser/extension assets, Chrome sandbox, extension behavior, team isolation/recovery, public five-browser capacity, and human handoff. Both architectures must pass before their recorded digests are combined into versioned multi-platform indexes.
 
+The reliability gate also runs repeated five-browser cycles, simultaneous excess requests, cross-session access checks, Agent reconnects, a real five-minute expiry, browser/controller termination, and five-member token revocation. It uses a separate loopback deployment, synthetic identities, and a disposable volume; it does not load the server's `.env`. Cleanup targets only the test project's containers and volume. Browser termination must release its slot without another Agent request, and a failed cleanup must retain its reservation until retry succeeds (covered by unit tests).
+
+To run the same check locally, build the candidate images first, then select them explicitly:
+
+```sh
+AB_CONTROLLER_IMAGE=agentic-browser:controller-preview \
+AB_RUNTIME_IMAGE=agentic-browser:zkpass-prototype \
+npm run test:reliability
+```
+
+The default is three capacity cycles with 15 seconds of repeated observations per cycle, followed by expiry and failure checks. For a longer run, add `AB_RELIABILITY_ROUNDS=20 AB_RELIABILITY_HOLD_SECONDS=60` before `npm`. Reports under `output/reliability/<run>/report.json` record source hashes, image IDs, host/Docker versions, sampled container resources, recovery times, and final cleanup. These bounded synthetic runs do not replace extended real-workload testing, fresh-host acceptance, or a physical Mac test. The release workflow retains the reports with its validation artifacts.
+
 Intermediate tags include the full source commit and architecture. Published versions are immutable: the script rejects an existing version and does not interpret an authentication/network failure as proof that a tag is available. Use a new version after a partially published run.
 
 ## Bundle contents and public verification

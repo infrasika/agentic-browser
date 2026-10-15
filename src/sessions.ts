@@ -297,7 +297,13 @@ export class SessionRegistry {
         this.failedAllocations.delete(allocation);
       }),
       ...[...this.sessions.values()]
-        .filter((session) => session.expiresAt <= this.now() || session.info().control === 'closed')
+        .filter((session) => {
+          const info = session.info();
+          // A stopped runtime must release its slot even if its Agent has
+          // disconnected. Keep the reservation until close confirms cleanup.
+          return session.expiresAt <= this.now() || info.control === 'closed'
+            || info.runtime?.state === 'cleanup_pending' || info.runtime?.state === 'closed';
+        })
         .map((session) => this.removeAny(session.id)),
     ]);
   }

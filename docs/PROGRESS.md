@@ -96,12 +96,24 @@ All 58 unit/API tests and TypeScript passed. Tests cover concurrent bootstrap, r
 
 The official demo now runs `agentic-browser:unified-setup-5528a8761d09` from one `.env` and the base `compose.yaml`. Previous settings were privately backed up. Migration ran with zero active sessions and preserved the domain, port 8080, data volume, five-browser total limit, and two-per-IP limit. Live HTTPS guide/installer bytes matched the accepted files. Public MCP passed create, snapshot, complete handoff-link output, and close; capacity returned to 0 / 5. The receipt is also attached to the private GitHub Release as `PUBLIC-VERIFICATION.json`. Existing Mac installations must upgrade their image/configuration together; their existing member accounts are preserved.
 
+## Runtime failure recovery and repeatable reliability gate — 2026-10-15 (unreleased)
+
+Fixed a capacity leak after an idle browser runtime stops unexpectedly. Docker could remove the runtime while its registry entry continued occupying a slot until an Agent request or session expiry. The periodic session reaper now detects stopped runtime states and closes those sessions proactively, releasing capacity only after cleanup is confirmed. Two regressions reproduced the failure before the fix; they also check that healthy sessions survive and cleanup failures retain their reservation until retry succeeds.
+
+Added `npm run test:reliability`, a separate loopback-only Docker fixture with synthetic accounts, its own named volume, and label-scoped cleanup. It ignores the deployment's `.env`, inherits only explicit candidate image references, and records source hashes, image IDs, host/Docker versions, resource samples, checkpoints, and final cleanup. Local acceptance and the native amd64/arm64 release workflow now include this gate; future release artifacts will retain its reports.
+
+Local Ubuntu amd64 acceptance passed: TypeScript, all **60 unit/API tests**, the existing controller integration (native human handoff, saved profiles, recreation and crash recovery), and a **588-second reliability run**. That run completed five rounds of five simultaneous browsers, rejected each excess allocation, verified separate synthetic page state and cross-session denials, reconnected Agent transports, and exercised handoff/handback through the HTTP protocol. A deliberately killed browser released its slot without an Agent request in **4.2 seconds**. A disconnected browser expired after the actual five-minute lease, with capacity and containers reclaimed about **3.0 seconds** later. Controller SIGKILL recovery invalidated old capabilities and removed orphan containers. Five authenticated members then passed ownership, wait cancellation, reconnect, token revocation, owner cleanup, and graceful shutdown checks. All disposable containers and volumes were removed.
+
+The first run passed the public scenarios but stopped when five fixture logins exceeded the existing four-concurrent-password-check limit. The fixture now logs in sequentially and still creates all five browsers concurrently; the service's login guard was preserved. The complete rerun passed.
+
+Evidence: `output/reliability/2026-10-15T10-37-46-957Z-ea38c1a6-c19f-49dc-97f4-242569ce47ee/report.json`, `output/reliability/unit-tests.log`, and `output/reliability/controller-regression.log`. The tested local controller is `agentic-browser:reliability-20261015`, using the accepted preview.3 runtime image. The report identifies base commit `552967e` and the exact changed source hashes. The public demo and published image pins remain unchanged; this fix is not yet in a GHCR release. This bounded synthetic run is not a multi-hour soak, physical Mac test, or fresh-host deployment.
+
 ## Validation still required
 
 - The user previously verified Mac deployment, but the newly published native arm64 image still needs its own physical Mac acceptance run. Linux ARM CI is not a substitute.
 - The clean-directory Ubuntu test was on the existing server; deployment on an independent fresh host remains outstanding.
 - A real TransGate proof and external-node interaction remain separate from the passing synthetic Schema Validator fixture.
-- Cross-version Chrome/profile/extension upgrade and rollback, and longer-duration multi-user load/recovery tests, are still outstanding.
+- Cross-version Chrome/profile/extension upgrade and rollback, multi-hour multi-user operation, and representative website workloads are still outstanding. The new recovery fix has passed local amd64 checks; its native arm64 release gate has not yet run.
 - Google and X can require verification or reject remote-browser sign-in. Successful synthetic tests and GitHub handoff do not establish universal login compatibility.
 
 See [Roadmap](PLAN.md) for the next milestones and [Releasing](RELEASING.md) for the evidence required by each release.

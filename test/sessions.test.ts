@@ -177,6 +177,46 @@ test("expiry is enforced before the cleanup timer and contexts are reclaimed", a
   assert.deepEqual(registry.list(), []);
 });
 
+test('stopped runtimes release capacity without another Agent request or session expiry', async () => {
+  for (const stoppedState of ['cleanup_pending', 'closed'] as const) {
+    const stopped = { ...fakeWorkspace(), runtime: { id: 'stopped', state: 'ready' as 'ready' | typeof stoppedState } };
+    const healthy = { ...fakeWorkspace(), runtime: { id: 'healthy', state: 'ready' as const } };
+    let launches = 0;
+    const registry = new SessionRegistry({
+      async create() { return launches++ === 0 ? stopped : healthy; }, async close() {},
+    }, { ttlMs: 60000, maxSessions: 2 }, () => 0);
+    await registry.create('Stopped', undefined, 'alice');
+    const survivor = await registry.create('Healthy', undefined, 'bob');
+    stopped.runtime.state = stoppedState;
+    // No get(), status poll, or page action may be needed to reclaim the slot.
+    await registry.reap();
+    assert.equal(registry.capacity().currentSessions, 1, stoppedState);
+    assert.equal(stopped.closed, true);
+    assert.equal(healthy.closed, false);
+    assert.equal(registry.get(survivor.id, 'bob'), survivor);
+    await registry.close();
+  }
+});
+
+test('runtime failure keeps its slot reserved until cleanup retry succeeds', async () => {
+  let attempts = 0;
+  const workspace = { ...fakeWorkspace(), runtime: { id: 'stopped', state: 'ready' as 'ready' | 'cleanup_pending' },
+    async close() { if (++attempts === 1) throw new Error('temporary cleanup failure'); this.closed = true; } };
+  const registry = new SessionRegistry({ async create() { return workspace; }, async close() {} },
+    { ttlMs: 60000, maxSessions: 1, maxSessionsPerOwner: 1 }, () => 0);
+  await registry.create('Stopped', undefined, 'alice');
+  workspace.runtime.state = 'cleanup_pending';
+  await registry.reap();
+  assert.equal(attempts, 1, 'The reaper must detect the failed runtime without an Agent request');
+  assert.equal(registry.capacity().currentSessions, 1);
+  await assert.rejects(registry.create('Too early', undefined, 'alice'), { code: 'session_limit' });
+  await registry.reap();
+  assert.equal(attempts, 2);
+  assert.equal(registry.capacity().currentSessions, 0);
+  assert.equal(workspace.closed, true);
+  await registry.close();
+});
+
 test("capacity accounts for browser launches still in progress", async () => {
   const pending = deferred<ReturnType<typeof fakeWorkspace>>();
   const registry = new SessionRegistry(

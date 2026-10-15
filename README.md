@@ -75,6 +75,6 @@ cp .env.example .env
 bash scripts/compose.sh up -d --wait
 ```
 
-For the full acceptance suite, install host test dependencies with `npm run browser:install` and `npm run desktop:install`, then run `npm run verify`. Tests use synthetic accounts and isolated data. Generated logs and screenshots belong in `output/`, not in the documentation.
+For the full acceptance suite, install host test dependencies with `npm run browser:install` and `npm run desktop:install`, then run `npm run verify`. Tests use synthetic accounts and isolated data. `npm run test:reliability` runs the repeated five-browser capacity and failure-recovery checks separately; see [Releasing](docs/RELEASING.md) for candidate image selection and longer runs. Generated logs, reports, and screenshots belong in `output/`, not in the documentation.
 
 Chrome and the two zkPass extensions are locked in `runtime/assets.lock.json`. Images contain no personal login profile. Consult [third-party notices](runtime/DISTRIBUTION-NOTICES.md) for attribution and dependency licenses. This preview does not guarantee sign-in to every website or completion of a live zkPass proof.
