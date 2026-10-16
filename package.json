@@ -29,6 +29,7 @@
     "test:demo": "tsx --test test/public-demo.integration.ts",
     "test:public-mcp": "tsx --test test/public-mcp.integration.ts",
     "test:reliability": "tsx --test test/reliability.integration.ts",
+    "test:soak": "node scripts/soak.mjs",
     "test:self-host": "tsx --test test/self-host.integration.ts",
     "test:upgrade": "tsx --test test/upgrade.integration.ts",
     "doctor": "tsx src/doctor.ts",

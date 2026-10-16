@@ -20,17 +20,24 @@ function setting(name: string, fallback: number, min: number, max: number) {
 }
 const rounds = setting('AB_RELIABILITY_ROUNDS', 3, 1, 30);
 const holdSeconds = setting('AB_RELIABILITY_HOLD_SECONDS', 15, 0, 120);
+const soakMinutes = setting('AB_RELIABILITY_SOAK_MINUTES', 0, 0, 120);
+const modeTargetMs = soakMinutes * 60000 / 2;
+if (soakMinutes) assert.ok(holdSeconds > 0, 'A soak run needs a non-zero hold interval');
 type Access = { sessionId: string; sessionKey?: string };
+type Fixture = { client: Client; access: Access; marker: string };
 
 test('Docker reliability: repeated capacity, isolation, expiry, revocation and interrupted containers', {
-  timeout: (rounds * (holdSeconds + 120) + 660) * 1000,
+  timeout: (rounds * (holdSeconds + 120) + 660 + soakMinutes * 120) * 1000,
 }, async t => {
   const started = Date.now();
   const runId = randomUUID();
   const evidence = join('output', 'reliability', `${new Date().toISOString().replace(/[:.]/g, '-')}-${runId}`);
   await mkdir(evidence, { recursive: true });
-  const report: Record<string, any> = { startedAt: new Date(started).toISOString(), rounds, holdSeconds,
-    host: { platform: platform(), arch: arch(), release: release() }, passed: false, checks: [], samples: [] };
+  const report: Record<string, any> = { startedAt: new Date(started).toISOString(), rounds, holdSeconds, soakMinutes,
+    host: { platform: platform(), arch: arch(), release: release() }, passed: false, checks: [], samples: [],
+    activeMs: { public: 0, authenticated: 0 }, cycles: { public: 0, authenticated: 0 },
+    workload: 'Synthetic local forms, session storage, navigation, reload and task completion; no third-party account compatibility claim',
+    toolCalls: {}, workloadPasses: 0 };
   async function record(name: string, details: Record<string, unknown> = {}) {
     report.checks.push({ name, elapsedMs: Date.now() - started, ...details });
     await writeFile(join(evidence, 'report.json'), JSON.stringify(report, null, 2) + '\n');
@@ -46,7 +53,7 @@ test('Docker reliability: repeated capacity, isolation, expiry, revocation and i
   const base = `http://127.0.0.1:${port}`;
   // Deliberately exclude deployment settings and credentials from the shell or
   // local .env. Only explicit candidate image references are inherited.
-  const env: NodeJS.ProcessEnv = Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith('AB_')));
+  const env: NodeJS.ProcessEnv = Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith('AB_') && !key.startsWith('COMPOSE_')));
   Object.assign(env, { AB_PROJECT_NAME: project, AB_PORT: String(port), AB_PUBLIC_URL: base,
     AB_BIND_ADDRESS: '127.0.0.1', AB_MODE: 'public', AB_MAX_SESSIONS: '5', AB_MAX_SESSIONS_PER_IP: '1',
     AB_MAX_SESSIONS_PER_MEMBER: '1', AB_TRUST_PROXY: 'true', AB_COMPOSE_ENV_FILE: configFile,
@@ -80,10 +87,14 @@ test('Docker reliability: repeated capacity, isolation, expiry, revocation and i
   }
   async function disconnect(client: Client) { await client.close(); clients.delete(client); }
   async function call(client: Client, name: string, args: Record<string, unknown> = {}) {
+    const begin = Date.now();
     const response = await client.callTool({ name, arguments: args });
+    const metric = report.toolCalls[name] ??= { count: 0, totalMs: 0, maxMs: 0 };
+    const elapsed = Date.now() - begin; metric.count++; metric.totalMs += elapsed; metric.maxMs = Math.max(metric.maxMs, elapsed);
     assert.ok(Array.isArray(response.content));
     const first = response.content[0]; assert.equal(first.type, 'text');
-    return JSON.parse(first.text as string);
+    try { return JSON.parse(first.text as string); }
+    catch { throw new Error(`Invalid JSON from ${name}: ${String(first.text).slice(0, 300)}`); }
   }
   const action = (client: Client, access: Access, action: object) => call(client, 'browser_action', { ...access, action });
   async function create(client: Client, purpose: string) {
@@ -96,6 +107,52 @@ test('Docker reliability: repeated capacity, isolation, expiry, revocation and i
     const rows = (await docker('stats', '--no-stream', '--format', '{{json .}}', ...ids)).split('\n').filter(Boolean).map(line => JSON.parse(line));
     report.samples.push({ stage, elapsedMs: Date.now() - started,
       containers: rows.map(row => ({ name: row.Name, cpu: row.CPUPerc, memory: row.MemUsage, pids: row.PIDs })) });
+    if (soakMinutes) {
+      const states = JSON.parse(await docker('inspect', ...ids));
+      assert.ok(states.every((item: any) => item.State.Running && !item.State.OOMKilled), 'Sampled containers must be alive without OOM termination');
+      report.samples.at(-1).dataKiB = Number((await docker('exec', controller, 'du', '-sk', '/data')).split(/\s+/)[0]);
+    }
+  }
+  async function signIn(fixture: Fixture) {
+    const { client, access, marker } = fixture;
+    const before = await action(client, access, { type: 'snapshot' });
+    assert.ok(!before.result.text.includes('Signed in:'), 'A new temporary browser must not inherit prior website state');
+    for (const step of [
+      { type: 'fill', selector: '#username', text: marker },
+      { type: 'fill', selector: '#password', text: 'synthetic-only-password' },
+      { type: 'press', key: 'Enter' },
+    ]) assert.ok(!(await action(client, access, step)).error);
+    assert.ok((await action(client, access, { type: 'snapshot' })).result.text.includes(`Signed in: ${marker}`));
+  }
+  async function workload(fixture: Fixture, iteration: number) {
+    const { client, access, marker } = fixture;
+    const steps = iteration % 2 === 0
+      ? [{ type: 'navigate', url: 'https://agentic-browser.invalid/demo' }]
+      : [{ type: 'reload' }];
+    for (const step of [...steps, { type: 'click', selector: '#continue' }])
+      assert.ok(!(await action(client, access, step)).error, `Workload action failed: ${step.type}`);
+    const snapshot = await action(client, access, { type: 'snapshot' });
+    assert.ok(snapshot.result.text.includes(`Signed in: ${marker}`), 'State must remain with the same browser across navigation');
+    assert.ok(snapshot.result.text.includes('Task complete:'), 'The page must respond to task actions');
+    report.workloadPasses++;
+  }
+  async function hold(fixtures: Fixture[], mode: 'public' | 'authenticated', durationMs: number) {
+    const begin = Date.now(), until = begin + durationMs;
+    let iteration = 0, nextSample = begin + 30000;
+    do {
+      await Promise.all(fixtures.map(async fixture => {
+        if (soakMinutes) await workload(fixture, iteration);
+        else assert.ok((await action(fixture.client, fixture.access, { type: 'snapshot' })).result.text.includes(`Signed in: ${fixture.marker}`));
+      }));
+      if (Date.now() >= nextSample) {
+        await sample(`${mode} active`); nextSample = Date.now() + 30000;
+        console.log(`[reliability] ${mode} active: ${Math.round((report.activeMs[mode] + Date.now() - begin) / 1000)} seconds`);
+      }
+      iteration++;
+      await delay(Math.min(5000, Math.max(0, until - Date.now())));
+    } while (Date.now() < until);
+    // Count only intervals with all five allocated browsers successfully exercised.
+    report.activeMs[mode] += Date.now() - begin;
   }
   async function start() {
     await compose('up', '-d', '--force-recreate', '--wait', '--wait-timeout', '90');
@@ -134,7 +191,7 @@ test('Docker reliability: repeated capacity, isolation, expiry, revocation and i
   });
 
   report.sourceBase = (await exec('git', ['rev-parse', 'HEAD'])).stdout.trim();
-  report.sourceHashes = Object.fromEntries(await Promise.all(['src/sessions.ts', 'test/reliability.integration.ts'].map(async path =>
+  report.sourceHashes = Object.fromEntries(await Promise.all(['src/sessions.ts', 'test/reliability.integration.ts', 'scripts/soak.mjs', 'compose.yaml', 'deploy/release.env'].map(async path =>
     [path, createHash('sha256').update(await readFile(path)).digest('hex')])));
   report.dockerVersion = JSON.parse(await docker('version', '--format', '{{json .Server}}')).Version;
   report.composeVersion = await docker('compose', 'version', '--short');
@@ -142,10 +199,11 @@ test('Docker reliability: repeated capacity, isolation, expiry, revocation and i
   for (const [key, image] of [['controller', env.AB_CONTROLLER_IMAGE!], ['runtime', env.AB_RUNTIME_IMAGE!]]) {
     const data = JSON.parse(await docker('image', 'inspect', image))[0];
     report.images[key] = { reference: image, id: data.Id, platform: `${data.Os}/${data.Architecture}` };
+    if (soakMinutes) assert.equal(data.Architecture, arch() === 'arm64' ? 'arm64' : 'amd64', 'Soak images must use the native architecture');
   }
   await start(); await emptyPublic(); await record('isolated public deployment started');
 
-  for (let round = 1; round <= rounds; round++) {
+  for (let round = 1; round <= rounds || report.activeMs.public < modeTargetMs; round++) {
     const peers = await Promise.all(Array.from({ length: 6 }, (_, i) => connect({ 'X-Real-IP': `198.51.100.${i + 1}` })));
     const allocations = await Promise.all(peers.map(client => call(client, 'browser_create', { purpose: `Synthetic round ${round}` })));
     const live = allocations.flatMap((session, i) => session.id ? [{ client: peers[i], session,
@@ -158,12 +216,7 @@ test('Docker reliability: repeated capacity, isolation, expiry, revocation and i
     await sample(`public round ${round} full`);
     await Promise.all(live.map(async ({ client, access }, i) => {
       assert.equal((await action(client, { ...access, sessionId: live[(i + 1) % live.length].session.id }, { type: 'snapshot' })).status, 404);
-      const marker = `reliability-${round}-${i}`;
-      await action(client, access, { type: 'fill', selector: '#username', text: marker });
-      await action(client, access, { type: 'fill', selector: '#password', text: 'synthetic-only-password' });
-      await action(client, access, { type: 'press', key: 'Enter' });
-      const snapshot = await action(client, access, { type: 'snapshot' });
-      assert.ok(snapshot.result?.text.includes(`Signed in: ${marker}`), 'Each browser retains its own fixture state');
+      await signIn({ client, access, marker: `reliability-${round}-${i}` });
     }));
     await disconnect(live[0].client);
     live[0].client = await connect({ 'X-Real-IP': live[0].source });
@@ -176,11 +229,7 @@ test('Docker reliability: repeated capacity, isolation, expiry, revocation and i
     const cookie = claimed.headers.get('set-cookie')!.split(';')[0];
     assert.equal((await request(`/api/human/${live[1].session.id}`, { headers: { Cookie: cookie } })).status, 404);
     await handback(live[0].client, live[0].access, cookie, handoff.revision);
-    const until = Date.now() + holdSeconds * 1000;
-    while (Date.now() < until) {
-      await Promise.all(live.map(async ({ client, access }) => assert.ok((await action(client, access, { type: 'snapshot' })).result?.text.includes('Signed in: reliability-'))));
-      await delay(Math.min(5000, Math.max(0, until - Date.now())));
-    }
+    await hold(live.map((item, i) => ({ ...item, marker: `reliability-${round}-${i}` })), 'public', holdSeconds * 1000);
     // Kill only a labelled runtime from this disposable installation, while
     // the other four browsers continue. Do not poll its status to trigger cleanup.
     if (round === 1) {
@@ -197,8 +246,10 @@ test('Docker reliability: repeated capacity, isolation, expiry, revocation and i
     }
     await Promise.all(live.map(async ({ client, access }) => assert.equal((await call(client, 'browser_close', access)).control, 'closed')));
     await emptyPublic();
+    if (soakMinutes) await sample(`public round ${round} empty`);
     assert.equal((await request('/api/auth/me', { headers: { Cookie: cookie } })).status, 401);
     await Promise.all([...new Set([...peers, ...live.map(item => item.client)])].filter(client => clients.has(client)).map(disconnect));
+    report.cycles.public++;
     await record('public capacity cycle passed', { round, peakSessions: 5, remainingSessions: 0 });
   }
 
@@ -241,6 +292,39 @@ test('Docker reliability: repeated capacity, isolation, expiry, revocation and i
     const response = await request('/api/credentials', { method: 'POST', headers: headers(cookie), body: JSON.stringify({ name: 'Synthetic reliability Agent' }) });
     assert.equal(response.status, 200); const credential = await response.json();
     members.push({ cookie, credential, client: await connect({ Authorization: `Bearer ${credential.token}` }) });
+  }
+  if (soakMinutes) {
+    do {
+      const round = report.cycles.authenticated + 1;
+      const sessions = await Promise.all(members.map((member, i) => create(member.client, `Soak member ${i}, round ${round}`)));
+      assert.equal((await owned()).length, 10);
+      await sample(`authenticated round ${round} full`);
+      const fixtures = sessions.map((session, i) => ({ client: members[i].client, access: session.access, marker: `member-${i}-cycle-${round}` }));
+      await Promise.all(fixtures.map(signIn));
+      for (let i = 0; i < members.length; i++) {
+        assert.equal((await call(members[i].client, 'browser_sessions')).sessions.length, 1);
+        assert.equal((await call(members[i].client, 'browser_status', sessions[(i + 1) % 5].access)).status, 404);
+      }
+      const selected = (round - 1) % members.length;
+      const member = members[selected], current = sessions[selected];
+      const handoff = await call(member.client, 'browser_handoff', { ...current.access, reason: 'Synthetic soak handoff' });
+      assert.equal((await action(member.client, current.access, { type: 'snapshot' })).status, 409);
+      assert.equal((await request(`/api/human/${current.session.id}`, { headers: { Cookie: members[(selected + 1) % 5].cookie } })).status, 404);
+      await handback(member.client, current.access, member.cookie, handoff.revision);
+      await disconnect(member.client);
+      member.client = await connect({ Authorization: `Bearer ${member.credential.token}` });
+      fixtures[selected].client = member.client;
+      assert.equal((await call(member.client, 'browser_status', current.access)).control, 'agent');
+      await hold(fixtures, 'authenticated', holdSeconds * 1000);
+      await Promise.all(fixtures.map(async fixture => assert.equal((await call(fixture.client, 'browser_close', fixture.access)).control, 'closed')));
+      await eventually('authenticated cycle reclaimed all runtimes', async () => (await owned()).length === 0);
+      for (const member of members) assert.deepEqual((await call(member.client, 'browser_sessions')).sessions, []);
+      await sample(`authenticated round ${round} empty`);
+      report.cycles.authenticated++;
+      await record('authenticated capacity cycle passed', { round, peakSessions: 5, remainingSessions: 0 });
+    } while (report.activeMs.authenticated < modeTargetMs);
+    assert.ok(report.activeMs.public >= modeTargetMs && report.activeMs.authenticated >= modeTargetMs);
+    await record('sustained activity target reached', { activeMs: report.activeMs, cycles: report.cycles });
   }
   const privateSessions = await Promise.all(members.map((member, i) => create(member.client, `Member ${i}`)));
   for (let i = 0; i < members.length; i++) {

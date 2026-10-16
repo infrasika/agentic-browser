@@ -85,6 +85,22 @@ Acceptance includes a stopped-workspace backup through the downloadable helper, 
 
 Retain the accepted reports in a versioned `*-upgrade-verification.json` receipt and attach a separate `UPGRADE-VERIFICATION.json` to the release. Do not overwrite the original image manifest or publication evidence. The reports include both releases' image digests, host details, browser/extension versions, backup hash/size, scenario checkpoints, and cleanup. Preview.3 and preview.4 use identical Chrome and extension versions: this test establishes application release upgrade and backup-based rollback, not browser-format migration or safe in-place Chrome downgrades.
 
+## Sustained reliability acceptance
+
+Run `npm run test:soak` from an authorized checkout, or dispatch `accept-soak.yml`. The separate workflow uses fresh native Ubuntu amd64/arm64 runners and the accepted controller/runtime digests in `deploy/release.env`; it does not publish images or operate on an existing deployment. The usual release gate remains the shorter `test:reliability` run.
+
+The default target is **120 minutes of activity with five browsers**, split equally between public guests and authenticated members. Each bounded session cycle exercises synthetic sign-in, navigation, reload, retained session storage, task completion, ownership checks, handoff/handback and MCP reconnection. Browsers are closed and replaced between cycles; this tests sustained service use, not a single two-hour browser session. The test also retains natural expiry, runtime/controller interruption, revocation, and final cleanup checks. Setup, sampling between cycles, and cleanup add to the wall-clock duration.
+
+For a short harness rehearsal:
+
+```sh
+AB_RELIABILITY_SOAK_MINUTES=2 AB_RELIABILITY_HOLD_SECONDS=30 npm run test:soak
+```
+
+Reports under `output/reliability/<run>/report.json` distinguish requested duration, measured active time per mode, completed cycles, successful workload passes, tool-call timing, sampled container CPU/memory/PIDs, data-volume size, and cleanup failures. A pass requires both activity targets, all behavioral assertions and complete removal of the disposable installation. Resource samples are observations, not a proof that memory or disk can never grow. The workload uses the internal synthetic website; it does not establish third-party login compatibility, live zkPass proof success, physical Mac behavior, or a production sizing recommendation.
+
+Preserve native reports as workflow artifacts and record accepted results with their image digests and verifier revision. Do not label a short rehearsal or a running job as a completed multi-hour acceptance.
+
 ## Dependency locks
 
 Base images, npm dependencies, Chrome, and extensions have fixed references or hashes. `runtime/assets.lock.json` covers both native Chrome packages and the two original CRX packages. CI must fail on a mismatch rather than refresh locks automatically.
