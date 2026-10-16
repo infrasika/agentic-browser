@@ -116,6 +116,8 @@ Both controller/runtime images passed anonymous pulls on both platforms. The rel
 
 Evidence is under `output/recovery-release/`, including both downloaded native reliability reports, anonymous pull records, the installation receipt, and release checksums. The [preview.4 public verification receipt](../deploy/releases/v0.1.0-preview.4-public-verification.json) records accepted images and remaining platform checks. This release does not yet establish physical Mac or independent fresh-host installation acceptance.
 
+The official demo now runs `agentic-browser:preview4-ec9ff5bacaf6`, a local controller build containing the released recovery fix and the newly accepted installer pins, with the preview.4 runtime. Deployment ran with zero active sessions and preserved the domain, port, data volume, five-browser limit, two-per-IP limit, and current `.env` settings. Its initial-account settings remain ignored in public mode. The published guide, installer, archive, and checksums match the accepted files. Live HTTPS MCP passed create, snapshot, complete handoff-link output, and close; capacity returned to 0 / 5. The final TypeScript check and all 60 unit/API tests passed. The public verification receipt is also attached to the private GitHub Release as `PUBLIC-VERIFICATION.json`.
+
 ## Validation still required
 
 - The user previously verified Mac deployment, but the newly published native arm64 image still needs its own physical Mac acceptance run. Linux ARM CI is not a substitute.
