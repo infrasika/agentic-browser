@@ -269,5 +269,72 @@
     "Changes to Chrome or extension versions and profile formats",
     "Multi-hour operation and representative workloads",
     "Live zkPass proof workflow"
-  ]
+  ],
+  "publicDelivery": {
+    "controllerImage": "agentic-browser:recovery-guide-36971dca92b5",
+    "controllerRevision": "36971dca92b5",
+    "runtimeImageUnchanged": true,
+    "downloads": {
+      "passed": true,
+      "verifiedAt": "2026-10-16T14:50:02.633670+00:00",
+      "checks": [
+        {
+          "path": "/self-host",
+          "sha256": "a3f9935b46c0c8ac2c303c4266ecf291b326a7125c165ca981c508b5b18c8898",
+          "matchesAcceptedFile": true
+        },
+        {
+          "path": "/install.sh",
+          "sha256": "5506303e00fe009cd340c3d9a76d72768894842054ee3f099ca479a6b3e939fc",
+          "matchesAcceptedFile": true
+        },
+        {
+          "path": "/self-host/download/workspace-backup.sh",
+          "sha256": "651886cce825a9e93050fc033f8a96d3e4e122d2de6f8f32b012693824665e2e",
+          "matchesAcceptedFile": true
+        },
+        {
+          "path": "/self-host/download/SELF_HOST.md",
+          "sha256": "5e08b3257c67fb44fa88985e32f8aad9ea707af8c9d5945f2dc167cb98acec20",
+          "matchesAcceptedFile": true
+        },
+        {
+          "path": "/self-host/download/AGENT_CLIENT.md",
+          "sha256": "4ce2f43bb38574900b3433bb565b5ba4eede79055c1fabb33e544c39fd6f35c5",
+          "matchesAcceptedFile": true
+        },
+        {
+          "path": "/self-host/download/agentic-browser-self-host.tar.gz",
+          "sha256": "83fb6026ec2e3bda33e3564ee681d743f1d8173ed5b6a0a48305346dba8bc2e0",
+          "matchesAcceptedFile": true
+        },
+        {
+          "path": "/self-host/download/SHA256SUMS",
+          "sha256": "0bf001d8353d4867898c3b289bacb767a41346192fcb04daf32bb534c5f5fcb9",
+          "matchesAcceptedFile": true
+        }
+      ],
+      "archiveManifestVerified": true,
+      "backupHelperMatchesNativeAcceptance": true
+    },
+    "mcp": {
+      "passed": true,
+      "verifiedAt": "2026-10-16T14:50:06.048Z",
+      "origin": "https://agentic-browser.zkpass.org",
+      "tools": 9,
+      "checks": [
+        "HTTPS MCP connection",
+        "isolated synthetic browser creation",
+        "page snapshot",
+        "complete human handoff link",
+        "own temporary session closed"
+      ],
+      "capacity": {
+        "currentSessions": 0,
+        "maxSessions": 5,
+        "availableSessions": 5,
+        "full": false
+      }
+    }
+  }
 }
