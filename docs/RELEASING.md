@@ -55,6 +55,28 @@ Unpack the bundle in a clean directory with an empty Docker credential configura
 
 After acceptance, update `deploy/release.env` and [Progress](PROGRESS.md). Keep earlier versioned receipts for auditability. Update the live demo only after its active sessions finish, retaining its existing limits and private configuration.
 
+## Independent installation acceptance
+
+After the official installer serves the accepted image pins, run **Actions → Verify published self-host installation**, or:
+
+```sh
+gh workflow run accept-self-host.yml --ref main
+```
+
+This workflow starts separate, fresh Ubuntu amd64 and arm64 runners. It does not build application images, restore browser image caches, or log in to a registry. The checkout supplies the test client and the expected configuration only. The actual installation downloads the public `/install.sh`, checks it against the reviewed installer, and receives only `compose.yaml` and `.env`. An empty Docker credential configuration verifies anonymous pulls; platform assertions reject architecture emulation.
+
+The test verifies initial sign-in with literal password punctuation, a personal token, native desktop connection/reconnection, human typing and handback, a saved synthetic profile cookie across controller recreation, preserved access after bootstrap settings are removed, and switching to public mode. Every run uses a new loopback port, synthetic accounts, a separate volume, and scoped cleanup. Reports under `output/self-host/<run>/report.json` record the host, Docker/Compose versions, installer hash, image references/platforms, resource sample, checkpoints, and cleanup result. Both CI reports are retained as artifacts for 30 days. Copy their accepted summary into a versioned receipt before artifact expiry.
+
+Maintainers can run the same verifier from an authorized checkout on Ubuntu or an Apple Silicon Mac with Docker Desktop running:
+
+```sh
+npm ci
+npx playwright install chromium
+npm run test:self-host
+```
+
+This checkout and its Node.js/Playwright dependencies are requirements of the external verifier, not of self-hosting. Linux verification clients may additionally need Playwright system dependencies (`npx playwright install --with-deps chromium`). The test never loads the checkout's `.env` or operates on an existing installation. Local runs are recorded as existing-host checks; only the isolated GitHub-hosted workflow asserts a fresh runner. A Linux arm64 pass does not establish a physical Mac pass, and recreation with the same images does not establish cross-version upgrade/rollback compatibility.
+
 ## Dependency locks
 
 Base images, npm dependencies, Chrome, and extensions have fixed references or hashes. `runtime/assets.lock.json` covers both native Chrome packages and the two original CRX packages. CI must fail on a mismatch rather than refresh locks automatically.

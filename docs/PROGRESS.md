@@ -118,6 +118,12 @@ Evidence is under `output/recovery-release/`, including both downloaded native r
 
 The official demo now runs `agentic-browser:preview4-ec9ff5bacaf6`, a local controller build containing the released recovery fix and the newly accepted installer pins, with the preview.4 runtime. Deployment ran with zero active sessions and preserved the domain, port, data volume, five-browser limit, two-per-IP limit, and current `.env` settings. Its initial-account settings remain ignored in public mode. The published guide, installer, archive, and checksums match the accepted files. Live HTTPS MCP passed create, snapshot, complete handoff-link output, and close; capacity returned to 0 / 5. The final TypeScript check and all 60 unit/API tests passed. The public verification receipt is also attached to the private GitHub Release as `PUBLIC-VERIFICATION.json`.
 
+## Repeatable published-installer acceptance — 2026-10-16
+
+Added `npm run test:self-host` and a dedicated `accept-self-host.yml` workflow for fresh Ubuntu amd64/arm64 runners. The verifier downloads the official installer, checks its bytes against the reviewed configuration, pulls the accepted public images with no registry credentials, and installs only `compose.yaml` and `.env` into a new directory. It verifies native architecture selection, initial-account setup, token access, the mirrored desktop's connection/reconnection and human typing, Agent handback, saved-profile cookie recovery across recreation, bootstrap-setting removal, and public-mode switching. Reports retain host/image details, resource usage, checkpoints, and scoped cleanup results without account or session secrets.
+
+Local Ubuntu acceptance passed in 49 seconds with complete cleanup; TypeScript and all 60 unit/API tests also passed. Evidence: `output/self-host/2026-10-16T11-27-21-801Z-bdefaea2-00df-4cdf-bd31-ea89f0c2acbb/report.json`. The first fixture attempt omitted the required authenticated handoff reason; the corrected run passed. Fresh-runner results will be recorded after the separate workflow completes. No public service or image changes are needed for this verification work.
+
 ## Validation still required
 
 - The user previously verified Mac deployment, but the newly published native arm64 image still needs its own physical Mac acceptance run. Linux ARM CI is not a substitute.

@@ -19,13 +19,13 @@ The first supported deployment targets are Ubuntu amd64/arm64 and Docker Desktop
 | Public self-hosting setup files | Complete | Standalone installer, native Compose commands, fixed public images, no repository access required |
 | Unified setup and authenticated HTTP MCP | Released in preview.3 | One .env, first-start account, URL-plus-token MCP, preserved member isolation |
 | Bounded concurrency and failure recovery | Released in preview.4 | Five five-browser cycles locally; native amd64/arm64 release gates passed, including expiry, runtime/controller termination, member isolation and revocation |
-| Fresh-host and Mac acceptance | Next | Native arm64 release on a physical Mac; independent fresh Ubuntu host |
+| Fresh-host and Mac acceptance | In progress | Dedicated installer workflow on fresh native Ubuntu runners; physical Mac check remains separate |
 | Upgrade and extended-load acceptance | Planned | Profile migration/rollback, multi-hour operation and representative website workloads |
 | Live zkPass proof acceptance | Planned | Real external proof flow, cancellation and failure reporting |
 
 ## Next acceptance work
 
-1. Install the same pinned release on an Apple Silicon Mac and a clean Ubuntu host. Record OS, Docker versions, architecture, image digests, resource usage, and the handoff result.
+1. Run `accept-self-host.yml` for the published installer on fresh Ubuntu amd64/arm64 runners, then run the same `npm run test:self-host` verifier on a physical Apple Silicon Mac. Record OS, Docker versions, architecture, image digests, resource usage, and the handoff result.
 2. Exercise a saved profile across a controlled Chrome/extension upgrade and rollback with synthetic data. Document when restoring a backup is necessary.
 3. Extend the passing bounded reliability run to multi-hour operation and representative website workloads. `npm run test:reliability` now covers repeated five-browser capacity, disconnects, expiry, revocation, browser/controller interruption, and scoped cleanup. Unit regressions cover cleanup failures and retry without releasing capacity early. The recovery fix passed both native architecture gates and is published in preview.4.
 4. Validate a live TransGate proof and Schema Validator workflow, including cancellation and unavailable external services. Keep real-account results separate from synthetic CI tests.
