@@ -20,6 +20,9 @@ test('public self-host download is reproducible, pinned, source-free, and availa
   const installer = await fetch(service.base + '/install.sh');
   assert.equal(installer.status, 200);
   assert.equal(await installer.text(), await readFile('web/self-host-downloads/install.sh', 'utf8'));
+  const backupHelper = await fetch(service.base + '/self-host/download/workspace-backup.sh');
+  assert.equal(backupHelper.status, 200);
+  assert.equal(await backupHelper.text(), await readFile('scripts/workspace-backup.sh', 'utf8'));
   for (const name of ['SELF_HOST.md', 'AGENT_CLIENT.md']) {
     const guide = await fetch(service.base + '/self-host/download/' + name);
     assert.equal(guide.status, 200);
@@ -38,6 +41,7 @@ test('public self-host download is reproducible, pinned, source-free, and availa
   const names = (await exec('tar', ['-tzf', archivePath])).stdout.trim().split('\n');
   assert.ok(names.includes('agentic-browser/compose.yaml'));
   assert.ok(names.includes('agentic-browser/scripts/compose.sh'));
+  assert.ok(names.includes('agentic-browser/scripts/workspace-backup.sh'));
   assert.ok(names.includes('agentic-browser/deploy/release.env'));
   for (const name of names) {
     assert.ok(name.startsWith('agentic-browser/') && !name.split('/').includes('..'));

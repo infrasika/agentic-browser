@@ -20,13 +20,14 @@ The first supported deployment targets are Ubuntu amd64/arm64 and Docker Desktop
 | Unified setup and authenticated HTTP MCP | Released in preview.3 | One .env, first-start account, URL-plus-token MCP, preserved member isolation |
 | Bounded concurrency and failure recovery | Released in preview.4 | Five five-browser cycles locally; native amd64/arm64 release gates passed, including expiry, runtime/controller termination, member isolation and revocation |
 | Fresh-host and Mac acceptance | Ubuntu passed; Mac pending | Preview.4 installer passed on fresh native Ubuntu amd64/arm64 runners; physical Mac check remains separate |
-| Upgrade and extended-load acceptance | Planned | Profile migration/rollback, multi-hour operation and representative website workloads |
+| Release upgrade and backup recovery | In progress | Published preview.3 → preview.4, offline backup and fresh-volume rollback with synthetic member/profile data |
+| Browser-version migration and extended load | Planned | Chrome/extension version changes, multi-hour operation and representative website workloads |
 | Live zkPass proof acceptance | Planned | Real external proof flow, cancellation and failure reporting |
 
 ## Next acceptance work
 
 1. Run `npm run test:self-host` on a physical Apple Silicon Mac. Preview.4 has passed the independent `accept-self-host.yml` workflow on fresh Ubuntu amd64/arm64 runners. Repeat that workflow whenever the public installer or accepted image pins change; record host, Docker versions, architecture, image digests, resource usage, and handoff results.
-2. Exercise a saved profile across a controlled Chrome/extension upgrade and rollback with synthetic data. Document when restoring a backup is necessary.
+2. Verify published release upgrade and backup-based rollback with `npm run test:upgrade` and `accept-upgrade.yml`. Keep Chrome/extension version migration separate: preview.3 and preview.4 have identical browser assets. For a future browser-version change, test recovery using the older images and the pre-upgrade backup.
 3. Extend the passing bounded reliability run to multi-hour operation and representative website workloads. `npm run test:reliability` now covers repeated five-browser capacity, disconnects, expiry, revocation, browser/controller interruption, and scoped cleanup. Unit regressions cover cleanup failures and retry without releasing capacity early. The recovery fix passed both native architecture gates and is published in preview.4.
 4. Validate a live TransGate proof and Schema Validator workflow, including cancellation and unavailable external services. Keep real-account results separate from synthetic CI tests.
 5. Validate the image-based remote MCP client on users' machines. The standalone installer covers server deployment; remote clients connect over HTTP MCP with a personal token.

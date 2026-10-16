@@ -103,8 +103,69 @@ Add teammates with `docker compose exec controller npm run members -- create ali
 
 For a local tunnel, keep `ssh -N -L 3333:127.0.0.1:3333 ubuntu@SERVER_IP` running; both the website and HTTP MCP are then available at the forwarded address. For remote teams, configure DNS and an HTTPS reverse proxy using [the Nginx template](../deploy/nginx-public.conf), and set `AB_PUBLIC_URL` accordingly. Setting the URL alone does not expose ports or configure TLS.
 
-Before upgrading, stop the controller and back up its volume. Prepare the new release in a new directory and copy your settings, retaining the same `AB_PROJECT_NAME`. Start only one controller for that volume. Do not use `down --volumes` for routine changes. Saved profiles persist; temporary browser data is removed on close. The host administrator can access stored data.
+Before upgrading, finish active sessions and follow the backup procedure below. Do not use `down --volumes` for routine changes. Saved profiles persist; temporary browser data is removed on close. The host administrator can access stored data.
 
 Older installations may retain their existing helper scripts and `.env.compose` or `.env.public`. To migrate, install the new release in a separate directory, copy supported settings into its `.env`, explicitly set the mode, and preserve the project name and volume. When retaining existing accounts, remove both bootstrap account lines from the new file. Existing accounts keep their passwords; no bootstrap account is added. Historical images do not gain new features merely by editing `.env`—upgrade the controller image and Compose configuration together.
 
 Native Linux image CI, physical Mac acceptance, and fresh-host acceptance are distinct checks. See [Progress](PROGRESS.md) for verified versions and remaining work.
+
+## Backup and upgrade
+
+Run these commands from your installation directory, before editing its image pins or configuration:
+
+```sh
+curl -fsSL https://agentic-browser.zkpass.org/self-host/download/workspace-backup.sh -o ../workspace-backup.sh
+docker compose stop --timeout 60 controller
+bash ../workspace-backup.sh backup "$(docker compose ps -a -q controller)" ../agentic-browser-backup
+```
+
+Choose a new backup directory each time. The helper refuses a running controller, a volume still mounted by running browsers, image pins that differ from the stopped controller, or an existing backup directory. A completed backup contains the full data archive, its checksum, both image references, and copies of `compose.yaml` and `.env`. Keep it private: it contains account/token records and saved website login data. Copy completed backups off the server for disaster recovery.
+
+To upgrade, install the current kit into a new directory and retain your settings and project name:
+
+```sh
+curl -fsSL https://agentic-browser.zkpass.org/install.sh | bash -s -- ../agentic-browser-next
+cp .env ../agentic-browser-next/.env
+cd ../agentic-browser-next
+docker compose up -d --wait
+```
+
+The new installer supplies the accepted image pins. Check member sign-in, saved profiles, and Agent handoff before reopening access. Keep the old controller stopped; run only one controller for a workspace. A stopped-workspace backup is required before a browser-version change: do not assume that an older Chrome can open a profile already modified by a newer Chrome.
+
+## Roll back from a backup
+
+Stop the upgraded installation, then restore into a new volume. The original volume is retained for investigation. Run from the upgraded installation directory:
+
+```sh
+docker compose stop --timeout 60 controller
+bash ../workspace-backup.sh restore ../agentic-browser-backup agentic-browser-recovery-data
+mkdir ../agentic-browser-recovery
+cp ../agentic-browser-backup/compose.yaml ../agentic-browser-backup/.env ../agentic-browser-recovery/
+cd ../agentic-browser-recovery
+```
+
+The helper checks the archive checksum, pulls the backed-up image pins as needed, and refuses to overwrite any existing volume. If extraction fails, its new volume is left for inspection; use another new name for a subsequent attempt.
+
+In the restored `.env`, set these values for a local recovery check:
+
+```dotenv
+AB_PROJECT_NAME=agentic-browser-recovery
+AB_PORT=3334
+AB_BIND_ADDRESS=127.0.0.1
+AB_PUBLIC_URL=http://127.0.0.1:3334
+```
+
+In `compose.yaml`, replace the final top-level `volumes` declaration with:
+
+```yaml
+volumes:
+  data:
+    external: true
+    name: agentic-browser-recovery-data
+```
+
+Start with `docker compose up -d --wait`, then check the workspace at `http://127.0.0.1:3334`. Keep the original controller stopped while the restored copy is in use. The backed-up Compose file and `.env` select the old release together with its pre-upgrade data. On a different Docker host, first use the installer to detect that host's socket/group and update `AB_DOCKER_SOCKET` and `AB_DOCKER_GID` in the restored settings.
+
+Restoration also rolls account changes and token revocations back to the backup time. Before restoring external access, reapply later account disablements/revocations. Resetting a member's password with `docker compose exec controller npm run members -- password alice` invalidates that member's restored credentials; they then sign in and issue new Agent tokens. Only restore a trusted backup.
+
+The automated upgrade check currently covers preview.3 → preview.4 and rollback from the backup. Those releases use identical Chrome and extension versions. This does not establish compatibility across future Chrome/extension version changes; see [Progress](PROGRESS.md).

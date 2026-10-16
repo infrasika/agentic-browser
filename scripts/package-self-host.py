@@ -46,6 +46,7 @@ def build(root, output):
     contents['SETUP.json'] = (json.dumps(manifest, indent=2) + '\n').encode()
     output.mkdir(parents=True, exist_ok=True)
     (output / 'install.sh').write_text(installer)
+    (output / 'workspace-backup.sh').write_bytes(contents['scripts/workspace-backup.sh'])
     for name in ['SELF_HOST.md', 'AGENT_CLIENT.md']:
         (output / name).write_bytes(contents[f'docs/{name}'])
     archive = output / 'agentic-browser-self-host.tar.gz'

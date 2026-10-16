@@ -77,6 +77,14 @@ npm run test:self-host
 
 This checkout and its Node.js/Playwright dependencies are requirements of the external verifier, not of self-hosting. Linux verification clients may additionally need Playwright system dependencies (`npx playwright install --with-deps chromium`). The test never loads the checkout's `.env` or operates on an existing installation. Local runs are recorded as existing-host checks; only the isolated GitHub-hosted workflow asserts a fresh runner. A Linux arm64 pass does not establish a physical Mac pass, and recreation with the same images does not establish cross-version upgrade/rollback compatibility.
 
+## Published upgrade and rollback acceptance
+
+Run `npm run test:upgrade` from an authorized checkout, or dispatch `accept-upgrade.yml` for independent native Ubuntu amd64/arm64 runs. The test pulls the published preview.3 and preview.4 controller/runtime digests with an empty registry credential configuration. It uses two synthetic members and separate disposable volumes; it does not read the deployment's `.env` or touch existing workspaces.
+
+Acceptance includes a stopped-workspace backup through the downloadable helper, rejection of live/mounted volumes and overwritten backups, member/profile isolation, persistent cookies and website storage, both extensions' private state, existing credentials and revocations, a corrupt archive, refusal to overwrite an existing volume, and recovery into a new volume using the old images. It also confirms that revocations made after the backup must be reapplied and that resetting a member password invalidates restored credentials. Only sanitized reports under `output/upgrade/<run>/report.json` become CI artifacts; private backup archives are removed with the test fixture.
+
+Retain the accepted reports in a versioned `*-upgrade-verification.json` receipt and attach a separate `UPGRADE-VERIFICATION.json` to the release. Do not overwrite the original image manifest or publication evidence. The reports include both releases' image digests, host details, browser/extension versions, backup hash/size, scenario checkpoints, and cleanup. Preview.3 and preview.4 use identical Chrome and extension versions: this test establishes application release upgrade and backup-based rollback, not browser-format migration or safe in-place Chrome downgrades.
+
 ## Dependency locks
 
 Base images, npm dependencies, Chrome, and extensions have fixed references or hashes. `runtime/assets.lock.json` covers both native Chrome packages and the two original CRX packages. CI must fail on a mismatch rather than refresh locks automatically.
