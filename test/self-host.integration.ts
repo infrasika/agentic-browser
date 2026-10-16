@@ -3,9 +3,9 @@ import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { createHash, randomUUID } from 'node:crypto';
-import { mkdir, mkdtemp, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, readdir, rm, stat, symlink, writeFile } from 'node:fs/promises';
 import { arch, platform, release, tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { isAbsolute, join, resolve } from 'node:path';
 import { createServer } from 'node:net';
 import { once } from 'node:events';
 import { chromium, type Browser } from 'playwright';
@@ -32,6 +32,13 @@ test('published self-host installation: anonymous native images, human handoff a
   const root = await mkdtemp(join(tmpdir(), 'ab-install-'));
   const setup = join(root, 'installation'), registry = join(root, 'empty-registry');
   await mkdir(registry); await writeFile(join(registry, 'config.json'), '{}', { mode: 0o600 });
+  // Docker Desktop may install Compose under the original client config. Keep
+  // access to that executable alone, without copying credentials or helpers.
+  const plugins = JSON.parse((await exec('docker', ['info', '--format', '{{json .ClientInfo.Plugins}}'])).stdout);
+  const composePlugin = plugins.find((plugin: { Name: string }) => plugin.Name === 'compose');
+  assert.ok(composePlugin && isAbsolute(composePlugin.Path), 'A local Compose plugin is required');
+  await mkdir(join(registry, 'cli-plugins'));
+  await symlink(composePlugin.Path, join(registry, 'cli-plugins/docker-compose'));
   // Resolve the user's local context before isolating registry credentials. This
   // preserves Docker Desktop's Unix endpoint without copying its auth/config.
   const endpoint = process.env.DOCKER_HOST && !process.env.DOCKER_CONTEXT ? process.env.DOCKER_HOST :
@@ -160,6 +167,12 @@ test('published self-host installation: anonymous native images, human handoff a
   const create = () => call(client, 'browser_create', { purpose: 'Synthetic installation acceptance', profileId: profile.id, url: 'https://agentic-browser.invalid/demo' });
   const session = await create();
   assert.equal(new URL(session.humanUrl).origin, base);
+  const runtimes = JSON.parse(await docker('inspect', ...await owned()));
+  const chrome = runtimes.find((item: any) => item.HostConfig.NetworkMode === 'none');
+  assert.ok(chrome);
+  const cdp = `import fs from 'node:fs';import {chromium} from 'playwright';
+    let port;for(const id of fs.readdirSync('/proc')){try{const m=fs.readFileSync('/proc/'+id+'/cmdline','utf8').match(/--remote-debugging-port=(\\d+)/);if(m){port=m[1];break;}}catch{}}
+    const browser=await chromium.connectOverCDP('http://127.0.0.1:'+port,{noDefaults:true});const context=browser.contexts()[0];`;
   await call(client, 'browser_action', { sessionId: session.id, action: { type: 'click', selector: '#username' } });
   const handoff = await call(client, 'browser_handoff', { sessionId: session.id, reason: 'Complete the synthetic sign-in, then hand back.' });
   assert.equal(new URL(handoff.humanUrl).origin, base);
@@ -170,22 +183,22 @@ test('published self-host installation: anonymous native images, human handoff a
   await page.locator('#text').fill('synthetic-install-user'); await page.locator('#send-text').click();
   await page.locator('#desktop canvas').focus(); await page.keyboard.press('Tab');
   await page.keyboard.type('fictional-site-password'); await page.keyboard.press('Enter');
+  // The synthetic human must see sign-in finish before clicking handback.
+  // VNC input and HTTP handback use separate channels. Observe only this owned
+  // fixture through the host test driver; the Agent API remains denied above.
+  await docker('exec', chrome.Id, 'node', '--input-type=module', '-e', cdp + `
+    const page=context.pages().find(p=>p.url()==='http://127.0.0.1:8080/demo');
+    await page.waitForFunction(()=>document.body.innerText.includes('Signed in: synthetic-install-user'),null,{timeout:15000});await browser.close();`);
   await page.locator('#resume').click();
   await page.waitForFunction(() => document.getElementById('message')?.textContent?.startsWith('Control returned'));
   await page.close();
   const snapshot = await call(client, 'browser_action', { sessionId: session.id, action: { type: 'snapshot' } });
   assert.match(snapshot.result.text, /Signed in: synthetic-install-user/);
   await record('account bootstrap, personal token, native desktop reconnect, human typing and Agent handback');
-  const runtimes = JSON.parse(await docker('inspect', ...await owned()));
-  const chrome = runtimes.find((item: any) => item.HostConfig.NetworkMode === 'none');
-  assert.ok(chrome);
   report.resources = (await docker('stats', '--no-stream', '--format', '{{json .}}', controller, ...await owned())).split('\n').map(line => {
     const row = JSON.parse(line); return { cpu: row.CPUPerc, memory: row.MemUsage, pids: row.PIDs };
   });
-  // Only this fixture's browser is inspected, after control returns to the Agent.
-  const cdp = `import fs from 'node:fs';import {chromium} from 'playwright';
-    let port;for(const id of fs.readdirSync('/proc')){try{const m=fs.readFileSync('/proc/'+id+'/cmdline','utf8').match(/--remote-debugging-port=(\\d+)/);if(m){port=m[1];break;}}catch{}}
-    const browser=await chromium.connectOverCDP('http://127.0.0.1:'+port,{noDefaults:true});const context=browser.contexts()[0];`;
+  // The saved cookie is synthetic and is written after Agent control resumes.
   await docker('exec', chrome.Id, 'node', '--input-type=module', '-e', cdp + `await context.addCookies([{name:'install_fixture',value:'synthetic-only',url:'https://example.test/',expires:Date.now()/1000+3600}]);await browser.close();`);
   await call(client, 'browser_close', { sessionId: session.id }); assert.deepEqual(await owned(), []);
   await client.close(); clients.delete(client);
