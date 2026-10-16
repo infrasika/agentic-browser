@@ -76,7 +76,7 @@ AB_SESSION_MAX_LIFETIME_SECONDS=14400</pre>
       <p>A plain restart does not reload settings. Accounts and saved profiles remain in the data volume. After initial setup, you may remove both bootstrap username and password settings; changing them never resets an existing account.</p>
       <p>Add teammates with <code>docker compose exec controller npm run members -- create alice</code>. Each member creates their own token. The initial account has the same private resource scope as other members.</p>
       <p>Only the controller mounts the Docker socket. Browser sessions use isolated runtime containers. Temporary data is removed on close; saved profiles persist. The host administrator controls stored data.</p>
-      <p>Back up the volume before upgrading. Preserve the project name, and never run two controllers against one volume. Older images need an image upgrade to support the new account bootstrap and authenticated HTTP MCP flow. See the <a href="/self-host/download/SELF_HOST.md">full guide</a> for migration and platform notes.</p>
+      <p>Before upgrading, stop and back up the workspace. Download the <a href="/self-host/download/workspace-backup.sh" download="workspace-backup.sh">backup helper</a> and follow the <a href="/self-host/download/SELF_HOST.md">backup and recovery guide</a>. Preserve the project name when upgrading, and run only one controller for a workspace.</p>
     </details>
   </section>
 </main>
