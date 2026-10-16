@@ -18,7 +18,7 @@ The first supported deployment targets are Ubuntu amd64/arm64 and Docker Desktop
 | English product and documentation | Complete | All first-party UI/messages/docs in English; consolidated guides |
 | Public self-hosting setup files | Complete | Standalone installer, native Compose commands, fixed public images, no repository access required |
 | Unified setup and authenticated HTTP MCP | Released in preview.3 | One .env, first-start account, URL-plus-token MCP, preserved member isolation |
-| Bounded concurrency and failure recovery | Passed locally; unreleased | Five five-browser cycles, natural expiry, runtime/controller termination, five-member isolation and revocation; release gate added |
+| Bounded concurrency and failure recovery | Released in preview.4 | Five five-browser cycles locally; native amd64/arm64 release gates passed, including expiry, runtime/controller termination, member isolation and revocation |
 | Fresh-host and Mac acceptance | Next | Native arm64 release on a physical Mac; independent fresh Ubuntu host |
 | Upgrade and extended-load acceptance | Planned | Profile migration/rollback, multi-hour operation and representative website workloads |
 | Live zkPass proof acceptance | Planned | Real external proof flow, cancellation and failure reporting |
@@ -27,7 +27,7 @@ The first supported deployment targets are Ubuntu amd64/arm64 and Docker Desktop
 
 1. Install the same pinned release on an Apple Silicon Mac and a clean Ubuntu host. Record OS, Docker versions, architecture, image digests, resource usage, and the handoff result.
 2. Exercise a saved profile across a controlled Chrome/extension upgrade and rollback with synthetic data. Document when restoring a backup is necessary.
-3. Extend the passing bounded reliability run to multi-hour operation and representative website workloads. `npm run test:reliability` now covers repeated five-browser capacity, disconnects, expiry, revocation, browser/controller interruption, and scoped cleanup. Unit regressions cover cleanup failures and retry without releasing capacity early. Run the new release gate on native amd64 and arm64 before publishing the recovery fix.
+3. Extend the passing bounded reliability run to multi-hour operation and representative website workloads. `npm run test:reliability` now covers repeated five-browser capacity, disconnects, expiry, revocation, browser/controller interruption, and scoped cleanup. Unit regressions cover cleanup failures and retry without releasing capacity early. The recovery fix passed both native architecture gates and is published in preview.4.
 4. Validate a live TransGate proof and Schema Validator workflow, including cancellation and unavailable external services. Keep real-account results separate from synthetic CI tests.
 5. Validate the image-based remote MCP client on users' machines. The standalone installer covers server deployment; remote clients connect over HTTP MCP with a personal token.
 

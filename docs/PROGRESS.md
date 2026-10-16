@@ -96,7 +96,7 @@ All 58 unit/API tests and TypeScript passed. Tests cover concurrent bootstrap, r
 
 The official demo now runs `agentic-browser:unified-setup-5528a8761d09` from one `.env` and the base `compose.yaml`. Previous settings were privately backed up. Migration ran with zero active sessions and preserved the domain, port 8080, data volume, five-browser total limit, and two-per-IP limit. Live HTTPS guide/installer bytes matched the accepted files. Public MCP passed create, snapshot, complete handoff-link output, and close; capacity returned to 0 / 5. The receipt is also attached to the private GitHub Release as `PUBLIC-VERIFICATION.json`. Existing Mac installations must upgrade their image/configuration together; their existing member accounts are preserved.
 
-## Runtime failure recovery and repeatable reliability gate — 2026-10-15 (unreleased)
+## Runtime failure recovery and repeatable reliability gate — 2026-10-15 (local acceptance)
 
 Fixed a capacity leak after an idle browser runtime stops unexpectedly. Docker could remove the runtime while its registry entry continued occupying a slot until an Agent request or session expiry. The periodic session reaper now detects stopped runtime states and closes those sessions proactively, releasing capacity only after cleanup is confirmed. Two regressions reproduced the failure before the fix; they also check that healthy sessions survive and cleanup failures retain their reservation until retry succeeds.
 
@@ -106,14 +106,22 @@ Local Ubuntu amd64 acceptance passed: TypeScript, all **60 unit/API tests**, the
 
 The first run passed the public scenarios but stopped when five fixture logins exceeded the existing four-concurrent-password-check limit. The fixture now logs in sequentially and still creates all five browsers concurrently; the service's login guard was preserved. The complete rerun passed.
 
-Evidence: `output/reliability/2026-10-15T10-37-46-957Z-ea38c1a6-c19f-49dc-97f4-242569ce47ee/report.json`, `output/reliability/unit-tests.log`, and `output/reliability/controller-regression.log`. The tested local controller is `agentic-browser:reliability-20261015`, using the accepted preview.3 runtime image. The report identifies base commit `552967e` and the exact changed source hashes. The public demo and published image pins remain unchanged; this fix is not yet in a GHCR release. This bounded synthetic run is not a multi-hour soak, physical Mac test, or fresh-host deployment.
+Evidence: `output/reliability/2026-10-15T10-37-46-957Z-ea38c1a6-c19f-49dc-97f4-242569ce47ee/report.json`, `output/reliability/unit-tests.log`, and `output/reliability/controller-regression.log`. The tested local controller is `agentic-browser:reliability-20261015`, using the accepted preview.3 runtime image. The report identifies base commit `552967e` and the exact changed source hashes. At this local acceptance stage the public demo and published image pins were unchanged; publication is recorded below. This bounded synthetic run is not a multi-hour soak, physical Mac test, or fresh-host deployment.
+
+## Published recovery release: v0.1.0-preview.4 — 2026-10-16
+
+Published **v0.1.0-preview.4** from `948ca9e7463e0800ffcc8cae710c85fd633ee2e5`. [GitHub Actions validation and publication](https://github.com/infrasika/agentic-browser/actions/runs/38773718990) passed on native Ubuntu amd64 and arm64. Each architecture passed all 60 unit/API tests, extension/sandbox validation, controller handoff and saved-profile recovery, public MCP capacity/isolation, and the new reliability gate. The retained reliability reports passed three five-browser rounds plus natural expiry, browser/controller interruption, reconnect, five-member isolation, cancellation, and revocation. Duration was 507 seconds on amd64 and 469 seconds on arm64, with complete disposable-resource cleanup.
+
+Both controller/runtime images passed anonymous pulls on both platforms. The released deployment bundle's checksums were verified. A standalone installer generated from that bundle passed a clean-directory deployment on the existing Ubuntu amd64 server: only `compose.yaml` and `.env` were installed; account bootstrap, literal password punctuation, website sign-in, token creation, HTTP MCP handoff/close, account/token preservation across recreation, doctor, and public-mode switching all passed. The source repository remains private. `deploy/release.env` now pins the new immutable image indexes; older releases remain unchanged.
+
+Evidence is under `output/recovery-release/`, including both downloaded native reliability reports, anonymous pull records, the installation receipt, and release checksums. The [preview.4 public verification receipt](../deploy/releases/v0.1.0-preview.4-public-verification.json) records accepted images and remaining platform checks. This release does not yet establish physical Mac or independent fresh-host installation acceptance.
 
 ## Validation still required
 
 - The user previously verified Mac deployment, but the newly published native arm64 image still needs its own physical Mac acceptance run. Linux ARM CI is not a substitute.
 - The clean-directory Ubuntu test was on the existing server; deployment on an independent fresh host remains outstanding.
 - A real TransGate proof and external-node interaction remain separate from the passing synthetic Schema Validator fixture.
-- Cross-version Chrome/profile/extension upgrade and rollback, multi-hour multi-user operation, and representative website workloads are still outstanding. The new recovery fix has passed local amd64 checks; its native arm64 release gate has not yet run.
+- Cross-version Chrome/profile/extension upgrade and rollback, multi-hour multi-user operation, and representative website workloads are still outstanding. The recovery fix has passed both native architecture release gates.
 - Google and X can require verification or reject remote-browser sign-in. Successful synthetic tests and GitHub handoff do not establish universal login compatibility.
 
 See [Roadmap](PLAN.md) for the next milestones and [Releasing](RELEASING.md) for the evidence required by each release.

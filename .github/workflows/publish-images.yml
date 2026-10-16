@@ -3,7 +3,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'New unused immutable version, e.g. v0.1.0-preview.3'
+        description: 'New unused immutable version; existing tags cannot be overwritten'
         required: true
 permissions:
   contents: read

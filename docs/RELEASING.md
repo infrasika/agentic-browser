@@ -12,7 +12,7 @@ GitHub Release attachments inherit repository access restrictions. New installat
 Push reviewed code to `main`. In **Actions → Publish verified browser images → Run workflow**, choose `main` and an unused version, or use an authorized GitHub CLI:
 
 ```sh
-gh workflow run publish-images.yml --ref main -f version=v0.1.0-preview.3
+gh workflow run publish-images.yml --ref main -f version=v0.1.0-preview.5
 ```
 
 The workflow uses a job-scoped `GITHUB_TOKEN` with `packages: write`; the Release job also has `contents: write`. No personal registry token or server-side `docker login` is required. The account must permit native ARM runners and have sufficient Actions quota.
