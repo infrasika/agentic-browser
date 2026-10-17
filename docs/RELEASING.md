@@ -97,7 +97,7 @@ For a short harness rehearsal:
 AB_RELIABILITY_SOAK_MINUTES=2 AB_RELIABILITY_HOLD_SECONDS=30 npm run test:soak
 ```
 
-Reports under `output/reliability/<run>/report.json` distinguish requested duration, measured active time per mode, completed cycles, successful workload passes, tool-call timing, sampled container CPU/memory/PIDs, data-volume size, and cleanup failures. A pass requires both activity targets, all behavioral assertions and complete removal of the disposable installation. Resource samples are observations, not a proof that memory or disk can never grow. The workload uses the internal synthetic website; it does not establish third-party login compatibility, live zkPass proof success, physical Mac behavior, or a production sizing recommendation.
+Reports under `output/reliability/<run>/report.json` distinguish requested duration, measured active time per mode, completed cycles, successful workload passes, tool-call timing, sampled container CPU/memory/PIDs, data-volume size, and cleanup failures. A pass requires both activity targets, all behavioral assertions and complete removal of the disposable installation. Resource samples are observations, not a proof that memory or disk can never grow. Handoff uses synthetic HTTP clients here; native desktop interaction is tested separately by `test:self-host`. The workload uses the internal synthetic website; it does not establish third-party login compatibility, live zkPass proof success, physical Mac behavior, or a production sizing recommendation.
 
 Preserve native reports as workflow artifacts and record accepted results with their image digests and verifier revision. Do not label a short rehearsal or a running job as a completed multi-hour acceptance.
 

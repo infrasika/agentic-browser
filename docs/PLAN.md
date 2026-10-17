@@ -21,7 +21,7 @@ The first supported deployment targets are Ubuntu amd64/arm64 and Docker Desktop
 | Bounded concurrency and failure recovery | Released in preview.4 | Five five-browser cycles locally; native amd64/arm64 release gates passed, including expiry, runtime/controller termination, member isolation and revocation |
 | Fresh-host and Mac acceptance | Ubuntu passed; Mac pending | Preview.4 installer passed on fresh native Ubuntu amd64/arm64 runners; physical Mac check remains separate |
 | Release upgrade and backup recovery | Passed on amd64/arm64 | Published preview.3 → preview.4, offline backup and fresh-volume rollback with synthetic member/profile data |
-| Sustained synthetic load | Verifier added; acceptance pending | Separate native amd64/arm64 workflow targeting two active hours with five browsers across public and authenticated modes |
+| Sustained synthetic load | Passed on amd64/arm64 | Two active hours per architecture: 30 public and 30 authenticated five-browser cycles, recovery checks and complete cleanup |
 | Browser-version migration and external workloads | Planned | Chrome/extension version changes and representative third-party website workloads |
 | Live zkPass proof acceptance | Planned | Real external proof flow, cancellation and failure reporting |
 
@@ -29,7 +29,7 @@ The first supported deployment targets are Ubuntu amd64/arm64 and Docker Desktop
 
 1. Run `npm run test:self-host` on a physical Apple Silicon Mac. Preview.4 has passed the independent `accept-self-host.yml` workflow on fresh Ubuntu amd64/arm64 runners. Repeat that workflow whenever the public installer or accepted image pins change; record host, Docker versions, architecture, image digests, resource usage, and handoff results.
 2. Extend the passing release-upgrade/backup tests to a future Chrome/extension version change. Preview.3 → preview.4 and fresh-volume rollback passed `accept-upgrade.yml` on both architectures, but those releases have identical browser assets. Test older images with their pre-upgrade backup when browser formats change; do not assume an in-place downgrade is safe.
-3. Complete `accept-soak.yml` on both native architectures and retain its measured activity time, resource samples, image digests, verifier revision and cleanup result. The default `npm run test:soak` target is two active hours split between public and authenticated modes. This extends the passing bounded reliability run; synthetic workload acceptance and third-party website compatibility remain distinct.
+3. Add representative external website workloads and sustained native desktop streaming. The two-hour `accept-soak.yml` run passed on both native architectures with the preview.4 images; repeat it when the accepted images or relevant behavior change. Keep external website compatibility, longer-term resource trends and the passing synthetic workload acceptance distinct.
 4. Validate a live TransGate proof and Schema Validator workflow, including cancellation and unavailable external services. Keep real-account results separate from synthetic CI tests.
 5. Validate the image-based remote MCP client on users' machines. The standalone installer covers server deployment; remote clients connect over HTTP MCP with a personal token.
 
