@@ -158,6 +158,14 @@ The [native experience workflow](https://github.com/infrasika/agentic-browser/ac
 
 The [experience verification receipt](../deploy/releases/v0.1.0-preview.4-experience-verification.json) records image digests, source/report/artifact hashes, stream and recovery timing, website results and cleanup. The receipt and full report/screenshot archives are preserved as `EXPERIENCE-VERIFICATION.json`, `EXPERIENCE-AMD64.zip`, and `EXPERIENCE-ARM64.zip` on the private preview.4 release; raw evidence is under `output/experience-ci/`. This covers one authenticated native viewer and the named public pages, with no external account or backend changes. It does not establish third-party login, physical Mac, browser-version migration or live zkPass proof compatibility. Published images and the public demo are unchanged.
 
+## Published Docker MCP client verifier — 2026-10-17
+
+Added `npm run test:remote-client` and `accept-remote-client.yml`. The verifier installs the accepted preview.4 images anonymously, then runs the published stdio adapter in separate non-root, read-only containers without host mounts, a Docker socket, a data volume or published ports. A disposable proxy models distinct client and viewer origins on the fixture's private Docker network; only the controller can manage browser runtimes.
+
+Local Ubuntu acceptance passed in **65.0 seconds** with complete cleanup. It verified 11 tools, invalid-token rejection, separate credential/session/profile scopes, client-container removal on stdio close, browser state across adapter reconnect, the human URL, native viewer handback, blocked Agent observation during human control, timed waits, revocation in existing/restarted adapters, and owner cleanup. The normal installer/account/profile recreation and public-mode checks also passed. TypeScript and all **60 unit/API tests** passed. Local evidence is `output/remote-client/2026-10-17T15-03-54-642Z-1012f45c-1a93-48f8-b9a3-4d06828726c9/report.json`. Native workflow results are pending; this local result is not a physical Mac or cross-host TLS test.
+
+Live proof acceptance now has a concrete procedure in [Runtime development](../runtime/README.md#live-proof-acceptance). It needs a chosen test demo or app/schema identifiers and any required website login before a real proof can be claimed. Synthetic extension capture and popup checks remain separately labeled.
+
 ## Validation still required
 
 - The user previously verified Mac deployment, but preview.4 still needs its own physical Apple Silicon Mac acceptance run with Docker Desktop. Linux ARM CI is not a substitute. The verifier is documented in [Releasing](RELEASING.md#independent-installation-acceptance).

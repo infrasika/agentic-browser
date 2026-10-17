@@ -12,17 +12,19 @@ import { chromium, type Browser } from 'playwright';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import { verifyDesktopExperience, verifyExternalExperience } from './browser-experience.js';
+import { verifyRemoteClients } from './remote-client.js';
 
 const exec = promisify(execFile);
 const installerUrl = 'https://agentic-browser.zkpass.org/install.sh';
 const sha256 = (bytes: Uint8Array) => createHash('sha256').update(bytes).digest('hex');
 const experienceMinutes = Number(process.env.AB_ACCEPTANCE_EXPERIENCE_MINUTES ?? 0);
+const remoteClient = process.env.AB_ACCEPTANCE_REMOTE_CLIENT === '1';
 assert.ok(Number.isInteger(experienceMinutes) && experienceMinutes >= 0 && experienceMinutes <= 60);
 
 test('published self-host installation: anonymous native images, human handoff and retained account/profile', { timeout: 1200000 + experienceMinutes * 60000 }, async t => {
   const started = Date.now(), runId = randomUUID();
   const project = `ab-install-${runId}`;
-  const evidence = resolve(experienceMinutes ? 'output/experience' : 'output/self-host', `${new Date().toISOString().replace(/[:.]/g, '-')}-${runId}`);
+  const evidence = resolve(remoteClient ? 'output/remote-client' : experienceMinutes ? 'output/experience' : 'output/self-host', `${new Date().toISOString().replace(/[:.]/g, '-')}-${runId}`);
   await mkdir(evidence, { recursive: true });
   const report: Record<string, any> = { startedAt: new Date(started).toISOString(), project,
     host: { platform: platform(), arch: arch(), release: release() }, installerUrl,
@@ -119,6 +121,8 @@ test('published self-host installation: anonymous native images, human handoff a
   report.testHash = sha256(await readFile('test/self-host.integration.ts'));
   if (experienceMinutes) report.sourceHashes = Object.fromEntries(await Promise.all(
     ['test/self-host.integration.ts', 'test/browser-experience.ts', 'scripts/experience.mjs', 'deploy/release.env'].map(async path => [path, sha256(await readFile(path))])));
+  if (remoteClient) report.sourceHashes = Object.fromEntries(await Promise.all(
+    ['test/self-host.integration.ts', 'test/remote-client.ts', 'scripts/remote-client.mjs', 'deploy/release.env'].map(async path => [path, sha256(await readFile(path))])));
   report.workflow = process.env.GITHUB_ACTIONS === 'true' ?
     `https://github.com/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}` : undefined;
   const server = JSON.parse(await docker('version', '--format', '{{json .Server}}'));
@@ -257,6 +261,7 @@ test('published self-host installation: anonymous native images, human handoff a
   // The saved cookie is synthetic and is written after Agent control resumes.
   await docker('exec', chrome.Id, 'node', '--input-type=module', '-e', cdp + `await context.addCookies([{name:'install_fixture',value:'synthetic-only',url:'https://example.test/',expires:Date.now()/1000+3600}]);await browser.close();`);
   await call(client, 'browser_close', { sessionId: session.id }); assert.deepEqual(await owned(), []);
+  if (remoteClient) await verifyRemoteClients({ docker, env, controller, image: pins.AB_CONTROLLER_IMAGE, base, human, headers, profileId: profile.id, report, record });
   await client.close(); clients.delete(client);
   await writeFile(join(setup, '.env'), settings.replace(/^AB_ADMIN_PASSWORD=.*$/m, "AB_ADMIN_PASSWORD='changed-but-must-not-reset'"));
   await start();

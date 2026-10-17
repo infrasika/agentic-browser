@@ -113,6 +113,14 @@ Reports under `output/experience/<run>/report.json` record verifier hashes, imag
 
 This is bounded compatibility evidence for those public pages at the recorded time. It does not establish Google/GitHub/X sign-in compatibility, live zkPass proof success, physical Mac acceptance or browser-version migration. External outages and site changes can fail this separate gate without establishing an application regression.
 
+## Published Docker MCP client acceptance
+
+Run `npm run test:remote-client`, or dispatch `accept-remote-client.yml` for fresh native Ubuntu amd64/arm64 runners. The verifier extends the published-installer check and starts the accepted controller image as a stdio MCP adapter in separate non-root, read-only containers. Client containers receive no host mounts, Docker socket, workspace volume or published ports. Only synthetic personal credentials are passed through environment variables.
+
+The fixture uses a proxy on the disposable Compose network to model distinct client and viewer origins while keeping the host service bound to loopback. It verifies the advertised tools, invalid-token rejection, credential/session/profile isolation, browser state across adapter disconnect/reconnect, human-link rewriting, native viewer handback, denial of Agent observation during human control, timed waits, token revocation in existing/restarted clients, owner cleanup and removal of test resources. It also reruns the installer/account/profile lifecycle checks.
+
+Reports under `output/remote-client/<run>/report.json` retain image/platform information, verifier hashes, client restrictions, scenario checkpoints and cleanup. Preserve accepted reports in a `*-remote-client-verification.json` receipt and private release artifacts. This verifies the adapter and container network path; it is not a TLS certificate, cross-host firewall, physical Mac or interactive Codex/Claude client test. Authenticated HTTP MCP remains the recommended private connection and does not require Docker on the Agent's machine.
+
 ## Dependency locks
 
 Base images, npm dependencies, Chrome, and extensions have fixed references or hashes. `runtime/assets.lock.json` covers both native Chrome packages and the two original CRX packages. CI must fail on a mismatch rather than refresh locks automatically.

@@ -18,6 +18,7 @@ The first supported deployment targets are Ubuntu amd64/arm64 and Docker Desktop
 | English product and documentation | Complete | All first-party UI/messages/docs in English; consolidated guides |
 | Public self-hosting setup files | Complete | Standalone installer, native Compose commands, fixed public images, no repository access required |
 | Unified setup and authenticated HTTP MCP | Released in preview.3 | One .env, first-start account, URL-plus-token MCP, preserved member isolation |
+| Published Docker MCP client | In native acceptance | Separate client containers, reconnect, handoff, credential/profile scope, revocation and cleanup |
 | Bounded concurrency and failure recovery | Released in preview.4 | Five five-browser cycles locally; native amd64/arm64 release gates passed, including expiry, runtime/controller termination, member isolation and revocation |
 | Fresh-host and Mac acceptance | Ubuntu passed; Mac pending | Preview.4 installer passed on fresh native Ubuntu amd64/arm64 runners; physical Mac check remains separate |
 | Release upgrade and backup recovery | Passed on amd64/arm64 | Published preview.3 → preview.4, offline backup and fresh-volume rollback with synthetic member/profile data |
@@ -32,7 +33,7 @@ The first supported deployment targets are Ubuntu amd64/arm64 and Docker Desktop
 2. Extend the passing release-upgrade/backup tests to a future Chrome/extension version change. Preview.3 → preview.4 and fresh-volume rollback passed `accept-upgrade.yml` on both architectures, but those releases have identical browser assets. Test older images with their pre-upgrade backup when browser formats change; do not assume an in-place downgrade is safe.
 3. Repeat `accept-experience.yml` and `accept-soak.yml` when accepted images or relevant behavior change. Preview.4 passed 15 minutes of native desktop streaming and three public website flows on both architectures, alongside the separate two-hour synthetic workload. Extend compatibility coverage only for concrete website requirements; keep login restrictions and longer-term resource trends separate from these bounded results.
 4. Validate a live TransGate proof and Schema Validator workflow, including cancellation and unavailable external services. Keep real-account results separate from synthetic CI tests.
-5. Validate the image-based remote MCP client on users' machines. The standalone installer covers server deployment; remote clients connect over HTTP MCP with a personal token.
+5. Complete `accept-remote-client.yml` on native Ubuntu amd64/arm64, then record physical Mac/client-machine checks separately. The optional image-based stdio adapter receives no server mounts or Docker socket. Authenticated HTTP MCP is the primary private connection and requires no Docker on the Agent machine.
 
 ## Scope boundaries
 

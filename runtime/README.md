@@ -23,6 +23,12 @@ Extension tests use fresh, offline containers with read-only filesystems and tem
 
 Logs and screenshots are under `output/runtime/` and are not committed. These checks do not prove live TransGate proofs, external-node availability, every failure/cancel path, or cross-version profile compatibility. See [Progress](../docs/PROGRESS.md).
 
+## Live proof acceptance
+
+Choose a dedicated test app and a published schema before a live run. The [official TransGate SDK](https://github.com/zkPassOfficial/Transgate-JS-SDK) uses an app ID and schema ID to launch verification. Supply a demo URL or those non-secret identifiers; website passwords and verification codes stay in the remote browser. A wallet transaction is not part of browser acceptance.
+
+Use a fresh temporary browser with the accepted images. Verify extension detection, hand off for any login/consent, then return control and check the proof with the integration's documented verifier. Record successful verification separately from user cancellation, an unmet schema condition and unavailable external nodes. Preserve only the outcome, timings, image/extension versions and test identifiers; avoid retaining cookies, page contents, raw proof fields or account identifiers in shared artifacts. Installation, popup rendering and synthetic capture alone must never be reported as a live proof pass.
+
 ## Isolation and licenses
 
 The runtime is non-root, drops all capabilities, enables no-new-privileges, and keeps Chrome's sandbox enabled. It uses neither privileged mode nor host networking. `chrome-seccomp.json` derives from Playwright's profile and permits `chroot` so Chrome can initialize its sandbox inside its own user namespace; it does not grant CAP_SYS_CHROOT to the outer process.
