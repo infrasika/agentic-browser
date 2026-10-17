@@ -1,0 +1,241 @@
+{
+  "version": "v0.1.0-preview.4",
+  "verifierRevision": "0db723a61db332c1ec9a55d026474bfafcde4ef0",
+  "workflow": "https://github.com/infrasika/agentic-browser/actions/runs/39039799087",
+  "verifiedAt": "2026-10-17T14:32:16.822536+00:00",
+  "passed": true,
+  "scope": "Fifteen measured minutes of native desktop streaming per architecture, recovery and revocation, public website interactions and handoff, published installation lifecycle and cleanup",
+  "sourceRepositoryPrivate": true,
+  "requestedStreamMinutes": 15,
+  "reports": {
+    "amd64": {
+      "startedAt": "2026-10-17T14:13:55.142Z",
+      "host": {
+        "platform": "linux",
+        "arch": "x64",
+        "release": "6.17.0-1022-azure"
+      },
+      "docker": {
+        "version": "28.0.4",
+        "os": "linux",
+        "arch": "amd64"
+      },
+      "composeVersion": "2.38.2",
+      "freshHostedRunner": true,
+      "installerSha256": "5506303e00fe009cd340c3d9a76d72768894842054ee3f099ca479a6b3e939fc",
+      "images": {
+        "controller": {
+          "reference": "ghcr.io/infrasika/agentic-browser-controller@sha256:dac5d08bbd87f34edb5cb65ae9162ce1bbb068e05545e77e2295e2f13369d0c2",
+          "id": "sha256:79aacc0ceb829422262f83b8c100a9c4a22153ac51ba70c9234cce949978d78f",
+          "platform": "linux/amd64",
+          "anonymousPull": true
+        },
+        "runtime": {
+          "reference": "ghcr.io/infrasika/agentic-browser-runtime@sha256:5f5dc0688bf18e809ddde103e212b279494a3c6e7e640333874800295269395d",
+          "id": "sha256:eacf4aa8642a2ce9c8ef53f26a7045d140345c575da427a8d8a5628d1c182b54",
+          "platform": "linux/amd64",
+          "anonymousPull": true
+        }
+      },
+      "sourceHashes": {
+        "test/self-host.integration.ts": "2b77db23cbb4b5610db11e70bc5977edf8c9750bf362e82b473d7353a43db01c",
+        "test/browser-experience.ts": "f1c106cc5893a5a21c9d916f99a0cf6867541043a9cbc6e7ddf0a72238aa13ba",
+        "scripts/experience.mjs": "74db7008f754d3e8c2f3e9d564506a0947455aa6b2efbb50f2a2a0b7d83d52fe",
+        "deploy/release.env": "b7823559558debf192a5890d589f09822638c084f889fa071b9d77883507a1f1"
+      },
+      "elapsedMs": 1001765,
+      "cleanupErrors": [],
+      "passed": true,
+      "stream": {
+        "requestedMinutes": 15,
+        "verifiedStreamingMs": 901767,
+        "checkpoints": 33,
+        "recoveries": [
+          {
+            "kind": "network interruption",
+            "elapsedMs": 1794
+          },
+          {
+            "kind": "viewer reload",
+            "elapsedMs": 1942
+          },
+          {
+            "kind": "logout and reauthentication",
+            "elapsedMs": 3955
+          }
+        ],
+        "duplicateViewerRejected": true,
+        "revocationDisconnectMs": 12,
+        "elapsedMs": 914607,
+        "passed": true
+      },
+      "streamFrames": 4230,
+      "streamBytes": 1212983,
+      "externalSites": [
+        {
+          "name": "Playwright TodoMVC",
+          "url": "https://demo.playwright.dev/todomvc/#/",
+          "title": "React \u2022 TodoMVC",
+          "elapsedMs": 760,
+          "passed": true
+        },
+        {
+          "name": "Playwright documentation",
+          "url": "https://playwright.dev/docs/intro",
+          "title": "Installation | Playwright",
+          "elapsedMs": 1327,
+          "passed": true
+        },
+        {
+          "name": "GitHub public repository",
+          "url": "https://github.com/microsoft/playwright",
+          "title": "GitHub - microsoft/playwright: Playwright is a framework for Web Testing and Automation. It allows testing Chromium, Firefox and WebKit with a single API. \u00b7 GitHub",
+          "elapsedMs": 2856,
+          "passed": true
+        }
+      ],
+      "externalHandoffPassed": true,
+      "postWorkloadResources": [
+        {
+          "cpu": "0.06%",
+          "memory": "160.8MiB / 1GiB",
+          "pids": "26"
+        },
+        {
+          "cpu": "2.50%",
+          "memory": "779MiB / 2GiB",
+          "pids": "179"
+        },
+        {
+          "cpu": "0.20%",
+          "memory": "53.23MiB / 128MiB",
+          "pids": "18"
+        }
+      ],
+      "artifactSha256": "45729f7c26897d9d67038fe100c880b0b412313f081c6d5660008bcda97e5a62",
+      "reportSha256": "3675d56224451e4af6abd53ea8ab45e461e2e728817d415a4d560b6159a79b89",
+      "screenshotSha256": "604cc8cd33f11272cbacddd229e0379fa4d8e88f4108d8083cfa68438c11dd4b",
+      "screenshotVisuallyReviewed": true
+    },
+    "arm64": {
+      "startedAt": "2026-10-17T14:13:52.963Z",
+      "host": {
+        "platform": "linux",
+        "arch": "arm64",
+        "release": "6.17.0-1022-azure"
+      },
+      "docker": {
+        "version": "28.0.4",
+        "os": "linux",
+        "arch": "arm64"
+      },
+      "composeVersion": "2.38.2",
+      "freshHostedRunner": true,
+      "installerSha256": "5506303e00fe009cd340c3d9a76d72768894842054ee3f099ca479a6b3e939fc",
+      "images": {
+        "controller": {
+          "reference": "ghcr.io/infrasika/agentic-browser-controller@sha256:dac5d08bbd87f34edb5cb65ae9162ce1bbb068e05545e77e2295e2f13369d0c2",
+          "id": "sha256:2a4d2471c774c00da5d022413040705dd2519ebbb39fd788f94f18dc6a2bf0c6",
+          "platform": "linux/arm64",
+          "anonymousPull": true
+        },
+        "runtime": {
+          "reference": "ghcr.io/infrasika/agentic-browser-runtime@sha256:5f5dc0688bf18e809ddde103e212b279494a3c6e7e640333874800295269395d",
+          "id": "sha256:be45ad9e8230bfa6ab06feb8850b35b2581e28000e8bcc627c51287e6128b84e",
+          "platform": "linux/arm64",
+          "anonymousPull": true
+        }
+      },
+      "sourceHashes": {
+        "test/self-host.integration.ts": "2b77db23cbb4b5610db11e70bc5977edf8c9750bf362e82b473d7353a43db01c",
+        "test/browser-experience.ts": "f1c106cc5893a5a21c9d916f99a0cf6867541043a9cbc6e7ddf0a72238aa13ba",
+        "scripts/experience.mjs": "74db7008f754d3e8c2f3e9d564506a0947455aa6b2efbb50f2a2a0b7d83d52fe",
+        "deploy/release.env": "b7823559558debf192a5890d589f09822638c084f889fa071b9d77883507a1f1"
+      },
+      "elapsedMs": 994392,
+      "cleanupErrors": [],
+      "passed": true,
+      "stream": {
+        "requestedMinutes": 15,
+        "verifiedStreamingMs": 902036,
+        "checkpoints": 33,
+        "recoveries": [
+          {
+            "kind": "network interruption",
+            "elapsedMs": 1701
+          },
+          {
+            "kind": "viewer reload",
+            "elapsedMs": 1905
+          },
+          {
+            "kind": "logout and reauthentication",
+            "elapsedMs": 3985
+          }
+        ],
+        "duplicateViewerRejected": true,
+        "revocationDisconnectMs": 14,
+        "elapsedMs": 914729,
+        "passed": true
+      },
+      "streamFrames": 3910,
+      "streamBytes": 1218359,
+      "externalSites": [
+        {
+          "name": "Playwright TodoMVC",
+          "url": "https://demo.playwright.dev/todomvc/#/",
+          "title": "React \u2022 TodoMVC",
+          "elapsedMs": 764,
+          "passed": true
+        },
+        {
+          "name": "Playwright documentation",
+          "url": "https://playwright.dev/docs/intro",
+          "title": "Installation | Playwright",
+          "elapsedMs": 1637,
+          "passed": true
+        },
+        {
+          "name": "GitHub public repository",
+          "url": "https://github.com/microsoft/playwright",
+          "title": "GitHub - microsoft/playwright: Playwright is a framework for Web Testing and Automation. It allows testing Chromium, Firefox and WebKit with a single API. \u00b7 GitHub",
+          "elapsedMs": 3386,
+          "passed": true
+        }
+      ],
+      "externalHandoffPassed": true,
+      "postWorkloadResources": [
+        {
+          "cpu": "0.09%",
+          "memory": "151.9MiB / 1GiB",
+          "pids": "26"
+        },
+        {
+          "cpu": "0.43%",
+          "memory": "778.3MiB / 2GiB",
+          "pids": "178"
+        },
+        {
+          "cpu": "0.04%",
+          "memory": "48.93MiB / 128MiB",
+          "pids": "18"
+        }
+      ],
+      "artifactSha256": "1a1716977dde5aa3e35a50b8918d550adbbd6f151a41f0a4d39c6e4f4a6cf662",
+      "reportSha256": "cc84bdec9dd6c28e285684fd70d7284dfc95deeb7de1bf96a1093ca5a69c2a57",
+      "screenshotSha256": "55bf9f64acb43d6e6cee213256b1b23114bb64865c0de0dfd11dccebc94d1987",
+      "screenshotVisuallyReviewed": true
+    }
+  },
+  "evidenceAssets": [
+    "EXPERIENCE-VERIFICATION.json",
+    "EXPERIENCE-AMD64.zip",
+    "EXPERIENCE-ARM64.zip"
+  ],
+  "limitations": [
+    "The stream uses one authenticated browser and a synthetic animation/input fixture, not five simultaneous native viewers.",
+    "Public website checks cover Playwright TodoMVC local state, documentation and one GitHub repository at the recorded time; no external account or backend is changed.",
+    "No Google, GitHub or X sign-in, live zkPass proof, Chrome/extension version migration or physical Mac acceptance is established.",
+    "Fifteen minutes of desktop activity does not establish longer-term resource trends; the separate two-hour gate covers synthetic service workloads."
+  ]
+}
