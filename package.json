@@ -31,6 +31,7 @@
     "test:reliability": "tsx --test test/reliability.integration.ts",
     "test:soak": "node scripts/soak.mjs",
     "test:self-host": "tsx --test test/self-host.integration.ts",
+    "test:experience": "node scripts/experience.mjs",
     "test:upgrade": "tsx --test test/upgrade.integration.ts",
     "doctor": "tsx src/doctor.ts",
     "package:preview": "python3 scripts/package-preview.py",

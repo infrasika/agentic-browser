@@ -101,6 +101,18 @@ Reports under `output/reliability/<run>/report.json` distinguish requested durat
 
 Preserve native reports as workflow artifacts and record accepted results with their image digests and verifier revision. Do not label a short rehearsal or a running job as a completed multi-hour acceptance.
 
+## Native desktop and external website acceptance
+
+Run `npm run test:experience`, or dispatch `accept-experience.yml` with `minutes=15`. This extends the published-installer verifier on fresh native Ubuntu amd64/arm64 runners. It pulls the accepted image digests anonymously and creates a disposable authenticated installation. A short local rehearsal is `npm run test:experience -- --minutes=1`.
+
+The default run requires **15 measured minutes of uninterrupted desktop streaming**, in addition to setup and recovery checks. An animated synthetic page verifies fresh pixels in the actual mirrored canvas; typed markers must produce distinct visible acknowledgements. Each checkpoint also verifies that Agent actions remain blocked during human control. Acceptance covers duplicate-viewer rejection, network interruption with unsent-input clearing, viewer reload, logout revocation, reauthentication, and handback.
+
+After handback, the Agent exercises Playwright's public TodoMVC sample (form input, completion, filtering and local storage), documentation links/history/reload, and a public GitHub repository file. A final native handoff displays the repository file before returning to the Agent. Todo changes affect only the disposable browser's local state; no external account or backend is changed. Snapshots are polled for rendering completion, but clicks and submissions are not retried automatically.
+
+Reports under `output/experience/<run>/report.json` record verifier hashes, image/platform details, stream timing and byte/frame counts, recoveries, website results, installation checks and cleanup. Workflow artifacts also retain synthetic/public-page screenshots. Raw stream payloads, credentials and handoff links are not retained. Preserve accepted evidence in a versioned `*-experience-verification.json` receipt and private release assets before CI artifacts expire.
+
+This is bounded compatibility evidence for those public pages at the recorded time. It does not establish Google/GitHub/X sign-in compatibility, live zkPass proof success, physical Mac acceptance or browser-version migration. External outages and site changes can fail this separate gate without establishing an application regression.
+
 ## Dependency locks
 
 Base images, npm dependencies, Chrome, and extensions have fixed references or hashes. `runtime/assets.lock.json` covers both native Chrome packages and the two original CRX packages. CI must fail on a mismatch rather than refresh locks automatically.

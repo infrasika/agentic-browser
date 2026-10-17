@@ -22,7 +22,8 @@ The first supported deployment targets are Ubuntu amd64/arm64 and Docker Desktop
 | Fresh-host and Mac acceptance | Ubuntu passed; Mac pending | Preview.4 installer passed on fresh native Ubuntu amd64/arm64 runners; physical Mac check remains separate |
 | Release upgrade and backup recovery | Passed on amd64/arm64 | Published preview.3 → preview.4, offline backup and fresh-volume rollback with synthetic member/profile data |
 | Sustained synthetic load | Passed on amd64/arm64 | Two active hours per architecture: 30 public and 30 authenticated five-browser cycles, recovery checks and complete cleanup |
-| Browser-version migration and external workloads | Planned | Chrome/extension version changes and representative third-party website workloads |
+| Native streaming and external workloads | In acceptance | Sustained visible pixels/input, recovery, public sample form, documentation and repository navigation |
+| Browser-version migration | Planned | Chrome/extension version changes with saved profiles and backup-based recovery |
 | Live zkPass proof acceptance | Planned | Real external proof flow, cancellation and failure reporting |
 
 ## Next acceptance work

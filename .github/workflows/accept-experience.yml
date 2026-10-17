@@ -1,0 +1,50 @@
+name: Verify native desktop and external websites
+on:
+  workflow_dispatch:
+    inputs:
+      minutes:
+        description: 'Verified native stream minutes (1-60); public sites and local demo state only'
+        required: true
+        default: '15'
+permissions:
+  contents: read
+concurrency:
+  group: experience-acceptance-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  experience:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-24.04
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: 24.16.0
+      - name: Prepare external verifier
+        run: |
+          npm ci
+          npm run check
+          npx playwright install --with-deps chromium
+      - name: Verify published installer, native streaming and public websites
+        env:
+          AB_ACCEPTANCE_FRESH_RUNNER: '1'
+          AB_ACCEPTANCE_EXPERIENCE_MINUTES: ${{ inputs.minutes }}
+        run: npm run test:experience
+      - name: Preserve sanitized acceptance reports
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: experience-${{ matrix.arch }}
+          path: |
+            output/experience/**/report.json
+            output/playwright/experience-*.png
+          if-no-files-found: error
+          retention-days: 30

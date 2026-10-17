@@ -11,15 +11,18 @@ import { once } from 'node:events';
 import { chromium, type Browser } from 'playwright';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
+import { verifyDesktopExperience, verifyExternalExperience } from './browser-experience.js';
 
 const exec = promisify(execFile);
 const installerUrl = 'https://agentic-browser.zkpass.org/install.sh';
 const sha256 = (bytes: Uint8Array) => createHash('sha256').update(bytes).digest('hex');
+const experienceMinutes = Number(process.env.AB_ACCEPTANCE_EXPERIENCE_MINUTES ?? 0);
+assert.ok(Number.isInteger(experienceMinutes) && experienceMinutes >= 0 && experienceMinutes <= 60);
 
-test('published self-host installation: anonymous native images, human handoff and retained account/profile', { timeout: 1200000 }, async t => {
+test('published self-host installation: anonymous native images, human handoff and retained account/profile', { timeout: 1200000 + experienceMinutes * 60000 }, async t => {
   const started = Date.now(), runId = randomUUID();
   const project = `ab-install-${runId}`;
-  const evidence = resolve('output/self-host', `${new Date().toISOString().replace(/[:.]/g, '-')}-${runId}`);
+  const evidence = resolve(experienceMinutes ? 'output/experience' : 'output/self-host', `${new Date().toISOString().replace(/[:.]/g, '-')}-${runId}`);
   await mkdir(evidence, { recursive: true });
   const report: Record<string, any> = { startedAt: new Date(started).toISOString(), project,
     host: { platform: platform(), arch: arch(), release: release() }, installerUrl,
@@ -66,7 +69,15 @@ test('published self-host installation: anonymous native images, human handoff a
   t.after(async () => {
     const errors: string[] = [];
     await Promise.allSettled([...clients].map(client => client.close()));
-    await browser?.close();
+    if (experienceMinutes && !report.scenariosPassed) {
+      const failedPage = browser?.contexts().flatMap(context => context.pages()).find(page => !page.isClosed());
+      if (failedPage) try {
+        await mkdir('output/playwright', { recursive: true });
+        report.failureScreenshot = `output/playwright/experience-${runId}-failure.png`;
+        await failedPage.screenshot({ path: report.failureScreenshot, fullPage: true, timeout: 5000 });
+      } catch { report.failureScreenshot = undefined; }
+    }
+    try { await browser?.close(); } catch { errors.push('verification browser cleanup failed'); }
     if (configured) {
       try { await compose('down', '--timeout', '60'); } catch { errors.push('controller shutdown failed'); }
       try { for (const id of await owned()) await docker('rm', '-f', id); } catch { errors.push('scoped browser cleanup failed'); }
@@ -106,6 +117,8 @@ test('published self-host installation: anonymous native images, human handoff a
 
   report.sourceRevision = (await exec('git', ['rev-parse', 'HEAD'])).stdout.trim();
   report.testHash = sha256(await readFile('test/self-host.integration.ts'));
+  if (experienceMinutes) report.sourceHashes = Object.fromEntries(await Promise.all(
+    ['test/self-host.integration.ts', 'test/browser-experience.ts', 'scripts/experience.mjs', 'deploy/release.env'].map(async path => [path, sha256(await readFile(path))])));
   report.workflow = process.env.GITHUB_ACTIONS === 'true' ?
     `https://github.com/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}` : undefined;
   const server = JSON.parse(await docker('version', '--format', '{{json .Server}}'));
@@ -136,6 +149,7 @@ test('published self-host installation: anonymous native images, human handoff a
     .replace(/^AB_PROJECT_NAME=.*$/m, `AB_PROJECT_NAME=${project}`)
     .replace(/^AB_PORT=.*$/m, `AB_PORT=${port}`)
     .replace(/^AB_ADMIN_PASSWORD=.*$/m, `AB_ADMIN_PASSWORD='${password}'`);
+  if (experienceMinutes) settings = settings.replace(/^AB_SESSION_TTL_SECONDS=.*$/m, `AB_SESSION_TTL_SECONDS=${(experienceMinutes + 10) * 60}`);
   await writeFile(join(setup, '.env'), settings);
   const config = JSON.parse(await compose('config', '--format', 'json'));
   assert.equal(config.name, project); configured = true;
@@ -177,7 +191,15 @@ test('published self-host installation: anonymous native images, human handoff a
   const handoff = await call(client, 'browser_handoff', { sessionId: session.id, reason: 'Complete the synthetic sign-in, then hand back.' });
   assert.equal(new URL(handoff.humanUrl).origin, base);
   assert.equal((await client.callTool({ name: 'browser_action', arguments: { sessionId: session.id, action: { type: 'snapshot' } } })).isError, true);
-  const page = await human.newPage(); await page.goto(handoff.humanUrl);
+  const page = await human.newPage();
+  if (experienceMinutes) {
+    report.experience = {};
+    await verifyDesktopExperience({ page, humanUrl: handoff.humanUrl, sessionId: session.id, client, report: report.experience, record,
+      observe: source => docker('exec', chrome.Id, 'node', '--input-type=module', '-e', cdp + source),
+      login: async () => { assert.equal((await login(password)).status(), 200); },
+      logout: async () => { assert.equal((await human.request.post(base + '/api/auth/logout', { headers, data: {} })).status(), 200); },
+    }, experienceMinutes);
+  } else await page.goto(handoff.humanUrl);
   const connected = () => page.waitForFunction(() => document.getElementById('connection')?.textContent === 'Connected' && !!document.querySelector('#desktop canvas'));
   await connected(); await page.reload(); await connected();
   await page.locator('#text').fill('synthetic-install-user'); await page.locator('#send-text').click();
@@ -195,6 +217,40 @@ test('published self-host installation: anonymous native images, human handoff a
   const snapshot = await call(client, 'browser_action', { sessionId: session.id, action: { type: 'snapshot' } });
   assert.match(snapshot.result.text, /Signed in: synthetic-install-user/);
   await record('account bootstrap, personal token, native desktop reconnect, human typing and Agent handback');
+  if (experienceMinutes) {
+    await verifyExternalExperience(client, session.id, report.experience, record);
+    report.experience.stage = 'native handoff on a public repository file';
+    const externalHandoff = await call(client, 'browser_handoff', { sessionId: session.id, reason: 'View the public repository file, then hand control back.' });
+    const externalPage = await human.newPage();
+    await externalPage.goto(externalHandoff.humanUrl);
+    await externalPage.waitForFunction(() => document.getElementById('connection')?.textContent === 'Connected' && !!document.querySelector('#desktop canvas'));
+    // The VNC connection can be ready before the first framebuffer is painted.
+    // Require varied page pixels below Chrome's toolbar before taking evidence.
+    await externalPage.waitForFunction(() => {
+      const canvas = document.querySelector<HTMLCanvasElement>('#desktop canvas');
+      const context = canvas?.getContext('2d');
+      if (!canvas || !context || canvas.width < 400 || canvas.height < 400) return false;
+      const data = context.getImageData(0, 0, canvas.width, canvas.height).data;
+      const colors = new Set<string>(); let light = 0, dark = 0;
+      for (let y = 200; y < canvas.height; y += 10) for (let x = 30; x < canvas.width; x += 10) {
+        const i = (y * canvas.width + x) * 4, r = data[i], g = data[i + 1], b = data[i + 2];
+        colors.add(`${r},${g},${b}`);
+        if (Math.min(r, g, b) > 230) light++;
+        if (Math.max(r, g, b) < 120) dark++;
+      }
+      return colors.size > 20 && light > 100 && dark > 5;
+    }, null, { timeout: 15000 });
+    await externalPage.locator('#desktop canvas').focus(); await externalPage.keyboard.press('End'); await externalPage.keyboard.press('Home');
+    await mkdir('output/playwright', { recursive: true });
+    report.experience.externalScreenshot = `output/playwright/experience-${runId}-public-repository.png`;
+    await externalPage.screenshot({ path: report.experience.externalScreenshot, fullPage: true });
+    await externalPage.locator('#resume').click();
+    await externalPage.waitForFunction(() => document.getElementById('message')?.textContent?.startsWith('Control returned'));
+    await externalPage.close();
+    assert.match((await call(client, 'browser_action', { sessionId: session.id, action: { type: 'snapshot' } })).result.text, /Playwright/);
+    report.experience.externalHandoffPassed = true;
+    await record('native desktop displays public repository content and returns control to the Agent');
+  }
   report.resources = (await docker('stats', '--no-stream', '--format', '{{json .}}', controller, ...await owned())).split('\n').map(line => {
     const row = JSON.parse(line); return { cpu: row.CPUPerc, memory: row.MemUsage, pids: row.PIDs };
   });
