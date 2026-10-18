@@ -1,0 +1,244 @@
+{
+  "version": "v0.1.0-preview.4",
+  "verifierRevision": "b7fa1749551a870caa5e7291e4628853bfaadd16",
+  "workflow": "https://github.com/infrasika/agentic-browser/actions/runs/39112679359",
+  "verifiedAt": "2026-10-18T08:48:14.371913+00:00",
+  "passed": true,
+  "scope": "Published images behind the distributed Nginx HTTPS template: certificate validation, viewer module bursts, API throttling, authentication, WSS human handoff, proxy restart/reconnect, revocation and installation lifecycle",
+  "sourceRepositoryPrivate": true,
+  "reports": {
+    "amd64": {
+      "startedAt": "2026-10-18T08:46:14.209Z",
+      "host": {
+        "platform": "linux",
+        "arch": "x64",
+        "release": "6.17.0-1022-azure"
+      },
+      "docker": {
+        "version": "28.0.4",
+        "os": "linux",
+        "arch": "amd64"
+      },
+      "composeVersion": "2.38.2",
+      "freshHostedRunner": true,
+      "installerSha256": "5506303e00fe009cd340c3d9a76d72768894842054ee3f099ca479a6b3e939fc",
+      "images": {
+        "controller": {
+          "reference": "ghcr.io/infrasika/agentic-browser-controller@sha256:dac5d08bbd87f34edb5cb65ae9162ce1bbb068e05545e77e2295e2f13369d0c2",
+          "id": "sha256:79aacc0ceb829422262f83b8c100a9c4a22153ac51ba70c9234cce949978d78f",
+          "platform": "linux/amd64",
+          "anonymousPull": true
+        },
+        "runtime": {
+          "reference": "ghcr.io/infrasika/agentic-browser-runtime@sha256:5f5dc0688bf18e809ddde103e212b279494a3c6e7e640333874800295269395d",
+          "id": "sha256:eacf4aa8642a2ce9c8ef53f26a7045d140345c575da427a8d8a5628d1c182b54",
+          "platform": "linux/amd64",
+          "anonymousPull": true
+        }
+      },
+      "sourceHashes": {
+        "test/self-host.integration.ts": "d51b0825249648e4edf4d37b9e2ef3b29d6567f985a713d4cebbef19547448d1",
+        "test/https-proxy.ts": "6919add00d9333a52dcee3d4eac1dd69c4cb2da98f0acd22f0e610a5cad3c17d",
+        "scripts/https.mjs": "78c77d1074540ef66382672d7360a303eafd7db46019941d96925d66e562517d",
+        "deploy/nginx-public.conf": "6509dbf413096ae0223d95ce5e617d48c0a0d890050e190dde120c04002721bf",
+        "deploy/release.env": "b7823559558debf192a5890d589f09822638c084f889fa071b9d77883507a1f1"
+      },
+      "elapsedMs": 92943,
+      "cleanupErrors": [],
+      "passed": true,
+      "https": {
+        "nginxVersion": "nginx version: nginx/1.24.0 (Ubuntu)",
+        "templateSha256": "6509dbf413096ae0223d95ce5e617d48c0a0d890050e190dde120c04002721bf",
+        "certificateVerification": "Ephemeral CA trusted in Node and a disposable Chromium NSS store; no TLS bypass",
+        "transportPassed": true,
+        "rateLimits": {
+          "moduleRequests": 60,
+          "modulesPassed": true,
+          "apiRequests": 80,
+          "apiRejected": 39
+        },
+        "authenticationPassed": true,
+        "stream": {
+          "connections": 3,
+          "closed": 2,
+          "receivedBytes": 89373,
+          "insecure": 0
+        },
+        "failedRequests": [],
+        "proxyRecoveryMs": 2439,
+        "handoffPassed": true,
+        "revocationPassed": true
+      },
+      "checks": [
+        {
+          "name": "public installer matches reviewed configuration",
+          "elapsedMs": 3010
+        },
+        {
+          "name": "anonymous native pulls; installation contains only compose.yaml and private .env",
+          "elapsedMs": 40951
+        },
+        {
+          "name": "HTTPS redirect, trusted CA, untrusted CA and hostname rejection, unknown Host rejection",
+          "elapsedMs": 48136
+        },
+        {
+          "name": "viewer modules load without throttling while excessive API requests receive 429",
+          "elapsedMs": 53283
+        },
+        {
+          "name": "HTTPS secure HttpOnly cookie, foreign-origin denial and missing/invalid MCP token rejection",
+          "elapsedMs": 53666
+        },
+        {
+          "name": "WSS pixels/input, proxy interruption, automatic viewer recovery and authenticated MCP reconnect",
+          "elapsedMs": 61949
+        },
+        {
+          "name": "account bootstrap, personal token, native desktop reconnect, human typing and Agent handback",
+          "elapsedMs": 62216
+        },
+        {
+          "name": "HTTPS token revocation denies existing and newly connected MCP clients",
+          "elapsedMs": 65968
+        },
+        {
+          "name": "controller recreation preserves account, token and synthetic saved-profile cookie",
+          "elapsedMs": 75875
+        },
+        {
+          "name": "removing bootstrap settings preserves existing access",
+          "elapsedMs": 82045
+        },
+        {
+          "name": "same installation switches to public MCP with isolated temporary browser data",
+          "elapsedMs": 92416
+        }
+      ],
+      "artifactSha256": "fef950a85a82da8057e85098e681ca33b3807690c87e54c80b925d5952704e42",
+      "reportSha256": "56d00156701ca7221c1cd0350f5f794ae13d8e898942a4c0e3ffe149738b02d1"
+    },
+    "arm64": {
+      "startedAt": "2026-10-18T08:46:15.918Z",
+      "host": {
+        "platform": "linux",
+        "arch": "arm64",
+        "release": "6.17.0-1022-azure"
+      },
+      "docker": {
+        "version": "28.0.4",
+        "os": "linux",
+        "arch": "arm64"
+      },
+      "composeVersion": "2.38.2",
+      "freshHostedRunner": true,
+      "installerSha256": "5506303e00fe009cd340c3d9a76d72768894842054ee3f099ca479a6b3e939fc",
+      "images": {
+        "controller": {
+          "reference": "ghcr.io/infrasika/agentic-browser-controller@sha256:dac5d08bbd87f34edb5cb65ae9162ce1bbb068e05545e77e2295e2f13369d0c2",
+          "id": "sha256:2a4d2471c774c00da5d022413040705dd2519ebbb39fd788f94f18dc6a2bf0c6",
+          "platform": "linux/arm64",
+          "anonymousPull": true
+        },
+        "runtime": {
+          "reference": "ghcr.io/infrasika/agentic-browser-runtime@sha256:5f5dc0688bf18e809ddde103e212b279494a3c6e7e640333874800295269395d",
+          "id": "sha256:be45ad9e8230bfa6ab06feb8850b35b2581e28000e8bcc627c51287e6128b84e",
+          "platform": "linux/arm64",
+          "anonymousPull": true
+        }
+      },
+      "sourceHashes": {
+        "test/self-host.integration.ts": "d51b0825249648e4edf4d37b9e2ef3b29d6567f985a713d4cebbef19547448d1",
+        "test/https-proxy.ts": "6919add00d9333a52dcee3d4eac1dd69c4cb2da98f0acd22f0e610a5cad3c17d",
+        "scripts/https.mjs": "78c77d1074540ef66382672d7360a303eafd7db46019941d96925d66e562517d",
+        "deploy/nginx-public.conf": "6509dbf413096ae0223d95ce5e617d48c0a0d890050e190dde120c04002721bf",
+        "deploy/release.env": "b7823559558debf192a5890d589f09822638c084f889fa071b9d77883507a1f1"
+      },
+      "elapsedMs": 82366,
+      "cleanupErrors": [],
+      "passed": true,
+      "https": {
+        "nginxVersion": "nginx version: nginx/1.24.0 (Ubuntu)",
+        "templateSha256": "6509dbf413096ae0223d95ce5e617d48c0a0d890050e190dde120c04002721bf",
+        "certificateVerification": "Ephemeral CA trusted in Node and a disposable Chromium NSS store; no TLS bypass",
+        "transportPassed": true,
+        "rateLimits": {
+          "moduleRequests": 60,
+          "modulesPassed": true,
+          "apiRequests": 80,
+          "apiRejected": 39
+        },
+        "authenticationPassed": true,
+        "stream": {
+          "connections": 3,
+          "closed": 2,
+          "receivedBytes": 56123,
+          "insecure": 0
+        },
+        "failedRequests": [],
+        "proxyRecoveryMs": 2254,
+        "handoffPassed": true,
+        "revocationPassed": true
+      },
+      "checks": [
+        {
+          "name": "public installer matches reviewed configuration",
+          "elapsedMs": 995
+        },
+        {
+          "name": "anonymous native pulls; installation contains only compose.yaml and private .env",
+          "elapsedMs": 28773
+        },
+        {
+          "name": "HTTPS redirect, trusted CA, untrusted CA and hostname rejection, unknown Host rejection",
+          "elapsedMs": 35884
+        },
+        {
+          "name": "viewer modules load without throttling while excessive API requests receive 429",
+          "elapsedMs": 41087
+        },
+        {
+          "name": "HTTPS secure HttpOnly cookie, foreign-origin denial and missing/invalid MCP token rejection",
+          "elapsedMs": 42179
+        },
+        {
+          "name": "WSS pixels/input, proxy interruption, automatic viewer recovery and authenticated MCP reconnect",
+          "elapsedMs": 50239
+        },
+        {
+          "name": "account bootstrap, personal token, native desktop reconnect, human typing and Agent handback",
+          "elapsedMs": 52511
+        },
+        {
+          "name": "HTTPS token revocation denies existing and newly connected MCP clients",
+          "elapsedMs": 56204
+        },
+        {
+          "name": "controller recreation preserves account, token and synthetic saved-profile cookie",
+          "elapsedMs": 66030
+        },
+        {
+          "name": "removing bootstrap settings preserves existing access",
+          "elapsedMs": 72183
+        },
+        {
+          "name": "same installation switches to public MCP with isolated temporary browser data",
+          "elapsedMs": 81913
+        }
+      ],
+      "artifactSha256": "c47ebbef6fde752f4a1f5c697b4bae2e87bce24e3de750767980eb2393a503b3",
+      "reportSha256": "d59c694f39deaec4f3ef039e8a50e6c2b520b93dd4b71db971b12c7dd297a3af"
+    }
+  },
+  "evidenceAssets": [
+    "HTTPS-VERIFICATION.json",
+    "HTTPS-AMD64.zip",
+    "HTTPS-ARM64.zip"
+  ],
+  "limitations": [
+    "Loopback-bound installation with ephemeral CA and disposable Nginx; not cross-host routing, real DNS/ACME issuance, Cloudflare configuration or firewall acceptance.",
+    "Native Ubuntu amd64 and arm64 do not establish physical Apple Silicon Mac or interactive Codex/Claude acceptance.",
+    "Synthetic accounts and website state only; no third-party login or live zkPass proof.",
+    "The existing published images are tested with the corrected deployment template from the verifier revision; no image release was replaced."
+  ]
+}

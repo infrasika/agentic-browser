@@ -18,6 +18,7 @@
 !scripts/compose.sh
 !scripts/public-demo.sh
 !scripts/release-compose.sh
+!scripts/workspace-backup.sh
 !compose.yaml
 !compose.public.yaml
 !.env.example
@@ -29,6 +30,12 @@
 !deploy/nginx-public.conf
 !deploy/releases/
 !deploy/releases/*-public-verification.json
+!deploy/releases/*-install-verification.json
+!deploy/releases/*-upgrade-verification.json
+!deploy/releases/*-soak-verification.json
+!deploy/releases/*-experience-verification.json
+!deploy/releases/*-remote-client-verification.json
+!deploy/releases/*-https-verification.json
 web/self-host-downloads/
 !output/
 !output/runtime/

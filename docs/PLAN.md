@@ -24,7 +24,7 @@ The first supported deployment targets are Ubuntu amd64/arm64 and Docker Desktop
 | Release upgrade and backup recovery | Passed on amd64/arm64 | Published preview.3 → preview.4, offline backup and fresh-volume rollback with synthetic member/profile data |
 | Sustained synthetic load | Passed on amd64/arm64 | Two active hours per architecture: 30 public and 30 authenticated five-browser cycles, recovery checks and complete cleanup |
 | Native streaming and external workloads | Passed on amd64/arm64 | 15 measured minutes of visible pixels/input, recovery, three public website flows and native handoff |
-| HTTPS reverse-proxy acceptance | In progress | Certificate validation, authenticated HTTP MCP, secure cookies and native handoff over WSS |
+| HTTPS reverse-proxy acceptance | Passed on amd64/arm64 | Certificate validation, authenticated HTTP MCP, secure cookies, proxy recovery, native WSS handoff and viewer/API rate limits |
 | Browser-version migration | Planned | A future Chrome version change with saved profiles and backup-based recovery |
 | zkPass-specific acceptance | Skipped by request | Bundled extensions remain available; live proof testing is outside the current acceptance scope |
 
@@ -33,7 +33,7 @@ The first supported deployment targets are Ubuntu amd64/arm64 and Docker Desktop
 1. Run `npm run test:self-host` on a physical Apple Silicon Mac. Preview.4 has passed the independent `accept-self-host.yml` workflow on fresh Ubuntu amd64/arm64 runners. Repeat that workflow whenever the public installer or accepted image pins change; record host, Docker versions, architecture, image digests, resource usage, and handoff results.
 2. Extend the passing release-upgrade/backup tests when a future Chrome version change is proposed. Preview.3 → preview.4 and fresh-volume rollback passed `accept-upgrade.yml` on both architectures, but those releases have identical browser assets. Test older images with their pre-upgrade backup when browser formats change; do not assume an in-place downgrade is safe.
 3. Repeat `accept-experience.yml` and `accept-soak.yml` when accepted images or relevant behavior change. Preview.4 passed 15 minutes of native desktop streaming and three public website flows on both architectures, alongside the separate two-hour synthetic workload. Extend compatibility coverage only for concrete website requirements; keep login restrictions and longer-term resource trends separate from these bounded results.
-4. Verify authenticated HTTP MCP and native handoff through the documented Nginx HTTPS proxy. Exercise certificate verification, secure cookies, reconnects and access checks on a disposable installation. Keep real DNS, cross-host firewall and physical Mac results separate from local proxy acceptance.
+4. Repeat the passing `accept-https.yml` workflow when the proxy template, authentication or viewer transport changes. Keep real DNS/certificate issuance, Cloudflare, cross-host firewall and physical Mac results separate from this native single-host TLS acceptance.
 5. Repeat the passing `accept-remote-client.yml` workflow when the published adapter changes; record physical Mac/client-machine and cross-host TLS checks separately. The optional image-based stdio adapter receives no server mounts or Docker socket. Authenticated HTTP MCP is the primary private connection and requires no Docker on the Agent machine.
 
 ## Scope boundaries
