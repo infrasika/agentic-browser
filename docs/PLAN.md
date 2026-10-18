@@ -24,19 +24,20 @@ The first supported deployment targets are Ubuntu amd64/arm64 and Docker Desktop
 | Release upgrade and backup recovery | Passed on amd64/arm64 | Published preview.3 → preview.4, offline backup and fresh-volume rollback with synthetic member/profile data |
 | Sustained synthetic load | Passed on amd64/arm64 | Two active hours per architecture: 30 public and 30 authenticated five-browser cycles, recovery checks and complete cleanup |
 | Native streaming and external workloads | Passed on amd64/arm64 | 15 measured minutes of visible pixels/input, recovery, three public website flows and native handoff |
-| Browser-version migration | Planned | Chrome/extension version changes with saved profiles and backup-based recovery |
-| Live zkPass proof acceptance | Planned | Real external proof flow, cancellation and failure reporting |
+| HTTPS reverse-proxy acceptance | In progress | Certificate validation, authenticated HTTP MCP, secure cookies and native handoff over WSS |
+| Browser-version migration | Planned | A future Chrome version change with saved profiles and backup-based recovery |
+| zkPass-specific acceptance | Skipped by request | Bundled extensions remain available; live proof testing is outside the current acceptance scope |
 
 ## Next acceptance work
 
 1. Run `npm run test:self-host` on a physical Apple Silicon Mac. Preview.4 has passed the independent `accept-self-host.yml` workflow on fresh Ubuntu amd64/arm64 runners. Repeat that workflow whenever the public installer or accepted image pins change; record host, Docker versions, architecture, image digests, resource usage, and handoff results.
-2. Extend the passing release-upgrade/backup tests to a future Chrome/extension version change. Preview.3 → preview.4 and fresh-volume rollback passed `accept-upgrade.yml` on both architectures, but those releases have identical browser assets. Test older images with their pre-upgrade backup when browser formats change; do not assume an in-place downgrade is safe.
+2. Extend the passing release-upgrade/backup tests when a future Chrome version change is proposed. Preview.3 → preview.4 and fresh-volume rollback passed `accept-upgrade.yml` on both architectures, but those releases have identical browser assets. Test older images with their pre-upgrade backup when browser formats change; do not assume an in-place downgrade is safe.
 3. Repeat `accept-experience.yml` and `accept-soak.yml` when accepted images or relevant behavior change. Preview.4 passed 15 minutes of native desktop streaming and three public website flows on both architectures, alongside the separate two-hour synthetic workload. Extend compatibility coverage only for concrete website requirements; keep login restrictions and longer-term resource trends separate from these bounded results.
-4. Validate a live TransGate proof and Schema Validator workflow, including cancellation and unavailable external services. Keep real-account results separate from synthetic CI tests.
+4. Verify authenticated HTTP MCP and native handoff through the documented Nginx HTTPS proxy. Exercise certificate verification, secure cookies, reconnects and access checks on a disposable installation. Keep real DNS, cross-host firewall and physical Mac results separate from local proxy acceptance.
 5. Repeat the passing `accept-remote-client.yml` workflow when the published adapter changes; record physical Mac/client-machine and cross-host TLS checks separately. The optional image-based stdio adapter receives no server mounts or Docker socket. Authenticated HTTP MCP is the primary private connection and requires no Docker on the Agent machine.
 
 ## Scope boundaries
 
-Do not add a built-in LLM, payment flow, shared public login profiles, arbitrary per-session Docker images, or multi-host scheduling until a concrete requirement justifies them. Website anti-bot restrictions are not a compatibility promise.
+Do not add a built-in LLM, payment flow, shared public login profiles, arbitrary per-session Docker images, or multi-host scheduling until a concrete requirement justifies them. Website anti-bot restrictions are not a compatibility promise. Per the 2026-10-18 decision, skip further zkPass-specific tests; no demo URL or app/schema identifiers are required to continue. This does not remove the bundled extensions or invalidate previously recorded checks.
 
 Each completed milestone needs a short entry in [Progress](PROGRESS.md) with the version/commit, test scope, evidence location, and remaining limitations. Keep logs and screenshots under `output/`; avoid duplicating them in design documents.

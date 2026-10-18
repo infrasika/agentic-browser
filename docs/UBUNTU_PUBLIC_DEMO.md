@@ -34,7 +34,7 @@ Bootstrap account settings are ignored in public mode. For source development, b
 
 Point your domain's DNS record to the server. Configure Nginx using [deploy/nginx-public.conf](../deploy/nginx-public.conf), replacing the domain, certificate paths, and backend port (8080 in the example above). Validate Nginx configuration before reloading it.
 
-The proxy must preserve the configured Host, support WebSocket upgrades, disable response buffering, and overwrite client-IP headers. The application serves the website, `/mcp`, and browser display connections through the same port. The template includes request limits and omits access logs that could collect sensitive URL data.
+The proxy must preserve the configured Host, support WebSocket upgrades, disable response buffering, and overwrite client-IP headers. The application serves the website, `/mcp`, and browser display connections through the same port. The template limits requests while exempting `/vendor/novnc/` modules: throttling those initial parallel downloads can leave the viewer stuck on “Connecting.” API and connection limits remain enabled. Access logs are disabled to avoid collecting sensitive URL data.
 
 For Cloudflare, preserve the browser's external HTTPS origin in `AB_PUBLIC_URL`. Do not derive it from an HTTP connection between the proxy and origin. If using Cloudflare client-IP restoration, trust only Cloudflare's configured address ranges, not arbitrary incoming headers. Without restoration, users may share a source-IP quota.
 

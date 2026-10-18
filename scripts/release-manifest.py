@@ -23,7 +23,7 @@ def deployment_contents(root=ROOT):
              'docs/ARCHITECTURE.md', 'docs/RELEASING.md', 'docs/PLAN.md', 'docs/PROGRESS.md',
              'runtime/README.md', 'deploy/nginx-public.conf', 'deploy/release.env',
              'runtime/DISTRIBUTION-NOTICES.md', 'runtime/PLAYWRIGHT-LICENSE']
-    for suffix in ['public', 'install', 'upgrade', 'soak', 'experience', 'remote-client']:
+    for suffix in ['public', 'install', 'upgrade', 'soak', 'experience', 'remote-client', 'https']:
         files += sorted(str(path.relative_to(root)) for path in (root / 'deploy/releases').glob(f'*-{suffix}-verification.json'))
     contents = {}
     for name in files:

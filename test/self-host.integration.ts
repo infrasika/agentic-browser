@@ -13,18 +13,21 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import { verifyDesktopExperience, verifyExternalExperience } from './browser-experience.js';
 import { verifyRemoteClients } from './remote-client.js';
+import { HttpsProxy, freePort } from './https-proxy.js';
 
 const exec = promisify(execFile);
 const installerUrl = 'https://agentic-browser.zkpass.org/install.sh';
 const sha256 = (bytes: Uint8Array) => createHash('sha256').update(bytes).digest('hex');
 const experienceMinutes = Number(process.env.AB_ACCEPTANCE_EXPERIENCE_MINUTES ?? 0);
 const remoteClient = process.env.AB_ACCEPTANCE_REMOTE_CLIENT === '1';
+const httpsRoot = process.env.AB_ACCEPTANCE_HTTPS_DIR;
+assert.ok(!httpsRoot || (!remoteClient && !experienceMinutes), 'Run HTTPS acceptance separately');
 assert.ok(Number.isInteger(experienceMinutes) && experienceMinutes >= 0 && experienceMinutes <= 60);
 
 test('published self-host installation: anonymous native images, human handoff and retained account/profile', { timeout: 1200000 + experienceMinutes * 60000 }, async t => {
   const started = Date.now(), runId = randomUUID();
   const project = `ab-install-${runId}`;
-  const evidence = resolve(remoteClient ? 'output/remote-client' : experienceMinutes ? 'output/experience' : 'output/self-host', `${new Date().toISOString().replace(/[:.]/g, '-')}-${runId}`);
+  const evidence = resolve(httpsRoot ? 'output/https' : remoteClient ? 'output/remote-client' : experienceMinutes ? 'output/experience' : 'output/self-host', `${new Date().toISOString().replace(/[:.]/g, '-')}-${runId}`);
   await mkdir(evidence, { recursive: true });
   const report: Record<string, any> = { startedAt: new Date(started).toISOString(), project,
     host: { platform: platform(), arch: arch(), release: release() }, installerUrl,
@@ -58,7 +61,9 @@ test('published self-host installation: anonymous native images, human handoff a
   const probe = createServer().listen(0, '127.0.0.1'); await once(probe, 'listening');
   const port = (probe.address() as { port: number }).port;
   await new Promise<void>(resolve => probe.close(() => resolve()));
-  const base = `http://127.0.0.1:${port}`;
+  const upstream = `http://127.0.0.1:${port}`;
+  const base = httpsRoot ? `https://127.0.0.1:${await freePort()}` : upstream;
+  const proxy = httpsRoot ? new HttpsProxy(httpsRoot, base, upstream, await freePort(), report.https = {}) : undefined;
   const instances = new Set<string>(), clients = new Set<Client>();
   let configured = false, controller = '', browser: Browser | undefined, mode = 'authenticated';
   const inside = (source: string) => docker('exec', controller, 'node', '--import', 'tsx', '--input-type=module', '-e', source);
@@ -71,15 +76,16 @@ test('published self-host installation: anonymous native images, human handoff a
   t.after(async () => {
     const errors: string[] = [];
     await Promise.allSettled([...clients].map(client => client.close()));
-    if (experienceMinutes && !report.scenariosPassed) {
+    if ((experienceMinutes || proxy) && !report.scenariosPassed) {
       const failedPage = browser?.contexts().flatMap(context => context.pages()).find(page => !page.isClosed());
       if (failedPage) try {
         await mkdir('output/playwright', { recursive: true });
-        report.failureScreenshot = `output/playwright/experience-${runId}-failure.png`;
+        report.failureScreenshot = `output/playwright/${proxy ? 'https' : 'experience'}-${runId}-failure.png`;
         await failedPage.screenshot({ path: report.failureScreenshot, fullPage: true, timeout: 5000 });
       } catch { report.failureScreenshot = undefined; }
     }
     try { await browser?.close(); } catch { errors.push('verification browser cleanup failed'); }
+    try { await proxy?.stop(); } catch { errors.push('disposable HTTPS proxy cleanup failed'); }
     if (configured) {
       try { await compose('down', '--timeout', '60'); } catch { errors.push('controller shutdown failed'); }
       try { for (const id of await owned()) await docker('rm', '-f', id); } catch { errors.push('scoped browser cleanup failed'); }
@@ -123,6 +129,8 @@ test('published self-host installation: anonymous native images, human handoff a
     ['test/self-host.integration.ts', 'test/browser-experience.ts', 'scripts/experience.mjs', 'deploy/release.env'].map(async path => [path, sha256(await readFile(path))])));
   if (remoteClient) report.sourceHashes = Object.fromEntries(await Promise.all(
     ['test/self-host.integration.ts', 'test/remote-client.ts', 'scripts/remote-client.mjs', 'deploy/release.env'].map(async path => [path, sha256(await readFile(path))])));
+  if (proxy) report.sourceHashes = Object.fromEntries(await Promise.all(
+    ['test/self-host.integration.ts', 'test/https-proxy.ts', 'scripts/https.mjs', 'deploy/nginx-public.conf', 'deploy/release.env'].map(async path => [path, sha256(await readFile(path))])));
   report.workflow = process.env.GITHUB_ACTIONS === 'true' ?
     `https://github.com/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}` : undefined;
   const server = JSON.parse(await docker('version', '--format', '{{json .Server}}'));
@@ -154,6 +162,7 @@ test('published self-host installation: anonymous native images, human handoff a
     .replace(/^AB_PORT=.*$/m, `AB_PORT=${port}`)
     .replace(/^AB_ADMIN_PASSWORD=.*$/m, `AB_ADMIN_PASSWORD='${password}'`);
   if (experienceMinutes) settings = settings.replace(/^AB_SESSION_TTL_SECONDS=.*$/m, `AB_SESSION_TTL_SECONDS=${(experienceMinutes + 10) * 60}`);
+  if (proxy) settings += `\nAB_PUBLIC_URL=${base}\nAB_TRUST_PROXY=true\n`;
   await writeFile(join(setup, '.env'), settings);
   const config = JSON.parse(await compose('config', '--format', 'json'));
   assert.equal(config.name, project); configured = true;
@@ -170,11 +179,29 @@ test('published self-host installation: anonymous native images, human handoff a
   await record('anonymous native pulls; installation contains only compose.yaml and private .env');
   await start();
   assert.match(await compose('exec', '-T', 'controller', 'npm', 'run', 'doctor'), /PASS Private data volume/);
-  browser = await chromium.launch({ headless: true });
+  if (proxy) {
+    await proxy.start(); await proxy.verifyTransport();
+    await record('HTTPS redirect, trusted CA, untrusted CA and hostname rejection, unknown Host rejection');
+    await proxy.verifyRateLimits();
+    await record('viewer modules load without throttling while excessive API requests receive 429');
+  }
+  browser = await chromium.launch({ headless: true, ...(httpsRoot ? { env: { ...process.env, HOME: join(httpsRoot, 'browser-home') } } : {}) });
   const human = await browser.newContext();
   const headers = { Origin: base, 'X-Agentic-Browser': '1' };
   const login = (value: string) => human.request.post(base + '/api/auth/login', { headers, data: { username: 'admin', password: value } });
   assert.equal((await login(password)).status(), 200);
+  if (proxy) {
+    const cookies = await human.cookies(base);
+    assert.equal(cookies.length, 1); assert.equal(cookies[0].secure, true); assert.equal(cookies[0].httpOnly, true);
+    assert.equal(cookies[0].sameSite, 'Strict');
+    assert.equal((await human.request.post(base + '/api/credentials', {
+      headers: { ...headers, Origin: 'https://wrong.acceptance.invalid' }, data: { name: 'Rejected origin' },
+    })).status(), 403);
+    await assert.rejects(connect(), { code: 401 });
+    await assert.rejects(connect('synthetic-invalid-token'), { code: 401 });
+    report.https.authenticationPassed = true;
+    await record('HTTPS secure HttpOnly cookie, foreign-origin denial and missing/invalid MCP token rejection');
+  }
   const profileResponse = await human.request.post(base + '/api/profiles', { headers, data: { name: 'Synthetic installation profile' } });
   assert.equal(profileResponse.status(), 201);
   const profile = await profileResponse.json();
@@ -196,6 +223,20 @@ test('published self-host installation: anonymous native images, human handoff a
   assert.equal(new URL(handoff.humanUrl).origin, base);
   assert.equal((await client.callTool({ name: 'browser_action', arguments: { sessionId: session.id, action: { type: 'snapshot' } } })).isError, true);
   const page = await human.newPage();
+  const stream = { connections: 0, closed: 0, receivedBytes: 0, insecure: 0 };
+  if (proxy) {
+    report.https.stream = stream;
+    report.https.failedRequests = [];
+    page.on('response', response => {
+      if (response.status() >= 400) report.https.failedRequests.push({ path: new URL(response.url()).pathname, status: response.status() });
+    });
+    page.on('requestfailed', request => report.https.failedRequests.push({ path: new URL(request.url()).pathname, failure: request.failure()?.errorText }));
+  }
+  if (proxy) page.on('websocket', socket => {
+    stream.connections++; if (new URL(socket.url()).protocol !== 'wss:') stream.insecure++;
+    socket.on('framereceived', frame => { stream.receivedBytes += Buffer.byteLength(frame.payload); });
+    socket.on('close', () => { stream.closed++; });
+  });
   if (experienceMinutes) {
     report.experience = {};
     await verifyDesktopExperience({ page, humanUrl: handoff.humanUrl, sessionId: session.id, client, report: report.experience, record,
@@ -215,8 +256,25 @@ test('published self-host installation: anonymous native images, human handoff a
   await docker('exec', chrome.Id, 'node', '--input-type=module', '-e', cdp + `
     const page=context.pages().find(p=>p.url()==='http://127.0.0.1:8080/demo');
     await page.waitForFunction(()=>document.body.innerText.includes('Signed in: synthetic-install-user'),null,{timeout:15000});await browser.close();`);
+  if (proxy) {
+    const connections = stream.connections, began = Date.now();
+    await proxy.restart();
+    // The existing viewer must reconnect itself; no page reload or TLS bypass.
+    await page.waitForFunction(() => document.getElementById('connection')?.textContent === 'Connected', null, { timeout: 20000 });
+    for (let attempt = 0; attempt < 100 && stream.connections <= connections; attempt++) await new Promise(resolve => setTimeout(resolve, 100));
+    await connected();
+    assert.ok(stream.connections > connections); assert.ok(stream.receivedBytes > 10000); assert.equal(stream.insecure, 0);
+    report.https.proxyRecoveryMs = Date.now() - began;
+    await client.close(); clients.delete(client); client = await connect(key.token);
+    assert.equal((await client.listTools()).tools.length, 11);
+    assert.equal((await client.callTool({ name: 'browser_action', arguments: { sessionId: session.id, action: { type: 'snapshot' } } })).isError, true);
+    await record('WSS pixels/input, proxy interruption, automatic viewer recovery and authenticated MCP reconnect');
+  }
+  const waiting = proxy ? call(client, 'browser_wait', { sessionId: session.id, timeoutSeconds: 20 }) : undefined;
+  void waiting?.catch(() => {});
   await page.locator('#resume').click();
   await page.waitForFunction(() => document.getElementById('message')?.textContent?.startsWith('Control returned'));
+  if (waiting) { assert.equal((await waiting).status, 'ready'); report.https.stream = stream; report.https.handoffPassed = true; }
   await page.close();
   const snapshot = await call(client, 'browser_action', { sessionId: session.id, action: { type: 'snapshot' } });
   assert.match(snapshot.result.text, /Signed in: synthetic-install-user/);
@@ -261,6 +319,16 @@ test('published self-host installation: anonymous native images, human handoff a
   // The saved cookie is synthetic and is written after Agent control resumes.
   await docker('exec', chrome.Id, 'node', '--input-type=module', '-e', cdp + `await context.addCookies([{name:'install_fixture',value:'synthetic-only',url:'https://example.test/',expires:Date.now()/1000+3600}]);await browser.close();`);
   await call(client, 'browser_close', { sessionId: session.id }); assert.deepEqual(await owned(), []);
+  if (proxy) {
+    const temporary = await human.request.post(base + '/api/credentials', { headers, data: { name: 'Synthetic TLS revocation' } });
+    assert.equal(temporary.status(), 200); const revoked = await temporary.json();
+    const revokedClient = await connect(revoked.token); assert.equal((await revokedClient.listTools()).tools.length, 11);
+    assert.equal((await human.request.delete(base + '/api/credentials/' + revoked.id, { headers })).status(), 200);
+    await assert.rejects(revokedClient.listTools(), { code: 401 }); await assert.rejects(connect(revoked.token), { code: 401 });
+    await revokedClient.close(); clients.delete(revokedClient);
+    report.https.revocationPassed = true;
+    await record('HTTPS token revocation denies existing and newly connected MCP clients');
+  }
   if (remoteClient) await verifyRemoteClients({ docker, env, controller, image: pins.AB_CONTROLLER_IMAGE, base, human, headers, profileId: profile.id, report, record });
   await client.close(); clients.delete(client);
   await writeFile(join(setup, '.env'), settings.replace(/^AB_ADMIN_PASSWORD=.*$/m, "AB_ADMIN_PASSWORD='changed-but-must-not-reset'"));

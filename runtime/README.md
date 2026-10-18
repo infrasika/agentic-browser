@@ -25,6 +25,8 @@ Logs and screenshots are under `output/runtime/` and are not committed. These ch
 
 ## Live proof acceptance
 
+Optional reference only: further zkPass-specific testing was skipped by request on 2026-10-18 and is not required for the current milestones. The bundled extensions remain unchanged. The following procedure applies only if live proof testing is explicitly resumed.
+
 Choose a dedicated test app and a published schema before a live run. The [official TransGate SDK](https://github.com/zkPassOfficial/Transgate-JS-SDK) uses an app ID and schema ID to launch verification. Supply a demo URL or those non-secret identifiers; website passwords and verification codes stay in the remote browser. A wallet transaction is not part of browser acceptance.
 
 Use a fresh temporary browser with the accepted images. Verify extension detection, hand off for any login/consent, then return control and check the proof with the integration's documented verifier. Record successful verification separately from user cancellation, an unmet schema condition and unavailable external nodes. Preserve only the outcome, timings, image/extension versions and test identifiers; avoid retaining cookies, page contents, raw proof fields or account identifiers in shared artifacts. Installation, popup rendering and synthetic capture alone must never be reported as a live proof pass.

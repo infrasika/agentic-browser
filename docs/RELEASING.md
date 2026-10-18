@@ -121,6 +121,16 @@ The fixture uses a proxy on the disposable Compose network to model distinct cli
 
 Reports under `output/remote-client/<run>/report.json` retain image/platform information, verifier hashes, client restrictions, scenario checkpoints and cleanup. Preserve accepted reports in a `*-remote-client-verification.json` receipt and private release artifacts. This verifies the adapter and container network path; it is not a TLS certificate, cross-host firewall, physical Mac or interactive Codex/Claude client test. Authenticated HTTP MCP remains the recommended private connection and does not require Docker on the Agent's machine.
 
+## HTTPS reverse-proxy acceptance
+
+Run `npm run test:https` on Linux with Docker, Nginx, OpenSSL and `libnss3-tools`, or dispatch `accept-https.yml` for fresh native Ubuntu amd64/arm64 runs. This extends the published-installer verifier with the distributed [Nginx template](../deploy/nginx-public.conf), replacing only its host, ports, upstream and certificate paths. The fixture binds new loopback ports and never reloads the machine's system Nginx or reads a real deployment's `.env`.
+
+Each run creates a two-day test CA, trusts it only in the verifier's Node process and a disposable Chromium NSS database, and removes the keys and trust store afterward. It uses [Chromium's Linux certificate store](https://chromium.googlesource.com/chromium/src/+/HEAD/docs/linux/cert_management.md); certificate validation remains enabled. Positive HTTPS access must pass while an untrusted issuer and a wrong certificate hostname must fail.
+
+Acceptance covers the HTTP redirect, Host/Origin checks, secure HttpOnly login cookies, missing/invalid/revoked MCP credentials, authenticated HTTP MCP, human links, native WSS pixels/input, automatic viewer recovery after proxy interruption, Agent reconnect, long-poll handback, saved-profile recreation and public-mode switching. A burst check requires all 60 static viewer-module requests to pass while excessive API requests still receive 429. Reports under `output/https/<run>/report.json` retain template/source hashes, Nginx and image versions, stream counts, recovery timings and scoped cleanup. Reports exclude cookies, personal tokens, handoff links, private keys and raw desktop frames. Preserve accepted native results in a `*-https-verification.json` receipt and separate private release assets.
+
+This verifies TLS termination and the application proxy path on one host. It does not establish real DNS/ACME certificate issuance, Cloudflare settings, cross-host routing/firewalls, physical Mac behavior or third-party login compatibility. zkPass-specific tests are outside the current acceptance scope.
+
 ## Dependency locks
 
 Base images, npm dependencies, Chrome, and extensions have fixed references or hashes. `runtime/assets.lock.json` covers both native Chrome packages and the two original CRX packages. CI must fail on a mismatch rather than refresh locks automatically.

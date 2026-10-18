@@ -168,11 +168,19 @@ The [native client workflow](https://github.com/infrasika/agentic-browser/action
 
 Live proof acceptance now has a concrete procedure in [Runtime development](../runtime/README.md#live-proof-acceptance). It needs a chosen test demo or app/schema identifiers and any required website login before a real proof can be claimed. Synthetic extension capture and popup checks remain separately labeled.
 
+## HTTPS reverse-proxy acceptance — 2026-10-18
+
+Skipped further zkPass-specific testing at the user's request; the bundled extensions are unchanged and no test app/schema identifiers are needed to continue. Added `npm run test:https` and `accept-https.yml` to verify the published images through the documented Nginx proxy on disposable native Linux installations.
+
+The first native viewer run exposed a deployment-template bug: the shared request budget returned 429 for noVNC ES modules, leaving the viewer on “Connecting” before any WebSocket opened. The template now excludes only `/vendor/novnc/` static modules from request accounting; API request limits and connection limits remain active. A regression check loads 60 modules successfully and requires an excessive API burst to receive 429. No extension tests or real website accounts are involved.
+
+Local Ubuntu acceptance passed in **56.8 seconds** with complete cleanup. It verified trusted TLS, rejection of an untrusted CA and wrong certificate hostname, HTTP redirects, Host/Origin checks, secure HttpOnly cookies, authenticated MCP, WSS pixels and human input, automatic recovery after proxy interruption (**2.5 seconds**), Agent reconnect/handback, token revocation, saved-profile recreation and public-mode switching. The verifier trusts a temporary CA only in its Node process and disposable Chromium NSS store; it does not disable certificate checks or modify system trust. TypeScript, all **60 unit/API tests**, and both packaging tests passed. Evidence: `output/https/2026-10-18T08-43-43-438Z-b3f3bdd0-edf8-4bb0-bc42-c79654f49345/report.json`. Fresh native amd64/arm64 runs are the next check. This does not establish cross-host DNS/firewall configuration or physical Mac acceptance.
+
 ## Validation still required
 
 - The user previously verified Mac deployment, but preview.4 still needs its own physical Apple Silicon Mac acceptance run with Docker Desktop. Linux ARM CI is not a substitute. The verifier is documented in [Releasing](RELEASING.md#independent-installation-acceptance).
-- A real TransGate proof and external-node interaction remain separate from the passing synthetic Schema Validator fixture.
-- Preview.3 → preview.4 backup-based rollback, two-hour synthetic multi-user operation, and 15-minute native streaming with three public website flows pass on both architectures. Chrome/extension version changes, profile-format migration, longer-term resource trends and additional site-specific compatibility remain separate acceptance work.
+- zkPass-specific testing is skipped by request as of 2026-10-18. The bundled extensions remain available; live proof success is not claimed and is no longer a prerequisite for the next milestone.
+- Preview.3 → preview.4 backup-based rollback, two-hour synthetic multi-user operation, and 15-minute native streaming with three public website flows pass on both architectures. A future Chrome version change, profile-format migration, longer-term resource trends and additional site-specific compatibility remain separate acceptance work.
 - Google and X can require verification or reject remote-browser sign-in. Successful synthetic tests and GitHub handoff do not establish universal login compatibility.
 
 See [Roadmap](PLAN.md) for the next milestones and [Releasing](RELEASING.md) for the evidence required by each release.
