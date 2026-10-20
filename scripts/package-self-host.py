@@ -47,7 +47,7 @@ def build(root, output):
     output.mkdir(parents=True, exist_ok=True)
     (output / 'install.sh').write_text(installer)
     (output / 'workspace-backup.sh').write_bytes(contents['scripts/workspace-backup.sh'])
-    for name in ['SELF_HOST.md', 'AGENT_CLIENT.md']:
+    for name in ['PUBLIC_DEMO.md', 'SELF_HOST.md', 'AGENT_CLIENT.md', 'STATUS.md']:
         (output / name).write_bytes(contents[f'docs/{name}'])
     archive = output / 'agentic-browser-self-host.tar.gz'
     with archive.open('wb') as raw, gzip.GzipFile(filename='', mode='wb', fileobj=raw, mtime=0) as compressed:

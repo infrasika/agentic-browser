@@ -1,47 +1,128 @@
-# Self-hosting
+# Self-host Agentic Browser
 
-Run the two public GHCR images on your own Docker host. No source checkout, host Node.js, or registry login is required. The [official demo](https://agentic-browser.zkpass.org/) is separate from your private installation.
+Run a personal or team workspace on your own Docker host using the two public images. You do **not** need source access, a build, Node.js on the host, or a GHCR login. The [official demo](https://agentic-browser.zkpass.org/) is a separate service; its sessions and accounts do not move into your installation.
 
-Requires Docker Engine 26+, Compose 2.24.4+, and Bash. Images support Linux amd64/arm64 and Docker Desktop on Apple Silicon. Only the controller mounts the Docker socket; it creates isolated browser containers on demand.
+The accepted image release is **v0.1.0-preview.4**. The installer embeds immutable multi-platform digests rather than floating tags. See [Frozen baseline](STATUS.md) for the exact version boundary and verification evidence.
 
-## 1. Install
+## Choose where to run it
+
+| Host | What to install | Where Chrome runs |
+| --- | --- | --- |
+| Ubuntu amd64 or arm64 | Docker Engine 26+, Docker Compose 2.24.4+, Bash | In an isolated Linux runtime container for each session |
+| Apple Silicon Mac | Docker Desktop with a running Linux engine meeting the same version requirements; Bash | In Docker Desktop's Linux arm64 VM, not your everyday Mac Chrome |
+
+Run the installer **on the Docker host**. It supports a local Unix-socket Docker context, not a Docker-over-SSH/TCP context. To deploy on remote Ubuntu, SSH into Ubuntu and run the commands there. Docker automatically selects amd64 or arm64; no platform setting is needed.
+
+Start with one concurrent browser. Increase the limit after observing your host's CPU, memory and disk during real tasks. `AB_MAX_SESSIONS` is a quota, not a guarantee that the host can sustain that many browsers. Docker Desktop's allocated resources matter independently of the Mac's total RAM. There is no automatic multi-host scheduling.
+
+Check prerequisites:
+
+```sh
+docker version
+docker compose version
+docker info
+```
+
+Only the trusted controller mounts the Docker socket. This lets it create, inspect and remove per-session containers, networks and volumes. Docker socket access is daemon-wide management authority; browser containers do not receive it. The installer detects the socket path/group, including Docker Desktop's Linux-side permissions. Do not expose the Docker daemon, VNC or CDP ports to users.
+
+## 1. Download the installer
+
+Run in a directory where you want the workspace folder created:
+
+```sh
+curl -fsSL https://agentic-browser.zkpass.org/install.sh -o install-agentic-browser.sh
+bash install-agentic-browser.sh agentic-browser
+cd agentic-browser
+```
+
+You can inspect the downloaded script before running it. The shorter equivalent is:
 
 ```sh
 curl -fsSL https://agentic-browser.zkpass.org/install.sh | bash
 cd agentic-browser
 ```
 
-The installer pulls both pinned images and creates only `compose.yaml` and `.env`. It detects Docker socket permissions and refuses to overwrite an existing installation. To inspect it first, download with `curl -fsSL https://agentic-browser.zkpass.org/install.sh -o install.sh`, then run `bash install.sh my-browser`.
+The installer pulls `ghcr.io/infrasika/agentic-browser-controller` and `ghcr.io/infrasika/agentic-browser-runtime` by digest. It writes exactly two installation files: `compose.yaml` and `.env`. It does not start the service or overwrite an existing installation. Keep the installer if you want to recreate the same setup later; downloading from the website in the future may provide a newer accepted setup.
+
+The controller runs continuously. It starts browser and egress-proxy containers from the runtime image as needed; you do not manually start a shared runtime container.
 
 ## 2. Configure and start
 
-Edit `.env` and choose your initial administrator credentials:
+Edit the generated `.env`:
 
 ```dotenv
 AB_MODE=authenticated
 AB_ADMIN_USERNAME=admin
-AB_ADMIN_PASSWORD='your-own-long-password'
+AB_ADMIN_PASSWORD='replace-with-your-own-long-password'
 AB_PORT=3333
 AB_MAX_SESSIONS=1
 ```
 
-Use your own password of 12–256 characters, not the example. Single-quote passwords containing `$` or `#` so Compose treats them literally. Keep `.env` private; the installer sets its permissions to `0600`.
+Choose your own password of 12–256 characters. Single-quote values containing `$` or `#` so Compose treats them literally; do not leave the example password in place. Keep `.env` private. The installer creates it with restrictive permissions.
 
 ```sh
-docker compose up -d --wait
+docker compose up -d --wait --wait-timeout 90
+docker compose ps
+docker compose exec controller npm run doctor
 ```
 
-Open `http://127.0.0.1:3333`, sign in, and create a **personal Agent credential** in the dashboard. If you set `AB_PORT=4444`, open `http://127.0.0.1:4444` instead.
+Open **http://127.0.0.1:3333** on the same machine and sign in with the configured username/password. If you chose `AB_PORT=4444`, use `http://127.0.0.1:4444` for the website and `http://127.0.0.1:4444/mcp` for the Agent.
 
-The initial account is created only when the workspace has no accounts. Restarts and environment changes never reset an existing password, enable a disabled account, or add another bootstrap account. After setup, you may remove **both** `AB_ADMIN_USERNAME` and `AB_ADMIN_PASSWORD` from `.env` and recreate the controller. Only password hashes are stored in the database; the initial plaintext password remains in your private environment file and container configuration until removed.
+On a remote Ubuntu host, your laptop's `127.0.0.1` is not the server. Use the [SSH tunnel](#remote-access) or configure an HTTPS domain before trying to open it from your laptop.
 
-“Administrator” means the deployment's initial account. It has the same private browser-data scope as other members; it cannot browse their sessions or profiles through the dashboard. Host-level administration still uses Docker and the member CLI.
+### What the initial account means
 
-## 3. Connect your Agent
+`AB_ADMIN_USERNAME` and `AB_ADMIN_PASSWORD` create the first account only when the authenticated workspace has no accounts. Changing them never resets a password, re-enables an existing account, or adds another account to an initialized workspace. Public mode ignores them.
 
-Use your service's `/mcp` URL and the personal token from the dashboard. No Docker command is needed on the Agent's machine.
+This initial account has the same private resource scope as other members. It is not a web administrator that can inspect everyone's browser data. Host-level administration uses Docker and the member CLI; there is no global administration/settings page in this version.
 
-For clients with JSON MCP settings:
+After confirming you can sign in, you may remove **both** bootstrap settings from `.env` and recreate the controller. Account password hashes remain in the data volume. Until removed and recreated, the bootstrap plaintext password remains in the private environment file and container configuration.
+
+## 3. Create your Agent credential
+
+In the dashboard's **Connect your Agent** section:
+
+1. Give the credential a recognizable name, such as `my-codex`.
+2. Leave saved-profile access empty for a temporary-browser test.
+3. Click **Create credential**, then **Copy MCP configuration**.
+4. Save the credential privately and configure your Agent. If you lose access to the secret, issue a replacement and revoke the old credential.
+
+There are three separate sign-ins: your workspace account opens the dashboard; the personal Agent token authorizes MCP; the target website account signs into GitHub or another site inside Chrome. They are not interchangeable. Do not use your workspace password as an MCP token.
+
+Each teammate should have a separate workspace account and personal tokens. Sharing an account or token intentionally shares that identity's access.
+
+## 4. Connect Codex, Claude Code or another Agent
+
+The URL is your workspace origin plus `/mcp`. Every authenticated MCP request requires a personal Bearer token. Website cookies do not authenticate the Agent, and no OAuth sign-in is provided by this workspace.
+
+### Codex CLI
+
+Set `AGENT_BROWSER_TOKEN` privately in the environment used to launch Codex. To enter it without putting the token itself into shell history, run the following in **Bash**:
+
+```bash
+read -r -s -p 'Agent credential: ' AGENT_BROWSER_TOKEN
+printf '\n'
+export AGENT_BROWSER_TOKEN
+codex mcp add agentic-browser-local --url http://127.0.0.1:3333/mcp --bearer-token-env-var AGENT_BROWSER_TOKEN
+codex
+```
+
+For a new terminal or desktop-launched Agent, make the variable available in that process's environment too. `--bearer-token-env-var` stores the variable name, not a copy of the token. Check the configuration with `codex mcp get agentic-browser-local`.
+
+### Claude Code
+
+With `AGENT_BROWSER_TOKEN` set as above, run:
+
+```sh
+claude mcp add --transport http --scope user agentic-browser-local http://127.0.0.1:3333/mcp --header "Authorization: Bearer $AGENT_BROWSER_TOKEN"
+claude
+```
+
+Check the connection using `/mcp`. This command expands and stores the token in Claude's private client configuration; do not share that file. For environment-variable references in JSON configuration and other options, consult the [Claude Code MCP reference](https://code.claude.com/docs/en/mcp).
+
+### Clients using JSON
+
+Use **Copy MCP configuration** in the dashboard, or replace the placeholder below:
 
 ```json
 {
@@ -55,59 +136,147 @@ For clients with JSON MCP settings:
 }
 ```
 
-The dashboard can copy this configuration after creating a credential. For Codex and other client details, see [Agent clients](AGENT_CLIENT.md#private-deployment-personal-credentials). Use the host port you configured; `4444` applies to both the website and MCP. A remote Agent needs your reachable HTTPS address instead of its own `127.0.0.1`.
+Reconnect or restart the Agent after adding the server. Do not commit a token-bearing configuration. Use a reachable HTTPS origin if the Agent runs elsewhere: `127.0.0.1` always refers to the machine or container running that Agent. The Agent machine needs no Docker or project source when using HTTP MCP.
 
-Try:
+## 5. Run your first task
+
+Send this to your Agent:
 
 > Use agentic-browser-local to open GitHub and send me a sign-in link. Wait until I hand control back, then count all the private repositories I own and list their names. Check every page and close the browser when finished.
 
-Open the link while signed in to your workspace account, complete the website login, and click **Hand back to Agent**.
+Open the returned link in a browser where you are signed in to the **same workspace member account**. Take control, click inside the remote website, and type directly. Complete the website login, then click **Hand back to Agent**. The Agent should list all personally owned private repositories and close the session. A working task proves the token, browser runtime, display transport and handoff all work together.
 
-## One file, two access modes
+For a test without an external account, substitute `https://example.com` and ask the Agent to read its title after handback. Site-specific anti-bot restrictions are separate from workspace connectivity.
 
-| `.env` setting | Website and MCP access | Browser data |
+You may also create a manual session from the dashboard. Before expecting an Agent to operate it, use the dashboard's credential-binding flow (**Connect Agent and take control**) and then hand it back. Installing MCP alone does not automatically attach an Agent to every browser you created manually.
+
+### Temporary sessions and saved profiles
+
+Temporary sessions start with a fresh profile; closing or expiry removes their browser data. For reuse, explicitly create/select a saved profile in your workspace and grant that profile to the intended Agent credential. Saved profiles preserve website login data across sessions and controller recreation, subject to the website's own expiry/revocation.
+
+A saved profile can be used by one session at a time. It belongs to its member; another member cannot list or use it through the application. A profile is not a running session: a controller restart ends sessions, and you open a new session using the saved profile. The server administrator remains trusted with the underlying volume.
+
+## Configuration reference
+
+Use one `.env` and one `compose.yaml`. Do not create `.env.compose` or `.env.public` for a new installation. Docker Compose reads `.env` and passes the supported mappings to the controller; there is no web page for server settings. Tokens and saved profiles are managed in the dashboard.
+
+| Setting | Default | Meaning |
 | --- | --- | --- |
-| `AB_MODE=authenticated` (default) | Member login; personal Bearer token required for `/mcp` | Isolated by member and Agent credential; saved profiles are opt-in |
-| `AB_MODE=public` | No registration or Agent token required | Temporary sessions with individual secret keys; no saved profiles |
-
-Public mode ignores the bootstrap credentials and applies a 5-minute initial lease with a 10-minute maximum lifetime. Use a separate installation directory and `AB_PROJECT_NAME` for a public demo so it has its own volume. See [Public deployment](UBUNTU_PUBLIC_DEMO.md) for proxy and quota settings. New deployments do not need `.env.compose`, `.env.public`, or a second Compose file.
-
-## Settings and updates
-
-| Setting | Default | Purpose |
-| --- | --- | --- |
-| `AB_PORT` | `3333` | Host port for the website and MCP |
-| `AB_PUBLIC_URL` | `http://127.0.0.1:<AB_PORT>` | External origin; set your HTTPS origin for remote access |
-| `AB_BIND_ADDRESS` | `127.0.0.1` | Host interface; keep loopback behind a local proxy |
-| `AB_PROJECT_NAME` | `agentic-browser` | Container and data-volume namespace; keep stable |
-| `AB_MAX_SESSIONS` | `1` | Total simultaneous browsers, 1–32 |
-| `AB_MAX_SESSIONS_PER_MEMBER` | `1` | Authenticated member limit, 1–32 |
+| `AB_MODE` | `authenticated` | Member login/token access; `public` enables anonymous temporary demos |
+| `AB_PROJECT_NAME` | `agentic-browser` | Container/volume namespace; keep stable to keep using the same data |
+| `AB_PORT` | `3333` | Host port shared by the website, MCP and browser display |
+| `AB_BIND_ADDRESS` | `127.0.0.1` | Host listen interface; use loopback behind a local proxy |
+| `AB_PUBLIC_URL` | `http://127.0.0.1:<AB_PORT>` | Address users and Agents actually open; scheme, hostname and optional port |
+| `AB_ADMIN_USERNAME`, `AB_ADMIN_PASSWORD` | `admin`, empty | First-account bootstrap only; choose a password before initial authenticated startup |
+| `AB_MAX_SESSIONS` | `1` | Total browsers, 1–32; includes starting sessions and pending cleanup |
+| `AB_MAX_SESSIONS_PER_MEMBER` | `1` | Authenticated member quota, 1–32 |
 | `AB_SESSION_TTL_SECONDS` | `1800` | Authenticated initial lease, 60–14400 seconds |
-| `AB_SESSION_MAX_LIFETIME_SECONDS` | `14400` | Authenticated maximum lifetime, 60–86400 seconds |
-| `AB_MAX_SESSIONS_PER_IP` | `2` | Public mode source-IP limit, 1–8 |
+| `AB_SESSION_MAX_LIFETIME_SECONDS` | `14400` | Authenticated total lifetime, 60–86400 seconds |
+| `AB_MAX_SESSIONS_PER_IP` | `2` | Public mode per-source quota, 1–8 |
 | `AB_TRUST_PROXY` | `false` | Trust `X-Real-IP` only behind a proxy that overwrites it |
+| `AB_EGRESS_DENY_HOSTS` | Empty | Additional blocked destinations, comma-separated hostnames or supported address entries |
+| `AB_DOCKER_SOCKET`, `AB_DOCKER_GID` | Detected by installer | Controller socket mount and group access; redetect on a different Docker host |
 
-Keep the initial lease no longer than the maximum lifetime. Optional `AB_EGRESS_DENY_HOSTS` adds comma-separated blocked hostnames. `AB_RUNTIME_PLATFORM=auto` selects the native architecture. The installer records Docker socket/group values in `.env`; image digests are fixed in `compose.yaml`.
+Keep the initial lease no greater than the maximum lifetime. Public mode uses its fixed 5-minute initial lease / 10-minute total lifetime, not the authenticated lifetime settings. Example: a small team can set total capacity to `5` and per-member capacity to `1`.
 
-Server settings live in `.env`. Personal Agent tokens and saved profiles are managed in the dashboard. There is no server-settings page. Compose passes only mapped settings to the container. After editing `.env`, finish active sessions and run:
+The installer writes literal image digests into `compose.yaml`. `AB_CONTROLLER_IMAGE` and `AB_RUNTIME_IMAGE` are source/legacy wrapper inputs; changing them in `.env` does not replace literal pins in an installer-generated Compose file. Upgrade the image/configuration pair using the procedure below. No architecture override is needed for normal deployment.
+
+`AB_PUBLIC_URL` is the Compose setting. It maps to the controller's `PUBLIC_URL`; a lowercase `public_url` has no effect. The setting does not configure DNS, TLS, firewall rules or port forwarding. Remove stale exported `AB_*` shell variables if they unexpectedly override `.env` values.
+
+After changing settings, finish active sessions and run:
 
 ```sh
 docker compose up -d --force-recreate --wait
 ```
 
-A plain restart does not reload environment settings. Recreation ends active sessions but preserves accounts and saved profiles in the same volume. Bootstrap settings never serve as a password-reset mechanism.
+A plain `docker compose restart` does not reload environment settings. Recreation ends active browser sessions but retains accounts and saved profiles in the same data volume.
 
-## Members, remote access, and upgrades
+## Remote access
 
-Add teammates with `docker compose exec controller npm run members -- create alice`. Reset a password with `docker compose exec controller npm run members -- password alice`; this revokes that member's existing tokens. Each person should have their own account and Agent token. Run `docker compose exec controller npm run doctor` for environment checks.
+### Private SSH tunnel
 
-For a local tunnel, keep `ssh -N -L 3333:127.0.0.1:3333 ubuntu@SERVER_IP` running; both the website and HTTP MCP are then available at the forwarded address. For remote teams, configure DNS and an HTTPS reverse proxy using [the Nginx template](../deploy/nginx-public.conf), and set `AB_PUBLIC_URL` accordingly. Setting the URL alone does not expose ports or configure TLS.
+Keep the service bound to loopback. If it uses server port 3333, run this on your laptop:
 
-Before upgrading, finish active sessions and follow the backup procedure below. Do not use `down --volumes` for routine changes. Saved profiles persist; temporary browser data is removed on close. The host administrator can access stored data.
+```sh
+ssh -N -L 3333:127.0.0.1:3333 ubuntu@SERVER_IP
+```
 
-Older installations may retain their existing helper scripts and `.env.compose` or `.env.public`. To migrate, install the new release in a separate directory, copy supported settings into its `.env`, explicitly set the mode, and preserve the project name and volume. When retaining existing accounts, remove both bootstrap account lines from the new file. Existing accounts keep their passwords; no bootstrap account is added. Historical images do not gain new features merely by editing `.env`—upgrade the controller image and Compose configuration together.
+Keep that terminal open. Use `http://127.0.0.1:3333` and `/mcp` on your laptop. If local port 3333 is occupied, forward local port 4444 instead and use it in both addresses. The controller must be configured with a loopback public URL for its loopback port-forwarding allowance; an installation configured with a public domain expects that domain.
 
-Native Linux image CI, physical Mac acceptance, and fresh-host acceptance are distinct checks. See [Progress](PROGRESS.md) for verified versions and remaining work.
+### HTTPS domain for a team
+
+1. Point your domain's DNS record to the server and arrange a valid certificate.
+2. Set `.env` to `AB_PORT=8080`, `AB_BIND_ADDRESS=127.0.0.1`, and `AB_PUBLIC_URL=https://browser.example.com`.
+3. Configure Nginx to proxy that domain to `127.0.0.1:8080`. The supplied [Nginx template](../deploy/nginx-public.conf) includes WebSocket upgrades, long request timeouts, disabled buffering and limits. Replace its domain, certificate paths and upstream port. The template is also inside the [configuration bundle](https://agentic-browser.zkpass.org/self-host/download/agentic-browser-self-host.tar.gz).
+4. Validate with `sudo nginx -t`, then reload Nginx. Recreate the controller after editing `.env`.
+5. Use `https://browser.example.com` for members and `https://browser.example.com/mcp` for Agents.
+
+Keep Host/Origin and WebSocket upgrade headers intact. The proxy must overwrite client-IP headers. Enable `AB_TRUST_PROXY=true` only when direct untrusted access to the controller is prevented. Do not throttle the initial `/vendor/novnc/` module downloads; the template exempts them while limiting API requests.
+
+Behind Cloudflare, `AB_PUBLIC_URL` remains the external HTTPS origin even when an internal hop uses HTTP. Client-IP restoration must trust only your proxy/CDN ranges, or users may share one proxy IP quota. Do not strip the `#` fragment from handoff links or rewrite module scripts. Setting an external origin alone does not make `localhost` reachable from a different machine.
+
+For a temporary IP-only reachability check, use `AB_BIND_ADDRESS=0.0.0.0`, `AB_PUBLIC_URL=http://SERVER_IP:8080`, and `AB_TRUST_PROXY=false`, with intended firewall access. Use test data over HTTP; use HTTPS for real website sign-in. Restore loopback binding when adding a local proxy.
+
+## Run your own public demo
+
+Use a separate installation directory, project name and data volume from your private workspace:
+
+```dotenv
+AB_MODE=public
+AB_PROJECT_NAME=agentic-browser-demo
+AB_PORT=8080
+AB_BIND_ADDRESS=127.0.0.1
+AB_PUBLIC_URL=https://demo.example.com
+AB_MAX_SESSIONS=5
+AB_MAX_SESSIONS_PER_IP=2
+AB_TRUST_PROXY=true
+```
+
+This example assumes the trusted HTTPS proxy described above. Public mode needs no bootstrap account or personal Agent token, exposes no saved profiles, and issues separate session credentials to each visitor. Point client MCP configurations at your domain's `/mcp` endpoint. See [Public demo usage](PUBLIC_DEMO.md) for the visitor flow.
+
+The homepage and `GET /api/public/capacity` show counts without exposing session IDs. When full, MCP returns a tool error containing the count, limit and a suggested retry interval. Other fixed public limits include 6 create attempts/minute/IP, 120 MCP requests/minute/IP, 8 in-flight requests/IP and 64 globally. Waiting does not extend a session. Browser egress blocks private, loopback, link-local, metadata and management destinations; per-session Docker containers alone would not prevent requests to internal services.
+
+## Members and routine operations
+
+Run from the installation directory:
+
+```sh
+docker compose exec controller npm run members -- create alice
+docker compose exec controller npm run members -- list
+docker compose exec controller npm run members -- password alice
+docker compose exec controller npm run members -- disable alice
+docker compose exec controller npm run members -- enable alice
+```
+
+Creation and password reset use an interactive hidden password prompt. Resetting a member password revokes that member's existing credentials. A member can also revoke a single Agent credential from their dashboard. Do not share an administrator's token to onboard a teammate.
+
+```sh
+docker compose ps
+docker compose logs --tail 100 controller
+docker compose exec controller npm run doctor
+curl --fail http://127.0.0.1:3333/health
+```
+
+For a domain-configured workspace, use its HTTPS `/health` address; a direct loopback request may be rejected because its Host does not match. Avoid sharing full environment dumps or logs containing credentials.
+
+Use `docker compose stop --timeout 60 controller` to stop the workspace and `docker compose up -d --wait` to start it again. Routine stops and `down` retain the named volume. **Do not use `down --volumes` or delete the data volume unless you intend to erase accounts and saved profiles.** Do not use a global Docker prune as workspace cleanup.
+
+## Troubleshooting
+
+| Problem | Checks / recovery |
+| --- | --- |
+| Installer cannot reach Docker | Start Docker Desktop or the Docker daemon and select a local Unix-socket context. |
+| Installer refuses existing files | Use the existing installation, or choose a new folder for a new installation/upgrade. |
+| Controller cannot access the socket | Redetect the socket/group on this host. Do not grant the browser container socket access. |
+| Connection refused / `localhost` unavailable | Check `docker compose ps`, the host port, and whether the service is remote and needs a tunnel. |
+| `host_rejected` / wrong handoff domain | Correct `AB_PUBLIC_URL`, preserve Host at the proxy, and recreate the controller. |
+| MCP 401 | Use a current personal Agent token, not the member password or website cookie; check the Agent process environment. |
+| Browser exists but Agent cannot use it | Match the member/credential binding and hand back control. Other credentials' sessions remain private. |
+| Viewer stuck on Connecting | Check session state, duplicate tabs, WSS upgrade support and static-module rate limiting. |
+| Expired session | Open a new session. Reuse an explicitly saved profile if available; temporary data is not recoverable. |
+| Saved profile busy | Close its existing session and wait for cleanup before opening another. |
+| Changed `.env` but nothing changed | Use `up -d --force-recreate --wait`; check stale shell overrides. Bootstrap variables never reset passwords. |
+| Website denies login | The website may reject a remote/data-center browser. Test a public page to separate runtime connectivity from website restrictions. |
 
 ## Backup and upgrade
 
@@ -168,4 +337,4 @@ Start with `docker compose up -d --wait`, then check the workspace at `http://12
 
 Restoration also rolls account changes and token revocations back to the backup time. Before restoring external access, reapply later account disablements/revocations. Resetting a member's password with `docker compose exec controller npm run members -- password alice` invalidates that member's restored credentials; they then sign in and issue new Agent tokens. Only restore a trusted backup.
 
-The automated upgrade check currently covers preview.3 → preview.4 and rollback from the backup. Those releases use identical Chrome and extension versions. This does not establish compatibility across future Chrome/extension version changes; see [Progress](PROGRESS.md).
+The automated upgrade check currently covers preview.3 → preview.4 and rollback from the backup. Those releases use identical Chrome and extension versions. This does not establish compatibility across future Chrome/extension version changes; see [Frozen baseline](STATUS.md).

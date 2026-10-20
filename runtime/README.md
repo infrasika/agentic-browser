@@ -8,7 +8,6 @@ The release supports native Linux amd64 and arm64. Apple Silicon uses Linux arm6
 
 ```sh
 npm run runtime:build
-npm run test:extensions
 ```
 
 The first asset fetch needs network access; subsequent builds use `output/runtime/packages/` when the hashes match. `assets.lock.json` pins Chrome 155.0.8059.79 for both architectures, TransGate 0.5.5, and Schema Validator 0.1.3. A changed upstream package fails verification. Intentionally refresh with `python3 scripts/fetch-runtime-assets.py --refresh-lock`, review the changes, and rerun acceptance. Keep verified caches because upstream endpoints may stop serving old versions.
@@ -21,15 +20,11 @@ Extension tests use fresh, offline containers with read-only filesystems and tem
 - Human handoff, disconnected automation, native keyboard input, and display revocation on handback.
 - The original Schema Validator extension capturing a local synthetic JSON response, reporting success, and returning control to the Agent.
 
-Logs and screenshots are under `output/runtime/` and are not committed. These checks do not prove live TransGate proofs, external-node availability, every failure/cancel path, or cross-version profile compatibility. See [Progress](../docs/PROGRESS.md).
+Logs and screenshots are under `output/runtime/` and are not committed. These checks do not prove live TransGate proofs, external-node availability, every failure/cancel path, or cross-version profile compatibility. See [Frozen baseline](../docs/STATUS.md).
 
-## Live proof acceptance
+## Deferred extension work
 
-Optional reference only: further zkPass-specific testing was skipped by request on 2026-10-18 and is not required for the current milestones. The bundled extensions remain unchanged. The following procedure applies only if live proof testing is explicitly resumed.
-
-Choose a dedicated test app and a published schema before a live run. The [official TransGate SDK](https://github.com/zkPassOfficial/Transgate-JS-SDK) uses an app ID and schema ID to launch verification. Supply a demo URL or those non-secret identifiers; website passwords and verification codes stay in the remote browser. A wallet transaction is not part of browser acceptance.
-
-Use a fresh temporary browser with the accepted images. Verify extension detection, hand off for any login/consent, then return control and check the proof with the integration's documented verifier. Record successful verification separately from user cancellation, an unmet schema condition and unavailable external nodes. Preserve only the outcome, timings, image/extension versions and test identifiers; avoid retaining cookies, page contents, raw proof fields or account identifiers in shared artifacts. Installation, popup rendering and synthetic capture alone must never be reported as a live proof pass.
+The two extensions remain bundled at the locked versions. Further zkPass-specific tests, including live proofs, are skipped by request and are not part of this freeze. Historical synthetic checks are evidence only for their recorded scope. Do not claim live proof success or update the asset locks without a separately requested runtime change.
 
 ## Isolation and licenses
 

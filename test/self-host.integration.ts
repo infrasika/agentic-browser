@@ -247,8 +247,7 @@ test('published self-host installation: anonymous native images, human handoff a
   } else await page.goto(handoff.humanUrl);
   const connected = () => page.waitForFunction(() => document.getElementById('connection')?.textContent === 'Connected' && !!document.querySelector('#desktop canvas'));
   await connected(); await page.reload(); await connected();
-  await page.locator('#text').fill('synthetic-install-user'); await page.locator('#send-text').click();
-  await page.locator('#desktop canvas').focus(); await page.keyboard.press('Tab');
+  await page.locator('#desktop canvas').focus(); await page.keyboard.type('synthetic-install-user'); await page.keyboard.press('Tab');
   await page.keyboard.type('fictional-site-password'); await page.keyboard.press('Enter');
   // The synthetic human must see sign-in finish before clicking handback.
   // VNC input and HTTP handback use separate channels. Observe only this owned

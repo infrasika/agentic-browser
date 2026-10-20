@@ -106,8 +106,7 @@ test('container controller: scoped mounts, native handoff, saved profile, restar
   const page = await human.newPage(); await page.goto(session.data.humanUrl);
   const connected = () => page.waitForFunction(() => document.getElementById('connection')?.textContent === 'Connected' && !!document.querySelector('#desktop canvas'));
   await connected(); await page.reload(); await connected();
-  await page.locator('#text').fill('compose-native-fixture'); await page.locator('#send-text').click();
-  await page.locator('#desktop canvas').focus(); await page.keyboard.press('Tab');
+  await page.locator('#desktop canvas').focus(); await page.keyboard.type('compose-native-fixture'); await page.keyboard.press('Tab');
   await page.keyboard.type('fictional-site-password'); await page.keyboard.press('Enter');
   await new Promise(resolve => setTimeout(resolve, 600));
   await page.locator('#resume').click();

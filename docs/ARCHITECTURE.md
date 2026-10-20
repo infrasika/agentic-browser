@@ -56,7 +56,7 @@ The runtime contains pinned Google Chrome plus the original signed zkPass TransG
 
 Native Linux amd64 and arm64 images are published together only after both runners pass. The deployment bundle fixes their multi-platform digests. Image selection is instance-wide; arbitrary per-session images and an image marketplace are outside the current scope.
 
-Offline tests verify extension UI, synthetic data capture, profile/storage isolation, and the handoff path. A live TransGate proof, external node connectivity, and Chrome/profile upgrades need separate acceptance. See [Runtime development](../runtime/README.md), [Releasing](RELEASING.md), and [Progress](PROGRESS.md).
+Offline tests verify extension UI, synthetic data capture, profile/storage isolation, and the handoff path. A live TransGate proof, external node connectivity, and Chrome/profile upgrades need separate acceptance. See [Runtime development](../runtime/README.md), [Releasing](RELEASING.md), and [Frozen baseline](STATUS.md).
 
 ## Deployment access modes
 

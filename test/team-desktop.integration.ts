@@ -69,9 +69,8 @@ test('team native desktop: one input window, reconnect with fresh grant, native 
   await page.waitForFunction(() => !document.querySelector('#desktop canvas') && (document.getElementById('text') as HTMLInputElement).disabled);
   assert.equal((await agent(`/api/sessions/${id}`)).data.control, 'human');
   await page.context().setOffline(false); await connected();
-  await page.locator('#text').fill('team-native-fixture');
-  await page.locator('#send-text').click();
   await page.locator('#desktop canvas').focus();
+  await page.keyboard.type('team-native-fixture');
   await page.keyboard.press('Tab'); await page.keyboard.type('fictional-site-password'); await page.keyboard.press('Enter');
   // Poll only the test site's rendered framebuffer before returning; no CDP in the human phase.
   await new Promise(resolve => setTimeout(resolve, 600));

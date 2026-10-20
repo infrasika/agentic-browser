@@ -71,7 +71,6 @@ function failedRequest(error) {
     connected = false;
     inputEpoch++;
     failures++;
-    $("text").value = "";
     clearScreen();
     if (state) render(state);
     connectionStatus();
@@ -105,7 +104,6 @@ function connectDesktop() {
   const failed = () => {
     if (desktopSocket !== socket) return;
     inputEpoch++;
-    $("text").value = "";
     disconnectDesktop();
     if (state) render(state);
     retryDesktopAt = Date.now() + 2000;
@@ -254,13 +252,10 @@ function render(next) {
   $("resume").hidden = !human;
   $("resume").disabled = switching || busy || unavailable;
   for (const element of document.querySelectorAll(
-    "[data-action], [data-key], #text, #send-text, #tabs",
+    "[data-action], [data-key], #tabs",
   ))
     element.disabled = !human || busy || unavailable || (desktop && !desktopConnected);
-  if (!human) {
-    $("text").value = "";
-    clearScreen();
-  }
+  if (!human) clearScreen();
 }
 
 function action(value) {
@@ -351,12 +346,6 @@ for (const button of document.querySelectorAll("[data-key]"))
   button.onclick = () => action({ type: "press", key: button.dataset.key });
 $("tabs").onchange = (event) =>
   action({ type: "selectTab", tabId: event.target.value });
-$("text-form").onsubmit = (event) => {
-  event.preventDefault();
-  const text = $("text").value;
-  $("text").value = "";
-  if (text) void action({ type: "type", text });
-};
 $("screen").onclick = (event) => {
   const rect = $("screen").getBoundingClientRect();
   $("screen-wrap").focus();

@@ -19,8 +19,8 @@ def deployment_contents(root=ROOT):
     """Public configuration and documentation only; never discover source or local state."""
     files = ['compose.yaml', 'compose.public.yaml', '.env.example',
              'scripts/compose.sh', 'scripts/public-demo.sh', 'scripts/release-compose.sh', 'scripts/install.sh.in', 'scripts/workspace-backup.sh',
-             'README.md', 'docs/SELF_HOST.md', 'docs/UBUNTU_PUBLIC_DEMO.md', 'docs/AGENT_CLIENT.md',
-             'docs/ARCHITECTURE.md', 'docs/RELEASING.md', 'docs/PLAN.md', 'docs/PROGRESS.md',
+             'README.md', 'docs/PUBLIC_DEMO.md', 'docs/SELF_HOST.md', 'docs/AGENT_CLIENT.md',
+             'docs/ARCHITECTURE.md', 'docs/RELEASING.md', 'docs/STATUS.md',
              'runtime/README.md', 'deploy/nginx-public.conf', 'deploy/release.env',
              'runtime/DISTRIBUTION-NOTICES.md', 'runtime/PLAYWRIGHT-LICENSE']
     for suffix in ['public', 'install', 'upgrade', 'soak', 'experience', 'remote-client', 'https']:
@@ -108,7 +108,7 @@ Both platforms passed extension and Chrome sandbox checks, team isolation, human
 Official demo: https://agentic-browser.zkpass.org/
 Self-hosting: https://agentic-browser.zkpass.org/self-host
 
-Extract the deployment bundle and follow docs/SELF_HOST.md. Use scripts/release-compose.sh to pull the images pinned by digest.
+Follow docs/SELF_HOST.md to install the pinned images with the standalone installer and ordinary Docker Compose commands.
 
 Keep the source repository private. GHCR packages must be Public and verified through anonymous pulls; completion of this workflow alone does not establish public availability. Release attachments require repository access and may be distributed separately by an administrator.
 

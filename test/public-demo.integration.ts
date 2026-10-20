@@ -30,8 +30,7 @@ test('public demo: two private offline containers; human login; fixed Agent comp
   await second.waitForFunction(() => document.getElementById('connection')?.textContent === 'Connected' && !!document.querySelector('#desktop canvas'));
   const bId = await second.evaluate(() => sessionStorage.getItem('team-viewer-id')); assert.notEqual(aId, bId);
   assert.equal((await b.request.get(`${base}/api/human/${aId}`)).status(), 404);
-  await page.locator('#text').fill('demo-visitor-fixture'); await page.locator('#send-text').click();
-  await page.locator('#desktop canvas').focus(); await page.keyboard.press('Tab'); await page.keyboard.type('fictional-demo-password'); await page.keyboard.press('Enter');
+  await page.locator('#desktop canvas').focus(); await page.keyboard.type('demo-visitor-fixture'); await page.keyboard.press('Tab'); await page.keyboard.type('fictional-demo-password'); await page.keyboard.press('Enter');
   await new Promise(resolve => setTimeout(resolve, 600));
   await page.locator('#resume').click();
   await page.waitForFunction(() => document.getElementById('reason')?.textContent?.includes('Demo complete'));

@@ -1,42 +1,17 @@
-# Agent clients
+# MCP integration reference
 
-## Public demo: remote HTTP MCP
+For installation and the human workflow, start with [Public demo usage](PUBLIC_DEMO.md) or [Self-hosting](SELF_HOST.md). This document is for Agent authors and client integrators.
 
-- Website: **https://agentic-browser.zkpass.org/**
-- MCP endpoint: **https://agentic-browser.zkpass.org/mcp**
-- No Agentic Browser registration, API key, or local adapter is needed.
+## Transport and authority
 
-```json
-{
-  "mcpServers": {
-    "agentic-browser": {
-      "type": "http",
-      "url": "https://agentic-browser.zkpass.org/mcp"
-    }
-  }
-}
-```
+| Mode | Endpoint | Authority | Tools |
+| --- | --- | --- | --- |
+| Public demo | `https://agentic-browser.zkpass.org/mcp` | No registration; each created session returns a private `sessionId` / `sessionKey` pair | 9 |
+| Authenticated workspace | Your origin plus `/mcp` | `Authorization: Bearer <personal-token>` on every request, plus credential-owned session IDs | 11 |
 
-For Codex CLI:
+Both use Streamable HTTP MCP. A website cookie, MCP transport ID, or session ID by itself is not Agent authority. A new `browser_create` allocates one isolated environment; subsequent calls reuse it until close or expiry. List tools from the connected server to obtain the current schemas.
 
-```sh
-codex mcp add agentic-browser --url https://agentic-browser.zkpass.org/mcp
-```
-
-For Claude Code:
-
-```sh
-claude mcp add --transport http --scope user agentic-browser https://agentic-browser.zkpass.org/mcp
-claude mcp get agentic-browser
-```
-
-Use `/mcp` inside Claude Code to inspect the connection. Refresh tools or restart the client if needed. Client configuration formats can differ; the homepage's **Copy prompt** includes the endpoint and setup guidance. Codex and Claude Code public flows have been manually verified.
-
-Try this task:
-
-> Open GitHub in Agentic Browser and send me a link to sign in. Wait until I hand control back, then count all the private repositories I own and list their names. Check every page and close the browser when finished.
-
-Each `browser_create` starts one separate temporary environment and returns a `sessionId` and `sessionKey`. Subsequent calls reuse that session and require both values; a new environment is not created for every tool call. Public mode provides 9 tools and no account-wide session or saved-profile listing.
+Public tools: `browser_create`, `browser_status`, `browser_action`, `browser_screenshot`, `browser_handoff`, `browser_human_link`, `browser_wait`, `browser_extend`, `browser_close`. Private mode also exposes authorized session/profile listings. Credentials cannot create/delete saved profiles or operate on another credential's sessions. Rebinding a member-owned session enters human control and invalidates old operations; the member then explicitly hands it back.
 
 ## Handoff contract
 
@@ -61,39 +36,11 @@ When full, `browser_create` returns MCP `isError: true` with `status: 429`, `err
 
 `browser_wait` waits at most 25 seconds. `timed_out` means only this wait ended; it does not hand back control or close the browser. A canceled wait releases the request but leaves the session intact. Waiting does not renew the session. Team mode allows 2 concurrent waits per credential and 64 per instance.
 
-## Private deployment: personal credentials
+## Private client requirements
 
-A team administrator creates your member account. Sign in to the workspace and create a personal Agent credential. It allows temporary sessions by default; grant specific saved profiles only when you want the Agent to reuse them. Do not share a credential between members.
+The Agent token and the human's workspace login are separate. The person opening the handoff link must be signed in as the owning member. Revocation prevents new credential-authorized operations; a pending wait rechecks revocation and binding. Grant only the saved profiles intended for that credential.
 
-Private deployments expose authenticated Streamable HTTP MCP at the same origin as the dashboard. Every MCP request requires `Authorization: Bearer <personal-token>`; a website cookie or MCP session ID is not sufficient. Use the host port (for example `4444`) in the URL.
-
-For Codex, set `AGENT_BROWSER_TOKEN` in the environment used to launch Codex, then register the server:
-
-```sh
-codex mcp add agentic-browser-local --url http://127.0.0.1:3333/mcp --bearer-token-env-var AGENT_BROWSER_TOKEN
-```
-
-For clients with JSON MCP settings:
-
-```json
-{
-  "mcpServers": {
-    "agentic-browser-local": {
-      "type": "http",
-      "url": "http://127.0.0.1:3333/mcp",
-      "headers": { "Authorization": "Bearer YOUR_PERSONAL_AGENT_CREDENTIAL" }
-    }
-  }
-}
-```
-
-Create a token in the dashboard, then use **Copy MCP configuration** for a configuration containing your actual service address and new token. Keep this client configuration private. Reconnect the client after adding it. If the Agent runs elsewhere, replace the loopback URL with your reachable HTTPS service origin. The Agent machine does not need Docker, Node.js, or source files.
-
-The member must also sign into the workspace in their browser before opening a handoff link. The Agent token never signs the person in or authorizes another member's resources. Revoking the token immediately prevents new requests and API operations; a long-running wait also checks revocation.
-
-The previous Docker/stdio adapter remains available for existing clients. It uses `AGENT_BROWSER_TOKEN`, `AGENT_BROWSER_URL` (internal port 3333 when run inside the controller), and optional `AGENT_BROWSER_VIEW_URL`. Older controller releases without authenticated HTTP MCP must continue using that adapter until upgraded.
-
-Team mode exposes 11 tools, including authorized session and profile listings. A credential cannot read other credentials' sessions or create/delete saved profiles. Rebinding a member-owned session to another credential enters human control and invalidates old queued operations; the member then explicitly hands control back.
+Authenticated HTTP MCP is the primary connection. The optional Docker/stdio adapter remains supported for existing integrations: it uses `AGENT_BROWSER_URL`, `AGENT_BROWSER_TOKEN` and optional `AGENT_BROWSER_VIEW_URL`. A remote adapter container needs no Docker socket, server volume or host mounts. The compatibility helper `scripts/release-compose.sh mcp-remote` starts that client from the pinned controller image; new HTTP clients do not need this helper.
 
 ## HTTP errors and recovery
 

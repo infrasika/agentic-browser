@@ -139,8 +139,7 @@ test('public Compose MCP: five-browser capacity, isolated visitors, human handba
   await connected(); await page.reload(); await connected();
   const otherPage = await other.newPage(); await otherPage.goto(two.humanUrl); await otherPage.locator('#connect-browser').click(); await otherPage.waitForURL('**/view*');
   assert.equal((await other.request.get(`${base}/api/human/${one.id}`)).status(), 404);
-  await page.locator('#text').fill('public-mcp-fixture'); await page.locator('#send-text').click();
-  await page.locator('#desktop canvas').focus(); await page.keyboard.press('Tab'); await page.keyboard.type('fictional-public-password'); await page.keyboard.press('Enter');
+  await page.locator('#desktop canvas').focus(); await page.keyboard.type('public-mcp-fixture'); await page.keyboard.press('Tab'); await page.keyboard.type('fictional-public-password'); await page.keyboard.press('Enter');
   await new Promise(resolve => setTimeout(resolve, 600));
   const waiting = reconnected.callTool({ name: 'browser_wait', arguments: { ...aa, afterRevision: handoff.revision, timeoutSeconds: 25 } });
   await page.locator('#resume').click();

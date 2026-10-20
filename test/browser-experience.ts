@@ -111,13 +111,11 @@ export async function verifyDesktopExperience(fixture: Fixture, minutes: number)
     const elapsedMs = Date.now() - begin; assert.ok(elapsedMs < 30000, 'Desktop recovery exceeded 30 seconds');
     stream.recoveries.push({ kind, elapsedMs }); await record(`desktop ${kind} passed`);
   }
-  await page.locator('#text').fill('unsent-input-must-not-replay');
   await recover('network interruption', async () => {
     await page.context().setOffline(true);
-    await page.waitForFunction(() => !document.querySelector('#desktop canvas') && (document.getElementById('text') as HTMLInputElement).disabled);
+    await page.waitForFunction(() => !document.querySelector('#desktop canvas') && document.querySelector<HTMLButtonElement>('[data-key="Enter"]')?.disabled);
     assert.equal((await call(client, 'browser_status', { sessionId })).control, 'human');
   }, async () => { await page.context().setOffline(false); });
-  assert.equal(await page.locator('#text').inputValue(), '');
   // Reload closes the first connection before restoring the viewer.
   const beforeReload = stream.connections.length, reloadedAt = Date.now();
   await page.reload(); await desktopConnected(page); await checkpoint();

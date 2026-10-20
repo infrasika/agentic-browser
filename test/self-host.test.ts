@@ -23,7 +23,7 @@ test('public self-host download is reproducible, pinned, source-free, and availa
   const backupHelper = await fetch(service.base + '/self-host/download/workspace-backup.sh');
   assert.equal(backupHelper.status, 200);
   assert.equal(await backupHelper.text(), await readFile('scripts/workspace-backup.sh', 'utf8'));
-  for (const name of ['SELF_HOST.md', 'AGENT_CLIENT.md']) {
+  for (const name of ['PUBLIC_DEMO.md', 'SELF_HOST.md', 'AGENT_CLIENT.md', 'STATUS.md']) {
     const guide = await fetch(service.base + '/self-host/download/' + name);
     assert.equal(guide.status, 200);
     assert.equal(await guide.text(), await readFile('docs/' + name, 'utf8'));

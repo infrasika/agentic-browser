@@ -115,9 +115,8 @@ test(
       undefined,
       { timeout: 10000 },
     );
-    await page.locator("#text").fill("native-user-café");
-    await page.locator("#send-text").click();
     await canvas.focus();
+    await page.keyboard.type("native-user");
     await page.keyboard.press("Tab");
     await page.keyboard.type("fake-native-password");
     await page.keyboard.press("Enter");
@@ -135,7 +134,7 @@ test(
     assert.equal(await canvas.count(), 0);
     await act({ type: "reload" });
     const account = await act({ type: "snapshot" });
-    assert.match(account.result.text, /Signed in: native-user-café/);
+    assert.match(account.result.text, /Signed in: native-user/);
     await act({ type: "click", selector: "#continue" });
     assert.match((await act({ type: "snapshot" })).result.text, /Task complete/);
     assert.deepEqual(errors, []);
@@ -151,7 +150,7 @@ test(
     await page.reload();
     await page.waitForFunction(() => document.getElementById("connection")?.textContent === "Connected" && !!document.querySelector("#desktop canvas"));
     await page.context().setOffline(true);
-    await page.waitForFunction(() => (document.getElementById("text") as HTMLInputElement)?.disabled && !document.querySelector("#desktop canvas"));
+    await page.waitForFunction(() => document.querySelector<HTMLButtonElement>('[data-key="Enter"]')?.disabled && !document.querySelector("#desktop canvas"));
     assert.equal(service.registry.get(session.id).info().control, "human");
     assert.equal((await service.request(`${agent}/screen`)).status, 409);
     await page.context().setOffline(false);

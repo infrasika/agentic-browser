@@ -33,6 +33,8 @@ const assets = new Map([
   ["/install.sh", ["self-host-downloads/install.sh", "text/plain; charset=utf-8"]],
   ["/self-host/download/workspace-backup.sh", ["self-host-downloads/workspace-backup.sh", "text/plain; charset=utf-8"]],
   ["/self-host/download/SELF_HOST.md", ["self-host-downloads/SELF_HOST.md", "text/plain; charset=utf-8"]],
+  ["/self-host/download/PUBLIC_DEMO.md", ["self-host-downloads/PUBLIC_DEMO.md", "text/plain; charset=utf-8"]],
+  ["/self-host/download/STATUS.md", ["self-host-downloads/STATUS.md", "text/plain; charset=utf-8"]],
   ["/self-host/download/AGENT_CLIENT.md", ["self-host-downloads/AGENT_CLIENT.md", "text/plain; charset=utf-8"]],
   ["/self-host/download/agentic-browser-self-host.tar.gz", ["self-host-downloads/agentic-browser-self-host.tar.gz", "application/gzip"]],
   ["/self-host/download/SHA256SUMS", ["self-host-downloads/SHA256SUMS", "text/plain; charset=utf-8"]],

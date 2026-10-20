@@ -36,7 +36,6 @@
     "test:https": "node scripts/https.mjs",
     "test:upgrade": "tsx --test test/upgrade.integration.ts",
     "doctor": "tsx src/doctor.ts",
-    "package:preview": "python3 scripts/package-preview.py",
     "package:self-host": "python3 scripts/package-self-host.py",
     "verify": "bash scripts/acceptance.sh"
   },

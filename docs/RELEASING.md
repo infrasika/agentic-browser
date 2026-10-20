@@ -1,140 +1,72 @@
-# Releasing
+# Release maintenance
 
-Publish these two public GHCR packages while keeping the source repository private:
+Feature development is paused. The accepted public image release is `v0.1.0-preview.4`; see [Frozen baseline](STATUS.md). Do not start another release as part of routine documentation cleanup.
+
+## Fixed inputs and public artifacts
+
+Keep the source repository private. These two GHCR packages are public:
 
 - `ghcr.io/infrasika/agentic-browser-controller`
 - `ghcr.io/infrasika/agentic-browser-runtime`
 
-GitHub Release attachments inherit repository access restrictions. New installations use the standalone installer; an authorized administrator can also distribute historical release bundles. Publishing the images does not publish the source or Release page.
+`deploy/release.env` selects the accepted multi-platform image-index digests. Base images, npm versions and `runtime/assets.lock.json` pin build inputs. Do not refresh browser/extension locks implicitly. Deployment by digest fixes image bytes; source rebuilds using Debian repositories are not guaranteed byte-identical.
 
-## Run the workflow
+Historical version tags, release manifests, archives and verification receipts are immutable. Keep earlier receipts in `deploy/releases/`, including the preview.3 evidence used by rollback acceptance. Temporary logs, reports, build helpers and screenshots belong in ignored `output/`; they are not public distribution files.
 
-Push reviewed code to `main`. In **Actions → Publish verified browser images → Run workflow**, choose `main` and an unused version, or use an authorized GitHub CLI:
+The standalone installer writes just `compose.yaml` and `.env`, with literal accepted image references. `npm run package:self-host` generates `/install.sh`, the backup helper, user-guide downloads and a source-free configuration archive. The controller image build runs this packager automatically. The allowlist in `scripts/release-manifest.py` must exclude private settings, source, browser data and local artifacts.
 
-```sh
-gh workflow run publish-images.yml --ref main -f version=v0.1.0-preview.5
-```
+`SETUP.json` records file hashes and image pins; `SHA256SUMS` covers the reproducible setup archive. Documentation may advance without changing pins only when the pinned images support the documented operations. Do not describe a local website UI build as a newly published GHCR version. GitHub Release assets inherit the private repository's access controls; users obtain the public installer and guides from the website.
 
-The workflow uses a job-scoped `GITHUB_TOKEN` with `packages: write`; the Release job also has `contents: write`. No personal registry token or server-side `docker login` is required. The account must permit native ARM runners and have sufficient Actions quota.
+## Acceptance commands
 
-Native `ubuntu-24.04` and `ubuntu-24.04-arm` runners each build and test controller/runtime images. Checks include TypeScript, unit/API tests, locked browser/extension assets, Chrome sandbox, extension behavior, team isolation/recovery, public five-browser capacity, and human handoff. Both architectures must pass before their recorded digests are combined into versioned multi-platform indexes.
+Tests use disposable installations and synthetic identities. Select candidate images explicitly for source-image tests; published-installer tests use the accepted digests. Do not point acceptance fixtures at a real workspace or load its `.env`.
 
-The reliability gate also runs repeated five-browser cycles, simultaneous excess requests, cross-session access checks, Agent reconnects, a real five-minute expiry, browser/controller termination, and five-member token revocation. It uses a separate loopback deployment, synthetic identities, and a disposable volume; it does not load the server's `.env`. Cleanup targets only the test project's containers and volume. Browser termination must release its slot without another Agent request, and a failed cleanup must retain its reservation until retry succeeds (covered by unit tests).
+| Check | Command | Scope |
+| --- | --- | --- |
+| Type safety | `npm run check` | TypeScript source/tests |
+| Unit/API and packaging | `npm test` | Ownership, limits, installer/archive hashes, secret exclusion |
+| Native viewer | `npm run test:desktop` | Keyboard, handback, reconnect, persistence |
+| Candidate controller | `npm run test:controller` | Member/profile isolation and container deployment |
+| Public MCP | `npm run test:public-mcp` | Five-browser capacity, guest isolation, direct input, handoff and cleanup |
+| Failure recovery | `npm run test:reliability` | Repeated capacity cycles, natural expiry, browser/controller interruption and revocation |
+| Published installation | `npm run test:self-host` | Anonymous pulls, native platform, downloaded installer, account/token/profile lifecycle |
+| Published upgrade | `npm run test:upgrade` | Preview.3 → preview.4 and fresh-volume restore from an offline backup |
+| Sustained workload | `npm run test:soak` | Two measured active hours, split between public/authenticated five-browser workloads |
+| Desktop/site experience | `npm run test:experience` | 15 measured minutes of changing pixels/input, reconnect and public website tasks |
+| Optional stdio client | `npm run test:remote-client` | Published client image without host/server/socket mounts |
+| HTTPS proxy | `npm run test:https` | Certificate validation, secure cookies, HTTP MCP, WSS, proxy recovery and rate limits |
 
-To run the same check locally, build the candidate images first, then select them explicitly:
+For candidate controller/runtime tests:
 
 ```sh
 AB_CONTROLLER_IMAGE=agentic-browser:controller-preview \
 AB_RUNTIME_IMAGE=agentic-browser:zkpass-prototype \
-npm run test:reliability
+npm run test:public-mcp
 ```
 
-The default is three capacity cycles with 15 seconds of repeated observations per cycle, followed by expiry and failure checks. For a longer run, add `AB_RELIABILITY_ROUNDS=20 AB_RELIABILITY_HOLD_SECONDS=60` before `npm`. Reports under `output/reliability/<run>/report.json` record source hashes, image IDs, host/Docker versions, sampled container resources, recovery times, and final cleanup. These bounded synthetic runs do not replace extended real-workload testing, fresh-host acceptance, or a physical Mac test. The release workflow retains the reports with its validation artifacts.
+Install host Playwright/native-browser dependencies before applicable tests. HTTPS verification additionally needs Nginx, OpenSSL and `libnss3-tools`; it uses an isolated local CA/trust store and loopback proxy, without disabling TLS validation or reloading the host's real proxy. See the corresponding scripts for bounded-run options such as `npm run test:experience -- --minutes=1`.
 
-Intermediate tags include the full source commit and architecture. Published versions are immutable: the script rejects an existing version and does not interpret an authentication/network failure as proof that a tag is available. Use a new version after a partially published run.
+Separate `accept-self-host.yml`, `accept-upgrade.yml`, `accept-soak.yml`, `accept-experience.yml`, `accept-remote-client.yml` and `accept-https.yml` workflows run native Ubuntu amd64/arm64 checks. The external verifier needs a checkout and test dependencies; the resulting self-hosted installation does not. Existing-host, fresh Linux runner and physical Mac evidence must remain distinct. Preview.3/4 use identical Chrome assets, so their rollback evidence is not browser-format migration evidence.
 
-## Bundle contents and public verification
+Further zkPass-specific testing remains skipped by request. The optional historical extension checks are retained for future explicitly authorized runtime work; they are not a task to resume during this freeze. Existing workflows that include those checks must be reviewed before a future publication rather than launched automatically.
 
-The Release contains:
+## Publish a future version
 
-- `agentic-browser-deploy.tar.gz`: configuration, scripts, guides, notices, and `deploy/release.env` with both image-index digests.
-- `RELEASE.json`: source revision, platforms, digests, and browser/extension asset locks.
-- `SHA256SUMS`: hashes for the archive and manifest.
+After a future release is requested:
 
-The allowlist excludes source code, private environment files, user profiles, logs, and credentials. Actions also retains validation artifacts. The source-preview archive is a different artifact for authorized source recipients.
+1. Review and commit the exact candidate. Choose a new unused `vX.Y.Z[-suffix]` version.
+2. Dispatch **Publish verified browser images** (`publish-images.yml`) at that commit. Native Ubuntu amd64/arm64 runners build/test both images and record their digests; both must pass before indexes are published.
+3. Use the workflow's scoped `GITHUB_TOKEN`; no server-side registry login or personal token is required. The workflow needs package publication permissions and native ARM runner availability.
+4. Verify **only the two GHCR packages** are Public, then verify anonymous pulls of both platforms. Keep the source repository private.
+5. Preserve the original `RELEASE.json`, `agentic-browser-deploy.tar.gz` and `SHA256SUMS`. Add separate verification receipts; never rewrite publication evidence to claim checks that ran later.
+6. Update `deploy/release.env` after acceptance. Regenerate setup files, verify public downloads and run the clean-install workflow. Record the version, verifier revision, platforms, outcomes and cleanup in a new receipt and the status page.
 
-The public website also serves `agentic-browser-self-host.tar.gz` and `SHA256SUMS` at `/self-host/download/`. `npm run package:self-host` builds this configuration-only archive from the same deployment allowlist and the accepted `deploy/release.env`. The controller Docker build generates it automatically; `npm start` and `npm run dev` generate it for source deployments. Only the explicitly named installer, archive, checksum, and user-guide routes are public. `SETUP.json` records the configuration hashes and both image pins. This setup archive may include newer instructions while retaining the last accepted image release only when those images support every advertised setting and flow; it never modifies historical release assets. Verify an anonymous download and a clean-directory installation whenever changing the kit or pins.
+Published versions cannot be overwritten. A partially published run needs another unused version. Authentication/network failures do not establish that a version tag is available.
 
-The same packaging step generates `/install.sh`. This script embeds the accepted Compose configuration with literal image digests, pulls both images, detects the controller socket group, and writes a new directory containing only `compose.yaml` and `.env`. It refuses existing files and requires no repository scripts afterward. Verify the standalone installer and native Compose lifecycle as well as the compatibility archive when changing this setup.
+CI artifacts expire; preserve sanitized accepted reports in versioned receipts and private Release attachments before that happens. Do not retain raw credentials, cookies, page contents, private backup archives or desktop streams as shared evidence.
 
-New GHCR packages default to private. On first publication, set **only the two package visibilities** to Public and verify anonymous pulls for both images on both platforms. Keep the source repository private. For later releases, verify that visibility and anonymous access still work.
+## Update the official website
 
-The initial `RELEASE.json` has `publicPullVerified: false` because the publishing job has not independently verified unauthenticated downloads. Record later checks in a separate `PUBLIC-VERIFICATION.json`; do not overwrite the original manifest, archive, or checksums.
+Wait for active public sessions to reach zero before recreating the controller. Preserve its `.env`, runtime pin, mounts, origin and quotas; keep the previous image available for rollback. Verify health, `/api/public/capacity`, `/mcp`, homepage prompts, `/self-host`, guide downloads and archive checksums after deployment. Record the source revision/image identity and check that temporary test sessions release their slots.
 
-Unpack the bundle in a clean directory with an empty Docker credential configuration. Pull the pinned images, start the controller, run `doctor`, and exercise a synthetic member's create → handoff → handback → close flow. Record the tested platform and whether this was a new directory or a genuinely new host. Linux ARM CI does not substitute for a Mac Docker Desktop test.
-
-After acceptance, update `deploy/release.env` and [Progress](PROGRESS.md). Keep earlier versioned receipts for auditability. Update the live demo only after its active sessions finish, retaining its existing limits and private configuration.
-
-## Independent installation acceptance
-
-After the official installer serves the accepted image pins, run **Actions → Verify published self-host installation**, or:
-
-```sh
-gh workflow run accept-self-host.yml --ref main
-```
-
-This workflow starts separate, fresh Ubuntu amd64 and arm64 runners. It does not build application images, restore browser image caches, or log in to a registry. The checkout supplies the test client and the expected configuration only. The actual installation downloads the public `/install.sh`, checks it against the reviewed installer, and receives only `compose.yaml` and `.env`. An empty Docker credential configuration verifies anonymous pulls; platform assertions reject architecture emulation.
-
-The test verifies initial sign-in with literal password punctuation, a personal token, native desktop connection/reconnection, human typing and handback, a saved synthetic profile cookie across controller recreation, preserved access after bootstrap settings are removed, and switching to public mode. Every run uses a new loopback port, synthetic accounts, a separate volume, and scoped cleanup. Reports under `output/self-host/<run>/report.json` record the host, Docker/Compose versions, installer hash, image references/platforms, resource sample, checkpoints, and cleanup result. Both CI reports are retained as artifacts for 30 days. Copy their accepted summary into a versioned receipt before artifact expiry.
-
-Maintainers can run the same verifier from an authorized checkout on Ubuntu or an Apple Silicon Mac with Docker Desktop running:
-
-```sh
-npm ci
-npx playwright install chromium
-npm run test:self-host
-```
-
-This checkout and its Node.js/Playwright dependencies are requirements of the external verifier, not of self-hosting. Linux verification clients may additionally need Playwright system dependencies (`npx playwright install --with-deps chromium`). The test never loads the checkout's `.env` or operates on an existing installation. Local runs are recorded as existing-host checks; only the isolated GitHub-hosted workflow asserts a fresh runner. A Linux arm64 pass does not establish a physical Mac pass, and recreation with the same images does not establish cross-version upgrade/rollback compatibility.
-
-## Published upgrade and rollback acceptance
-
-Run `npm run test:upgrade` from an authorized checkout, or dispatch `accept-upgrade.yml` for independent native Ubuntu amd64/arm64 runs. The test pulls the published preview.3 and preview.4 controller/runtime digests with an empty registry credential configuration. It uses two synthetic members and separate disposable volumes; it does not read the deployment's `.env` or touch existing workspaces.
-
-Acceptance includes a stopped-workspace backup through the downloadable helper, rejection of live/mounted volumes and overwritten backups, member/profile isolation, persistent cookies and website storage, both extensions' private state, existing credentials and revocations, a corrupt archive, refusal to overwrite an existing volume, and recovery into a new volume using the old images. It also confirms that revocations made after the backup must be reapplied and that resetting a member password invalidates restored credentials. Only sanitized reports under `output/upgrade/<run>/report.json` become CI artifacts; private backup archives are removed with the test fixture.
-
-Retain the accepted reports in a versioned `*-upgrade-verification.json` receipt and attach a separate `UPGRADE-VERIFICATION.json` to the release. Do not overwrite the original image manifest or publication evidence. The reports include both releases' image digests, host details, browser/extension versions, backup hash/size, scenario checkpoints, and cleanup. Preview.3 and preview.4 use identical Chrome and extension versions: this test establishes application release upgrade and backup-based rollback, not browser-format migration or safe in-place Chrome downgrades.
-
-## Sustained reliability acceptance
-
-Run `npm run test:soak` from an authorized checkout, or dispatch `accept-soak.yml`. The separate workflow uses fresh native Ubuntu amd64/arm64 runners and the accepted controller/runtime digests in `deploy/release.env`; it does not publish images or operate on an existing deployment. The usual release gate remains the shorter `test:reliability` run.
-
-The default target is **120 minutes of activity with five browsers**, split equally between public guests and authenticated members. Each bounded session cycle exercises synthetic sign-in, navigation, reload, retained session storage, task completion, ownership checks, handoff/handback and MCP reconnection. Browsers are closed and replaced between cycles; this tests sustained service use, not a single two-hour browser session. The test also retains natural expiry, runtime/controller interruption, revocation, and final cleanup checks. Setup, sampling between cycles, and cleanup add to the wall-clock duration.
-
-For a short harness rehearsal:
-
-```sh
-AB_RELIABILITY_SOAK_MINUTES=2 AB_RELIABILITY_HOLD_SECONDS=30 npm run test:soak
-```
-
-Reports under `output/reliability/<run>/report.json` distinguish requested duration, measured active time per mode, completed cycles, successful workload passes, tool-call timing, sampled container CPU/memory/PIDs, data-volume size, and cleanup failures. A pass requires both activity targets, all behavioral assertions and complete removal of the disposable installation. Resource samples are observations, not a proof that memory or disk can never grow. Handoff uses synthetic HTTP clients here; native desktop interaction is tested separately by `test:self-host`. The workload uses the internal synthetic website; it does not establish third-party login compatibility, live zkPass proof success, physical Mac behavior, or a production sizing recommendation.
-
-Preserve native reports as workflow artifacts and record accepted results with their image digests and verifier revision. Do not label a short rehearsal or a running job as a completed multi-hour acceptance.
-
-## Native desktop and external website acceptance
-
-Run `npm run test:experience`, or dispatch `accept-experience.yml` with `minutes=15`. This extends the published-installer verifier on fresh native Ubuntu amd64/arm64 runners. It pulls the accepted image digests anonymously and creates a disposable authenticated installation. A short local rehearsal is `npm run test:experience -- --minutes=1`.
-
-The default run requires **15 measured minutes of uninterrupted desktop streaming**, in addition to setup and recovery checks. An animated synthetic page verifies fresh pixels in the actual mirrored canvas; typed markers must produce distinct visible acknowledgements. Each checkpoint also verifies that Agent actions remain blocked during human control. Acceptance covers duplicate-viewer rejection, network interruption with unsent-input clearing, viewer reload, logout revocation, reauthentication, and handback.
-
-After handback, the Agent exercises Playwright's public TodoMVC sample (form input, completion, filtering and local storage), documentation links/history/reload, and a public GitHub repository file. A final native handoff displays the repository file before returning to the Agent. Todo changes affect only the disposable browser's local state; no external account or backend is changed. Snapshots are polled for rendering completion, but clicks and submissions are not retried automatically.
-
-Reports under `output/experience/<run>/report.json` record verifier hashes, image/platform details, stream timing and byte/frame counts, recoveries, website results, installation checks and cleanup. Workflow artifacts also retain synthetic/public-page screenshots. Raw stream payloads, credentials and handoff links are not retained. Preserve accepted evidence in a versioned `*-experience-verification.json` receipt and private release assets before CI artifacts expire.
-
-This is bounded compatibility evidence for those public pages at the recorded time. It does not establish Google/GitHub/X sign-in compatibility, live zkPass proof success, physical Mac acceptance or browser-version migration. External outages and site changes can fail this separate gate without establishing an application regression.
-
-## Published Docker MCP client acceptance
-
-Run `npm run test:remote-client`, or dispatch `accept-remote-client.yml` for fresh native Ubuntu amd64/arm64 runners. The verifier extends the published-installer check and starts the accepted controller image as a stdio MCP adapter in separate non-root, read-only containers. Client containers receive no host mounts, Docker socket, workspace volume or published ports. Only synthetic personal credentials are passed through environment variables.
-
-The fixture uses a proxy on the disposable Compose network to model distinct client and viewer origins while keeping the host service bound to loopback. It verifies the advertised tools, invalid-token rejection, credential/session/profile isolation, browser state across adapter disconnect/reconnect, human-link rewriting, native viewer handback, denial of Agent observation during human control, timed waits, token revocation in existing/restarted clients, owner cleanup and removal of test resources. It also reruns the installer/account/profile lifecycle checks.
-
-Reports under `output/remote-client/<run>/report.json` retain image/platform information, verifier hashes, client restrictions, scenario checkpoints and cleanup. Preserve accepted reports in a `*-remote-client-verification.json` receipt and private release artifacts. This verifies the adapter and container network path; it is not a TLS certificate, cross-host firewall, physical Mac or interactive Codex/Claude client test. Authenticated HTTP MCP remains the recommended private connection and does not require Docker on the Agent's machine.
-
-## HTTPS reverse-proxy acceptance
-
-Run `npm run test:https` on Linux with Docker, Nginx, OpenSSL and `libnss3-tools`, or dispatch `accept-https.yml` for fresh native Ubuntu amd64/arm64 runs. This extends the published-installer verifier with the distributed [Nginx template](../deploy/nginx-public.conf), replacing only its host, ports, upstream and certificate paths. The fixture binds new loopback ports and never reloads the machine's system Nginx or reads a real deployment's `.env`.
-
-Each run creates a two-day test CA, trusts it only in the verifier's Node process and a disposable Chromium NSS database, and removes the keys and trust store afterward. It uses [Chromium's Linux certificate store](https://chromium.googlesource.com/chromium/src/+/HEAD/docs/linux/cert_management.md); certificate validation remains enabled. Positive HTTPS access must pass while an untrusted issuer and a wrong certificate hostname must fail.
-
-Acceptance covers the HTTP redirect, Host/Origin checks, secure HttpOnly login cookies, missing/invalid/revoked MCP credentials, authenticated HTTP MCP, human links, native WSS pixels/input, automatic viewer recovery after proxy interruption, Agent reconnect, long-poll handback, saved-profile recreation and public-mode switching. A burst check requires all 60 static viewer-module requests to pass while excessive API requests still receive 429. Reports under `output/https/<run>/report.json` retain template/source hashes, Nginx and image versions, stream counts, recovery timings and scoped cleanup. Reports exclude cookies, personal tokens, handoff links, private keys and raw desktop frames. Preserve accepted native results in a `*-https-verification.json` receipt and separate private release assets.
-
-This verifies TLS termination and the application proxy path on one host. It does not establish real DNS/ACME certificate issuance, Cloudflare settings, cross-host routing/firewalls, physical Mac behavior or third-party login compatibility. zkPass-specific tests are outside the current acceptance scope.
-
-## Dependency locks
-
-Base images, npm dependencies, Chrome, and extensions have fixed references or hashes. `runtime/assets.lock.json` covers both native Chrome packages and the two original CRX packages. CI must fail on a mismatch rather than refresh locks automatically.
-
-To intentionally update browser assets, run `python3 scripts/fetch-runtime-assets.py --refresh-lock`, review both architectures, versions, extension permissions and notices, then rerun acceptance. Upstream endpoints may stop serving an old package; preserve verified asset caches needed to rebuild that version.
-
-Deploying by digest reproduces the tested image bytes. Floating Debian repositories mean source rebuilds are not guaranteed byte-identical. Never create a release image by committing a container containing personal website state.
+For a real sign-in test, use the ordinary user handoff and wait for explicit handback. Never record account data as public test artifacts. Source/UI deployments do not silently update the accepted public image pins. Use [Self-hosting](SELF_HOST.md#backup-and-upgrade) for workspace backup and rollback procedures.

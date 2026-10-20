@@ -1,69 +1,44 @@
 # Agentic Browser
 
-A remote browser that an Agent and a person can take turns using. An Agent starts a task, hands over the browser for sign-in or confirmation, and continues in the same session after the person returns control.
+A remote browser that an Agent and a person take turns using. The Agent starts a task, hands over for sign-in or confirmation, and continues in the same browser after handback.
 
-**[Official demo](https://agentic-browser.zkpass.org/) · [Self-hosting guide](https://agentic-browser.zkpass.org/self-host)**
+**[Official demo](https://agentic-browser.zkpass.org/) · [Self-hosting website](https://agentic-browser.zkpass.org/self-host)**
 
-## Try the public demo
+## Start here
 
-The public MCP endpoint is `https://agentic-browser.zkpass.org/mcp`. No Agentic Browser account or API key is required. Install it in a client that supports Streamable HTTP MCP:
+| Your goal | Complete guide |
+| --- | --- |
+| Try the public service with Codex, Claude Code or another Agent | [Use the public demo](docs/PUBLIC_DEMO.md) |
+| Run a personal or team workspace on Ubuntu or an Apple Silicon Mac | [Self-host Agentic Browser](docs/SELF_HOST.md) |
 
-```sh
-# Codex CLI
-codex mcp add agentic-browser --url https://agentic-browser.zkpass.org/mcp
+Public demo: no Agentic Browser account or API key; 5 concurrent temporary browsers, 2 per source IP, 5-minute initial sessions and 10-minute maximum lifetime. Install the remote MCP server in your Agent and follow the sign-in link it provides. Website login restrictions still apply.
 
-# Claude Code
-claude mcp add --transport http --scope user agentic-browser https://agentic-browser.zkpass.org/mcp
-```
-
-Restart or refresh your client's tools if necessary, then send:
-
-> Open GitHub in Agentic Browser and send me a link to sign in. Wait until I hand control back, then count all the private repositories I own and list their names. Check every page and close the browser when finished.
-
-Open the link your Agent provides, click **Connect and take control**, sign in in the remote browser, then click **Hand back to Agent**. Do not send passwords or verification codes in chat. Website login restrictions still apply.
-
-Each public session has a separate temporary browser. Sessions start with 5 minutes and can be renewed up to a total of 10 minutes. The official demo has 5 concurrent browser slots and a limit of 2 per source IP. When full, the website and MCP tool report the current count and ask you to try later. The demo does not save login profiles.
-
-## Deploy your own workspace
-
-Use a self-hosted instance for regular work. Team members have separate accounts, Agent credentials, sessions, and optional saved profiles. Only the controller has Docker socket access; browser containers do not. The server administrator remains trusted.
-
-Public images are available for **Linux amd64 and arm64**:
-
-- `ghcr.io/infrasika/agentic-browser-controller`
-- `ghcr.io/infrasika/agentic-browser-runtime`
-
-The current preview is `v0.1.0-preview.4`, with automatic capacity recovery after browser failure, one environment file, initial account setup, and authenticated HTTP MCP. The [standalone installer](https://agentic-browser.zkpass.org/install.sh) pulls both public images and writes only `compose.yaml` and `.env`. No source checkout, build, registry login, or helper scripts are needed afterward. Both images are pinned by digest in the generated Compose file.
-
-Requirements: Docker Engine 26+, Compose 2.24.4+, and Bash. Apple Silicon Macs use Docker Desktop's Linux arm64 engine.
+Self-hosting: two public Docker images, one `.env`, member login and personal Agent tokens. No source checkout, host Node.js, build, or registry login is required:
 
 ```sh
 curl -fsSL https://agentic-browser.zkpass.org/install.sh | bash
 cd agentic-browser
-# Set AB_ADMIN_USERNAME and AB_ADMIN_PASSWORD (at least 12 characters) in .env.
+# Set your own AB_ADMIN_USERNAME and AB_ADMIN_PASSWORD in .env.
 docker compose up -d --wait
 ```
 
-Open `http://127.0.0.1:3333`, sign in with the account configured in .env, and create a personal Agent credential. See [Self-hosting](docs/SELF_HOST.md) for configuration, remote access, members, upgrades, and recovery; see [Agent clients](docs/AGENT_CLIENT.md) for the private MCP configuration.
+Open `http://127.0.0.1:3333`, sign in, and create your personal Agent credential. For remote Ubuntu, open a tunnel or configure an HTTPS domain as described in the guide. The controller creates isolated browsers on demand; only it mounts the Docker socket. The host administrator remains trusted.
 
-The controller stays running and creates separate browser containers from the runtime image on demand. You do not need to start a shared browser container yourself.
+## Frozen version
 
-## Documentation
+Feature development is paused at the [frozen baseline](docs/STATUS.md). Published images remain **v0.1.0-preview.4**, pinned by multi-platform digest in [deploy/release.env](deploy/release.env). The source/official website include later accepted UI and documentation changes; those changes do not replace historical GHCR images. Docker selects Linux amd64 or arm64 automatically.
 
-| Guide | Contents |
-| --- | --- |
-| [Self-hosting](docs/SELF_HOST.md) | Ubuntu and Mac installation, team administration, storage, upgrades |
-| [Agent clients](docs/AGENT_CLIENT.md) | Public MCP, private credentials, handoff, waiting, errors |
-| [Public demo deployment](docs/UBUNTU_PUBLIC_DEMO.md) | Ubuntu, HTTPS, reverse proxy, quotas, operations |
-| [Architecture](docs/ARCHITECTURE.md) | Sessions, isolation, networking, images, extensions |
-| [Releasing](docs/RELEASING.md) | Native multi-platform builds, GHCR, immutable bundles |
-| [Roadmap](docs/PLAN.md) | Product scope and next milestones |
-| [Progress](docs/PROGRESS.md) | Verified behavior, release evidence, remaining validation |
-| [Runtime development](runtime/README.md) | Browser assets, sandbox and extension tests |
+## Reference documentation
 
-## Development
+- [MCP integration](docs/AGENT_CLIENT.md): tool authority, handoff links, waiting and errors.
+- [Architecture](docs/ARCHITECTURE.md): lifecycle, isolation, storage, networking and extensions.
+- [Frozen baseline](docs/STATUS.md): scope, evidence and known limits.
+- [Releasing](docs/RELEASING.md): maintainer builds, acceptance and image publication.
+- [Runtime maintenance](runtime/README.md): locked Chrome/extension assets and sandbox checks.
 
-Repository access is required. Use Node.js 24+, npm, Python 3, and Docker:
+## Contributor setup
+
+Repository access is required for development. Use Node.js 24+, npm, Python 3 and Docker. Normal users should follow the image-based self-hosting guide above.
 
 ```sh
 npm ci
@@ -75,6 +50,8 @@ cp .env.example .env
 bash scripts/compose.sh up -d --wait
 ```
 
-For the full acceptance suite, install host test dependencies with `npm run browser:install` and `npm run desktop:install`, then run `npm run verify`. Tests use synthetic accounts and isolated data. `npm run test:reliability` runs the repeated five-browser capacity and failure-recovery checks separately; see [Releasing](docs/RELEASING.md) for candidate image selection and longer runs. Generated logs, reports, and screenshots belong in `output/`, not in the documentation.
+Install browser test dependencies with `npm run browser:install` and `npm run desktop:install` before running native integration tests. See the acceptance table in [Releasing](docs/RELEASING.md) for the right command and scope. Temporary output belongs in ignored `output/`.
 
-Chrome and the two zkPass extensions are locked in `runtime/assets.lock.json`. Images contain no personal login profile. Consult [third-party notices](runtime/DISTRIBUTION-NOTICES.md) for attribution and dependency licenses. This preview does not guarantee sign-in to every website or completion of a live zkPass proof.
+The source/legacy Compose wrappers and synthetic demo fixture remain for compatibility and testing. New installations use the standalone installer and ordinary `docker compose` commands. The old source-preview packager has been retired.
+
+Chrome and the two zkPass extensions are locked in [runtime/assets.lock.json](runtime/assets.lock.json). Preserve [third-party notices](runtime/DISTRIBUTION-NOTICES.md) and dependency licenses when redistributing. Images contain no personal website login profile.
