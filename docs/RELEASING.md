@@ -4,14 +4,14 @@ This guide covers browser assets, GitHub Actions, image publication and the offi
 
 ## Release verification
 
-The published stable release is **v0.1.1**, built from `683b26aece0751e1923407f17e4073e189d07d68`. Both public images support native Linux amd64/arm64, and their `latest` aliases match the immutable version indexes. This maintenance release updates both images and CI to Node.js 24.22.1, with Chrome and extension locks unchanged. Image pins are recorded in [deploy/release.env](../deploy/release.env).
+The accepted stable release is **v0.1.1**, built from `683b26aece0751e1923407f17e4073e189d07d68`. Both public images support native Linux amd64/arm64, and their `latest` aliases match the immutable version indexes. This maintenance release updates both images and CI to Node.js 24.22.1, with Chrome and extension locks unchanged. The official site and installer use the same digests in [deploy/release.env](../deploy/release.env).
 
 | Evidence | Verified scope |
 | --- | --- |
 | [Publication and anonymous pulls](../deploy/releases/v0.1.1-public-verification.json) | Native isolation, handoff, capacity/recovery, both public platforms, stable/latest equality |
-| Fresh installation | v0.1.1 native amd64/arm64 acceptance pending |
-| Upgrade and rollback | v0.1.0 to v0.1.1 native amd64/arm64 acceptance pending |
-| Official HTTPS demo | v0.1.1 deployment and handoff acceptance pending |
+| [Fresh installation](../deploy/releases/v0.1.1-install-verification.json) | Native amd64/arm64 account/token setup, workspace diagnostics, handoff and saved profiles |
+| [Upgrade and rollback](../deploy/releases/v0.1.1-upgrade-verification.json) | v0.1.0 to v0.1.1, offline backup and fresh-volume restore on both platforms |
+| [Official HTTPS demo](../deploy/releases/v0.1.1-demo-verification.json) | MCP, live WSS display, takeover, handback, Agent reading, cleanup and setup downloads |
 | [Previous physical Apple Silicon Mac acceptance](../deploy/releases/v0.1.0-mac-verification.json) | v0.1.0 only: installation, real GitHub handoff, saved-login retention and same-version backup/restore on Mac16,10 / macOS 26.6.2 / Docker Desktop 4.95.0 |
 
 The release source passed 63 unit/API/packaging tests. Physical Apple Silicon acceptance for v0.1.1 has not been run; native Linux arm64 CI and the previous v0.1.0 Mac receipt do not replace that check. The older Mac run's same-version restore does not establish Mac upgrade/downgrade or Chrome/profile-format migration compatibility. Long-duration and optional-client checks from older releases are not new v0.1.1 evidence. Live zkPass proofs remain outside these results and are skipped by request. Keep these limits explicit in release notes.
