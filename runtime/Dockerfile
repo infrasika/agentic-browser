@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-FROM node:24-bookworm-slim@sha256:d6aa754f16b3197301076f047b5def2f02ea1dbbc2ca920407d46d7ec7f87b20
+FROM node:24.22.1-bookworm-slim@sha256:1681862882da07ee5476fee047bcf34138833f1df42633bb25bcb0f438d5bf3d
 ARG TARGETARCH
 ENV DEBIAN_FRONTEND=noninteractive BROWSER_MODE=desktop BROWSER_DATA_DIR=/data
 RUN --mount=type=bind,source=output/runtime/packages,target=/tmp/packages \

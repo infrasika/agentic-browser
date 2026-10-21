@@ -153,11 +153,9 @@ def publish(version, directory):
 
 Both platforms passed account/session isolation, human handoff, public five-browser capacity and failure-recovery acceptance. Dedicated zkPass extension checks are intentionally skipped; unchanged pinned browser assets are retained.
 
-This release focuses on personal self-hosting and the public demo:
-- Personal onboarding and account-recovery guidance; existing account isolation remains intact.
-- Private workspace status: version, browser capacity, Docker/runtime readiness and storage.
-- Actionable connection, token and session errors without raw proxy responses.
-- Image-embedded installers resolve this immutable release to digest-pinned Compose.
+This maintenance release updates both controller and browser runtime to Node.js 24.22.1, with the same pinned multi-platform base image. Release and acceptance workflows use the matching Node version. It includes the upstream Node security fixes described at https://nodejs.org/en/blog/release/v24.22.1.
+
+Application behavior, access modes, session limits and human handoff are unchanged. The consolidated contributor/operator documentation is included in the images and deployment bundle. Image-embedded installers resolve this immutable release to digest-pinned Compose.
 
 Stable versions (vX.Y.Z) update both image repositories' latest tags after publication. Prereleases leave latest unchanged, and older stable versions cannot move it backward. The installer continues to pin exact digests; existing installations do not update automatically.
 

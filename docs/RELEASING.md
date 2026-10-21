@@ -41,6 +41,8 @@ Keep the source repository private. These two GHCR packages are public:
 
 `deploy/release.env` selects the accepted multi-platform image-index digests. Base images, npm versions and `runtime/assets.lock.json` pin build inputs. Do not refresh browser/extension locks implicitly. Deployment by digest fixes image bytes; source rebuilds using Debian repositories are not guaranteed byte-identical.
 
+For a Node maintenance update, use the same exact Node version and multi-platform base-image digest in both runtime Dockerfiles, and update `actions/setup-node` in the release and acceptance workflows. Both the controller and browser runtime execute Node services. Run the verifiers on that Node version too; changing only the controller leaves the browser processes and CI on older versions. Keep Chrome and extension locks unchanged unless their upgrade is explicitly in scope.
+
 Published version tags, release manifests and archives are immutable. Keep current stable receipts and the baseline records read by upgrade acceptance in `deploy/releases/`. Older intermediate reports remain in Git history and published release artifacts. Temporary logs, reports, build helpers and screenshots belong in ignored `output/`; they are not public distribution files.
 
 `latest` is the only moving image tag. Both controller and runtime point to the highest published stable `vX.Y.Z` release; versions with a suffix such as `-preview.5` never update it. The publication workflow serializes releases, verifies both immutable multi-platform indexes, copies those exact indexes to `latest`, then marks the GitHub release as Latest. Older stable releases cannot move this channel backward. Existing deployments keep their pinned digests until explicitly upgraded.
