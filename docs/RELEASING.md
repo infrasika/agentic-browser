@@ -1,6 +1,6 @@
 # Release maintenance
 
-Feature development is paused. The accepted public image release is `v0.1.0-preview.4`; see [Frozen baseline](STATUS.md). Do not start another release as part of routine documentation cleanup.
+Maintain a personal self-hosted browser and public demo. Team feature development is out of scope. See [Version status](STATUS.md) for the accepted release and work in progress.
 
 ## Fixed inputs and public artifacts
 
@@ -70,3 +70,15 @@ CI artifacts expire; preserve sanitized accepted reports in versioned receipts a
 Wait for active public sessions to reach zero before recreating the controller. Preserve its `.env`, runtime pin, mounts, origin and quotas; keep the previous image available for rollback. Verify health, `/api/public/capacity`, `/mcp`, homepage prompts, `/self-host`, guide downloads and archive checksums after deployment. Record the source revision/image identity and check that temporary test sessions release their slots.
 
 For a real sign-in test, use the ordinary user handoff and wait for explicit handback. Never record account data as public test artifacts. Source/UI deployments do not silently update the accepted public image pins. Use [Self-hosting](SELF_HOST.md#backup-and-upgrade) for workspace backup and rollback procedures.
+
+## Small maintenance release policy
+
+- Review Chrome, base-image and dependency updates monthly and when a relevant security fix is announced. This is a maintainer procedure, not an enabled automatic updater or scheduled task.
+- Record the candidate version, exact source commit and changed locks. Keep old images, manifests and receipts immutable. Do not silently refresh deployed images.
+- For controller/UI fixes with unchanged runtime assets, run type/unit checks and native amd64/arm64 controller, public MCP and failure-recovery acceptance. Then verify anonymous pulls, fresh installation and backup-based upgrade/rollback for both architectures.
+- Browser or profile-format changes require an offline backup and a synthetic saved-profile migration test against the exact old/new Chrome versions. Do not infer compatibility from controller-only upgrades.
+- Follow the physical Mac checklist in [Self-hosting](SELF_HOST.md#apple-silicon-release-check). Keep Linux arm64 and physical Mac evidence distinct; record pending results honestly.
+- Publish release notes with changed behavior, image references, passed checks and remaining limitations. Deploy the same GHCR controller/runtime used by the installer after active demo sessions reach zero.
+- The image's embedded installer may name its immutable release tags because an image cannot embed its own future digest. It resolves pulled references and writes digest-only Compose. Generate the official download kit after publication with the accepted digests, and mount that kit read-only at `/app/web/self-host-downloads` when deploying the official site. Application code stays in the published controller image.
+
+Dedicated zkPass checks remain skipped. Native runtime startup and its existing isolation checks are retained; no live proof success is claimed.

@@ -513,3 +513,7 @@ header > a:not(.brand) { color: var(--green); font-size: 13px; text-align: right
 .self-host summary { padding: 6px 0; }
 .self-host table { width: 100%; border-collapse: collapse; table-layout: fixed; }
 .self-host th, .self-host td { padding: 12px 8px; text-align: left; vertical-align: top; border-bottom: 1px solid var(--line); overflow-wrap: anywhere; }
+
+#workspace-status { margin-bottom: 24px; }
+#service-status { overflow-wrap: anywhere; font-size: .9rem; }
+[data-service-version] { display: block; color: var(--muted); font-size: .8rem; margin-top: 1rem; }

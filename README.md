@@ -13,7 +13,7 @@ The browser runs on the deployment host. You interact with its live display in a
 - **Browser tools for external Agents.** Connect Codex, Claude Code or another Streamable HTTP MCP client to create browsers, navigate, interact with pages and read results.
 - **Human handoff in the same session.** Sign in through the remote display, then return control without starting a different browser.
 - **Exclusive control.** Agent browser tools cannot observe the page, take screenshots or send actions while the person has control.
-- **Isolated sessions and team members.** Each session receives a separate browser runtime and profile. Authenticated workspaces separate member accounts, Agent credentials and saved profiles.
+- **Private browser sessions.** Each session receives a separate runtime and profile. Personal Agent tokens control access to your sessions and saved logins.
 - **Bounded browser lifetimes.** Session limits, expiry reminders, renewal, display reconnection and cleanup help manage a shared host.
 - **Optional saved logins.** Self-hosted members can explicitly save a profile and grant an Agent credential access to it. Public demo sessions remain temporary.
 - **Image-based deployment.** Two public images support native Linux amd64 and arm64, including Docker Desktop on Apple Silicon. The runtime includes Google Chrome, zkPass TransGate and zkPass Schema Validator.
@@ -96,7 +96,7 @@ If only the handoff link expired, ask the Agent for a fresh link to the existing
 
 ## Run your own workspace
 
-Use a self-hosted installation for regular personal or team work. The public installer uses these images, fixed by digest:
+Use a self-hosted installation for regular personal work. The public installer uses these images, fixed by digest:
 
 - `ghcr.io/infrasika/agentic-browser-controller` — website, identities, MCP and browser lifecycle management.
 - `ghcr.io/infrasika/agentic-browser-runtime` — Chrome and the remote desktop/browser environment; also used for per-session egress proxies.
@@ -142,18 +142,18 @@ docker compose exec controller npm run doctor
 
 Open **http://127.0.0.1:3333**, sign in, and create a **personal Agent credential** in the dashboard. Click **Copy MCP configuration**, add it to your Agent, and reconnect. The private MCP URL is `http://127.0.0.1:3333/mcp`; it requires that credential as a Bearer token. Your workspace password and a website login cookie are not Agent tokens.
 
-The initial account is created only in an empty workspace. Changing bootstrap settings never resets an existing password. Each teammate should have their own account and credentials. The initial account has ordinary member data scope; this version does not provide a team-wide web administration console.
+The initial account is created only in an empty workspace. Changing bootstrap settings never resets an existing password. Use separate tokens for different Agents. Existing account isolation is retained for compatibility; team collaboration features are outside the product scope.
 
 For remote access, use an SSH tunnel or configure an HTTPS domain. Your Mac's `localhost` cannot address a remote Ubuntu service without forwarding. Both the website and MCP use the same configured host port.
 
-The [complete self-hosting guide](docs/SELF_HOST.md) covers Codex/Claude configuration, all supported settings, team accounts, saved profiles, domain/proxy setup, backup, upgrades and recovery. Server settings live in `.env`; apply changes with `docker compose up -d --force-recreate --wait` after active sessions finish. Preserve the named data volume for accounts and saved profiles.
+The [complete self-hosting guide](docs/SELF_HOST.md) covers Codex/Claude configuration, all supported settings, account recovery, saved profiles, domain/proxy setup, backup, upgrades and recovery. Server settings live in `.env`; apply changes with `docker compose up -d --force-recreate --wait` after active sessions finish. Preserve the named data volume for accounts and saved profiles.
 
 ## Choose an access mode
 
 | | Official public demo | Self-hosted authenticated workspace |
 | --- | --- | --- |
-| Intended use | Try the browser/handoff flow | Regular personal or team work |
-| Workspace login | Not required | Separate account per member |
+| Intended use | Try the browser/handoff flow | Regular personal work |
+| Workspace login | Not required | Your private workspace account |
 | Agent authority | A secret capability for each created session | Personal Bearer credential with explicit permissions |
 | Website login state | Temporary; removed on close/expiry | Temporary by default; saved profiles are opt-in |
 | Capacity and lifetime | Fixed demo limits above | Deployment settings within supported bounds |
@@ -171,9 +171,9 @@ A controller restart ends active sessions; saved profiles can be opened in new s
 
 ## Current version
 
-Feature development is paused at **`freeze-2026-10-21`**. Documentation can receive corrections without moving that tag or changing the feature baseline.
+The product scope is **personal self-hosting plus a public demo**. Team collaboration, invitations and role management are not planned. Existing identity boundaries remain in place.
 
-Published images remain **`v0.1.0-preview.4`**, with accepted multi-platform digests in [deploy/release.env](deploy/release.env). The official website and source include later accepted UI/documentation updates; those do not replace the immutable GHCR images. A future image change requires a new release.
+The previous baseline is `freeze-2026-10-21`. The next maintenance release adds personal onboarding, workspace diagnostics and image build identification without changing Chrome or the extension assets. See [Version status](docs/STATUS.md) for publication and acceptance status. The accepted immutable image references in [deploy/release.env](deploy/release.env) remain authoritative until a new release passes acceptance.
 
 Recorded checks cover native Ubuntu amd64/arm64 installation, public MCP isolation/capacity, human handoff, saved profiles, backup-based rollback, sustained workloads and HTTPS transport. Linux arm64 CI and physical Apple Silicon acceptance are separate. See [Version status and evidence](docs/STATUS.md) for exactly what passed and the remaining limitations.
 
@@ -182,7 +182,7 @@ Recorded checks cover native Ubuntu amd64/arm64 installation, public MCP isolati
 | Document | Audience and contents |
 | --- | --- |
 | [Public demo guide](docs/PUBLIC_DEMO.md) | Visitors: setup, tasks, handoff, limits and troubleshooting |
-| [Self-hosting guide](docs/SELF_HOST.md) | Operators and members: installation, settings, credentials, teams, storage and recovery |
+| [Self-hosting guide](docs/SELF_HOST.md) | Operators and members: installation, settings, credentials, recovery, storage and recovery |
 | [MCP integration reference](docs/AGENT_CLIENT.md) | Agent authors: tool authority, handoff contracts, waits and errors |
 | [Architecture](docs/ARCHITECTURE.md) | Contributors: components, control lifecycle, isolation, networking and profiles |
 | [Frozen baseline](docs/STATUS.md) | Version boundaries, accepted behavior and verification evidence |

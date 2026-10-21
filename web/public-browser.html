@@ -5,6 +5,7 @@
   <title>Your Agent, a shared browser · Agentic Browser</title>
   <link rel="stylesheet" href="/app.css">
   <script data-cfasync="false" type="module" src="/public-browser.js"></script>
+  <script type="module" src="/version.js"></script>
 </head>
 <body>
 <header><a class="brand" href="/">a<span class="brand-dot">●</span> Agentic Browser</a><a href="/self-host">Self-hosting guide ↗</a></header>
@@ -56,10 +57,11 @@
   </section>
   <section class="panel">
     <h2>Run your own instance</h2>
-    <p>Use the public demo to try the handoff flow, then deploy a personal or team workspace on your own machine. Published images support Linux amd64 and arm64, including Linux containers on Apple Silicon Macs.</p>
-    <p>The images include Chrome, zkPass TransGate, and zkPass Schema Validator. Each session gets its own container; team members have separate accounts, credentials, and saved profiles.</p>
+    <p>Use the public demo to try the handoff flow, then deploy a personal workspace on your own machine. Published images support Linux amd64 and arm64, including Linux containers on Apple Silicon Macs.</p>
+    <p>The images include Chrome, zkPass TransGate, and zkPass Schema Validator. Each session gets its own container. Your personal tokens and optional saved profiles stay in your workspace.</p>
     <a class="button secondary" href="/self-host">Read the self-hosting guide ↗</a>
   </section>
+  <p data-service-version>Checking controller version…</p>
 </main>
 </body>
 </html>

@@ -23,6 +23,7 @@ fs.appendFileSync(process.env.TEST_CALLS,JSON.stringify(args)+'\\n');
 if(args[0]==='version') console.log(process.env.TEST_API || '1.45');
 else if(args[0]==='compose' && args[1]==='version') console.log(process.env.TEST_COMPOSE || '2.24.4');
 else if(args[0]==='context') console.log(process.env.TEST_ENDPOINT || 'unix:///var/run/docker.sock');
+else if(args[0]==='image' && args[1]==='inspect') console.log(args[2].split(':')[0]+'@sha256:'+('a'.repeat(64)));
 else if(args[0]==='run') console.log(process.env.TEST_GID || '987');
 `, { mode: 0o755 });
   await writeFile(join(bin, 'uname'), '#!/bin/sh\nprintf "%s\\n" "${TEST_OS:-Linux}"\n', { mode: 0o755 });
@@ -66,6 +67,15 @@ else if(args[0]==='run') console.log(process.env.TEST_GID || '987');
     assert.equal(await readFile(calls, 'utf8'), '', 'Refusal happens before any Docker command');
     assert.equal(await readFile(join(target, '.env'), 'utf8'), settings);
   }
+  // An image-embedded kit starts from an immutable version, then writes only digests.
+  await exec('python3', ['scripts/package-self-host.py', '--output', root, '--version', 'v0.1.0-preview.5']);
+  const releaseTarget = join(root, 'release-image-kit');
+  await run(releaseTarget);
+  const releaseCompose = await readFile(join(releaseTarget, 'compose.yaml'), 'utf8');
+  assert.ok(releaseCompose.includes(`ghcr.io/infrasika/agentic-browser-controller@sha256:${'a'.repeat(64)}`));
+  assert.ok(releaseCompose.includes(`ghcr.io/infrasika/agentic-browser-runtime@sha256:${'a'.repeat(64)}`));
+  assert.ok(!releaseCompose.includes(':v0.1.0-preview.5'));
+  await exec('python3', ['scripts/package-self-host.py', '--output', root]);
   for (const [name, options, message] of [
     ['remote', { TEST_ENDPOINT: 'ssh://remote-host' }, /local Docker Unix socket/],
     ['unsafe-path', { TEST_ENDPOINT: 'unix:///run/$socket.sock' }, /Unsupported Docker socket/],

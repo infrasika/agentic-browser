@@ -11,7 +11,7 @@
     <header>
       <a class="brand" href="/"
         >a<span class="brand-dot">●</span> Agentic Browser</a
-      ><span class="badge">LOCAL WORKSPACE</span>
+      ><span class="badge">PERSONAL WORKSPACE</span>
     </header>
     <main class="dashboard">
       <div class="eyebrow">BROWSER / HUMAN / AGENT</div>
@@ -20,7 +20,7 @@
         Your Agent works on the web. You handle sign-in or manual confirmation, then return the same browser to your Agent.
       </p>
       <section id="account" class="panel" hidden>
-        <p>Signed-in member: <strong id="member-name"></strong> <button id="logout" class="quiet">Sign out</button></p>
+        <p>Signed in as: <strong id="member-name"></strong> <button id="logout" class="quiet">Sign out</button></p>
         <details open><summary>Connect your Agent</summary>
           <p class="hint">Agent credentials grant access to your browser resources. Sign in separately to take control as a person.</p>
           <form id="credential-form"><label for="credential-name">Credential name</label><input id="credential-name" required maxlength="80" placeholder="For example: Development Agent"><label for="credential-profiles">Allowed saved profiles (select multiple, or none for temporary sessions only)</label><select id="credential-profiles" multiple></select><button class="secondary">Create credential</button></form>
@@ -30,6 +30,11 @@
           <textarea id="private-mcp-config" readonly hidden aria-label="MCP configuration"></textarea>
           <div id="credentials"></div>
         </details>
+      </section>
+      <section class="panel" id="workspace-status">
+        <div class="section-heading"><h2>Workspace status</h2><button id="refresh-status" class="secondary" type="button">Check status</button></div>
+        <div id="service-status" role="status"><p>Sign in to check your workspace.</p></div>
+        <p class="hint">For installation checks, run <code>docker compose exec controller npm run doctor</code>. This panel does not inspect website credentials or verify website login compatibility.</p>
       </section>
       <div class="dashboard-grid">
         <section class="panel">
@@ -79,7 +84,7 @@
           <ol class="flow">
             <li>
               <strong>Your Agent starts the task</strong>
-              <p>Browse, click, and type through MCP or HTTP tools.</p>
+              <p>Create a personal token above, connect your Agent, then ask it to open a website.</p>
             </li>
             <li>
               <strong>You take control</strong>
@@ -90,7 +95,7 @@
               <p>The page and login state stay in place while your Agent continues.</p>
             </li>
           </ol>
-          <p class="note">Use fictional accounts on the built-in demo page to try the complete flow.</p>
+          <p class="note">Start from your Agent for the complete workflow. The form here is also available for opening a browser yourself.</p>
         </section>
       </div>
       <section class="sessions-section">

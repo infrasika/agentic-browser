@@ -103,7 +103,15 @@ def publish(version, directory):
     (output / 'SHA256SUMS').write_text(''.join(f'{hashlib.sha256(path.read_bytes()).hexdigest()}  {path.name}\n' for path in [archive, output / 'RELEASE.json']))
     notes = f"""Native Linux amd64 and arm64 controller/browser images, built from `{revision}`.
 
-Both platforms passed extension and Chrome sandbox checks, team isolation, human handoff, and public five-browser capacity acceptance.
+Both platforms passed account/session isolation, human handoff, public five-browser capacity and failure-recovery acceptance. Dedicated zkPass extension checks are intentionally skipped; unchanged pinned browser assets are retained.
+
+This release focuses on personal self-hosting and the public demo:
+- Personal onboarding and account-recovery guidance; existing account isolation remains intact.
+- Private workspace status: version, browser capacity, Docker/runtime readiness and storage.
+- Actionable connection, token and session errors without raw proxy responses.
+- Image-embedded installers resolve this immutable release to digest-pinned Compose.
+
+Chrome and extension assets are unchanged. Physical Apple Silicon acceptance remains separate from native Linux arm64 CI. New published-installation and upgrade/rollback receipts are recorded after publication.
 
 Official demo: https://agentic-browser.zkpass.org/
 Self-hosting: https://agentic-browser.zkpass.org/self-host

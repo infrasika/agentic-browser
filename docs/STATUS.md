@@ -1,6 +1,8 @@
-# Frozen baseline
+# Version status
 
-Feature development is paused as of **2026-10-21 (Asia/Shanghai)**. This baseline consolidates the existing behavior and documentation; it does not publish new images or change browser assets.
+The product scope is **personal self-hosting plus a public demo**. Team collaboration features are not planned. Account and session isolation remain supported.
+
+As of **2026-10-21 (Asia/Shanghai)**, `v0.1.0-preview.5` is in preparation: personal onboarding, private workspace diagnostics, actionable connection errors and controller version identification. The currently accepted pins below stay unchanged until publication and acceptance complete. Browser and extension assets are unchanged.
 
 ## Version identity
 
@@ -50,4 +52,4 @@ Keep [public demo usage](PUBLIC_DEMO.md) and [self-hosting](SELF_HOST.md) as the
 
 Retain the source-run/legacy Compose wrappers, synthetic browser fixture, backup helper and acceptance workflows: they still support tests, existing installations or recovery. The old source-preview packager is retired because public distribution uses configuration and images.
 
-Do not start the next feature milestone automatically. For a necessary fix, record its scope, test it, and use a new release version if publishing changed image bytes. See [Releasing](RELEASING.md).
+Do not add team features or resume zkPass-specific testing automatically. For a necessary fix, record its scope, test it, and use a new release version if publishing changed image bytes. See [Releasing](RELEASING.md).

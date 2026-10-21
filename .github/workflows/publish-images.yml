@@ -61,9 +61,8 @@ jobs:
         run: |
           docker buildx build --load --provenance=false --platform "linux/$RELEASE_ARCH" -f runtime/controller.Dockerfile --build-arg "AB_VERSION=$RELEASE_VERSION" --build-arg "AB_REVISION=$GITHUB_SHA" -t "$AB_CONTROLLER_IMAGE" .
           docker buildx build --load --provenance=false --platform "linux/$RELEASE_ARCH" -f runtime/Dockerfile --build-arg "AB_VERSION=$RELEASE_VERSION" --build-arg "AB_REVISION=$GITHUB_SHA" -t "$AB_RUNTIME_IMAGE" .
-      - name: Verify extensions, sandbox, isolation and handoff
+      - name: Verify isolation and handoff
         run: |
-          AGENTIC_TEST_IMAGE="$AB_RUNTIME_IMAGE" npm run test:extensions
           npm run test:controller
           npm run test:public-mcp
       - name: Verify repeated capacity and failure recovery

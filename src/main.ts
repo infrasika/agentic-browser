@@ -1,3 +1,4 @@
+import { createStatusReader } from "./service-status.js";
 import { join } from "node:path";
 import { IdentityStore } from "./identity.js";
 import { DockerEngine } from "./docker-runtime.js";
@@ -39,7 +40,7 @@ const identity = config.authMode !== "legacy" ? new IdentityStore(join(config.da
 if (identity && config.bootstrapAdmin) {
   try {
     if (await identity.bootstrapAdmin(config.bootstrapAdmin.username, config.bootstrapAdmin.password))
-      console.log("Initial administrator account created. Sign in to create a personal Agent token.");
+      console.log("Initial account created. Sign in to create a personal Agent token.");
   } catch {
     console.error("Unable to create the initial account. Check configuration and private-volume permissions.");
     identity.close(); await engine.close(); process.exit(1);
@@ -48,7 +49,7 @@ if (identity && config.bootstrapAdmin) {
 // Do not retain the bootstrap password in the long-lived HTTP options object.
 config.bootstrapAdmin = undefined;
 delete process.env.AB_ADMIN_PASSWORD;
-const server = createHttpServer(registry, { ...config, identity, demo: config.authMode === "demo", publicBrowser: config.authMode === "public", defaultStartUrl: config.browserMode === 'docker' ? 'https://agentic-browser.invalid/demo' : undefined });
+const server = createHttpServer(registry, { ...config, statusReader: createStatusReader(config), identity, demo: config.authMode === "demo", publicBrowser: config.authMode === "public", defaultStartUrl: config.browserMode === 'docker' ? 'https://agentic-browser.invalid/demo' : undefined });
 const reapTimer = setInterval(() => {
   void registry.reap();
   if (identity) { identity.reap(); void registry.closeInactiveMembers(owner => identity.isActive(owner)); }

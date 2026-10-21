@@ -1,3 +1,4 @@
+import { responseError } from "/request.js";
 import { team, requireMember, browserHeaders } from "/team-client.js";
 await requireMember();
 import RFB from "/vendor/novnc/core/rfb.js";
@@ -76,7 +77,7 @@ function failedRequest(error) {
     connectionStatus();
   }
   if (error.status !== 409) $("message").textContent = stopped
-    ? "Session unavailable. If the service restarted, return to the dashboard and create a session with a saved profile."
+    ? error.status === 401 ? error.message : "This session ended, expired or became unavailable after a restart. Ask your Agent to open a new browser; a saved profile can be reused if available."
     : error.status ? error.message : "Connection lost. Retrying. Unconfirmed input will not be replayed automatically.";
 }
 
@@ -196,10 +197,8 @@ async function api(operation = "", method = "GET", body) {
     },
   );
   if (!response.ok) {
-    const body = await response.json();
-    const error = new Error(body.message || "Request failed");
-    error.status = response.status;
-    throw error;
+    const body = await response.json().catch(() => ({}));
+    throw responseError(response.status, body);
   }
   return operation === "screen" ? response.blob() : response.json();
 }

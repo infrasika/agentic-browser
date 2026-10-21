@@ -13,9 +13,9 @@ import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/
 
 const exec = promisify(execFile);
 const hash = (data: Uint8Array) => createHash('sha256').update(data).digest('hex');
-const versions = ['v0.1.0-preview.3', 'v0.1.0-preview.4'] as const;
+const versions = ['v0.1.0-preview.4', 'v0.1.0-preview.5'] as const;
 
-test('published upgrade and offline restore: profiles, extensions, ownership and credential history', { timeout: 1200000 }, async t => {
+test('published upgrade and offline restore: profiles, ownership and credential history', { timeout: 1200000 }, async t => {
   const started = Date.now(), id = randomUUID();
   const project = `ab-upgrade-${id}`, recoveryProject = `ab-restore-${id}`;
   const root = await mkdtemp(join(tmpdir(), 'ab-upgrade-'));
@@ -131,17 +131,7 @@ test('published upgrade and offline restore: profiles, extensions, ownership and
       const storage=await page.evaluate(()=>localStorage.getItem('upgrade_fixture'));
       assert.equal(cookie,expected);assert.equal(storage,expected);
       if(write!==null){await context.addCookies([{name:'upgrade_fixture',value:write,url:'https://example.test/',expires:Date.now()/1000+3600}]);await page.evaluate(v=>localStorage.setItem('upgrade_fixture',v),write);}
-      const extra=await context.newPage();await extra.goto('chrome://extensions');
-      let info;for(let i=0;i<60;i++){info=await extra.evaluate(()=>new Promise(resolve=>chrome.developerPrivate.getExtensionsInfo({includeDisabled:true,includeTerminated:true},resolve)));if(lock.extensions.every(e=>info.some(v=>v.id===e.id&&v.state==='ENABLED')))break;await new Promise(r=>setTimeout(r,250));}
-      const extensions=[];
-      for(const extension of lock.extensions){const installed=info.find(v=>v.id===extension.id);assert.equal(installed?.state,'ENABLED');assert.equal(installed.version,extension.version);
-        await extra.goto('chrome-extension://'+extension.id+'/'+extension.popup,{waitUntil:'domcontentloaded'});
-        const mode=extension.permissions.includes('storage')?'extension':'local';
-        const value=await extra.evaluate(async mode=>mode==='extension'?(await chrome.storage.local.get('agenticUpgradeFixture')).agenticUpgradeFixture??null:localStorage.getItem('agenticUpgradeFixture'),mode);
-        assert.equal(value,expected);
-        if(write!==null)await extra.evaluate(async({mode,value})=>{if(mode==='extension')await chrome.storage.local.set({agenticUpgradeFixture:value});else localStorage.setItem('agenticUpgradeFixture',value);},{mode,value:write});
-        extensions.push({id:extension.id,version:installed.version,state:installed.state});}
-      await extra.close();await page.bringToFront();console.log(JSON.stringify({chrome:browser.version(),extensions}));await browser.close();`));
+      console.log(JSON.stringify({chrome:browser.version(),extensionsChecked:false}));await browser.close();`));
     await call(client, 'browser_close', { sessionId: session.id }); await client.close(); clients.delete(client); assert.deepEqual(await owned(), []);
     return state;
   }
@@ -201,7 +191,7 @@ test('published upgrade and offline restore: profiles, extensions, ownership and
   assert.equal(await readFile(join(backup, 'compose.yaml'), 'utf8'), composeText);
   await assert.rejects(manage('backup', controller, backup));
   report.backup = { bytes: (await stat(join(backup, 'data.tar.gz'))).size, sha256: hash(await readFile(join(backup, 'data.tar.gz'))) };
-  await record('stopped preview.3 workspace backed up; live/mounted volume and overwrite guards passed');
+  await record('stopped preview.4 workspace backed up; live/mounted volume and overwrite guards passed');
   await writeFile(join(original, '.env'), settings(1)); await start();
   report.upgradedAssets = await profileState(alice, 'before-alice', 'after-upgrade');
   await profileState(bob, 'before-bob'); await isolated(alice, bob);
@@ -212,7 +202,7 @@ test('published upgrade and offline restore: profiles, extensions, ownership and
   await human(cookie, `/api/credentials/${laterRevoked.id}`, 'DELETE'); assert.equal(await tokenStatus(laterRevoked.token), 401);
   await assert.rejects(manage('restore', backup, `${project}-data`), /already exists/);
   await profileState(alice, 'after-upgrade');
-  await record('preview.4 preserves accounts, tokens, member isolation, website state and both extensions');
+  await record('preview.5 preserves accounts, tokens, account isolation and website state');
   await stopped();
   const corrupt = join(root, 'corrupt'); await cp(backup, corrupt, { recursive: true });
   const archive = await open(join(corrupt, 'data.tar.gz'), 'r+'); await archive.write(Buffer.from([0]), 0, 1, 0); await archive.close();

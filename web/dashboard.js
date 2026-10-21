@@ -1,3 +1,4 @@
+import { requestJson } from "/request.js";
 import { team, browserHeaders, mountAccount, defaultStartUrl } from "/team-client.js";
 const $ = (id) => document.getElementById(id);
 const token = $("token");
@@ -6,15 +7,12 @@ $("url").value = defaultStartUrl;
 
 async function api(path, method = "GET", body) {
   if (!team) sessionStorage.setItem("agent-token", token.value);
-  const response = await fetch(path, {
+  return requestJson(path, {
     method,
     signal: AbortSignal.timeout(30000),
     headers: team ? browserHeaders() : { Authorization: `Bearer ${token.value}`, "Content-Type": "application/json" },
     body: body === undefined ? undefined : JSON.stringify(body),
   });
-  const data = await response.json();
-  if (!response.ok) throw new Error(data.message || "Request failed");
-  return data;
 }
 
 function button(label, handler, className = "secondary") {
@@ -141,5 +139,27 @@ $("create-form").onsubmit = async (event) => {
 };
 $("refresh").onclick = () => refresh().catch((error) => { $("message").textContent = error.message; });
 token.onchange = () => refresh().catch((error) => { $("message").textContent = error.message; });
+async function refreshStatus() {
+  const button = $("refresh-status"); button.disabled = true;
+  try {
+    const data = await api('/api/service-status');
+    const lines = [
+      `Controller: ${data.version} (${data.revision.slice(0, 12)})`,
+      `Browsers: ${data.capacity.currentSessions} / ${data.capacity.maxSessions} slots in use; ${data.ownSessions} yours. ${data.capacity.full ? 'Full — close an idle session or retry later.' : ''}`,
+      `Agent endpoint: ${data.mcp.url} — ${data.mcp.authentication}. ${data.mcp.message}`,
+    ];
+    if (data.checks) {
+      const c = data.checks;
+      lines.push(`Browser mode: ${c.browserMode} · ${c.platform}`,
+        `Docker: ${c.docker.message}`, `Runtime: ${c.runtime.message}`,
+        `Storage: ${c.storage.message}${c.storage.freeMiB === undefined ? '' : ` (${c.storage.freeMiB} MiB free)`}`,
+        `Checked: ${new Date(c.checkedAt).toLocaleTimeString('en-US')}. Checks are cached for up to 15 seconds.`);
+    }
+    $('service-status').replaceChildren(...lines.map(text => { const p = document.createElement('p'); p.textContent = text; return p; }));
+  } catch (error) { $('service-status').textContent = error.message; }
+  finally { button.disabled = false; }
+}
+$('refresh-status').onclick = refreshStatus;
 await mountAccount(api);
+if (team || token.value) void refreshStatus();
 if (team || token.value) void refresh().catch((error) => { $("message").textContent = error.message; });

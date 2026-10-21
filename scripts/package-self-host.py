@@ -16,7 +16,7 @@ release = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(release)
 
 
-def build(root, output):
+def build(root, output, version=None):
     contents = release.deployment_contents(root)
     images = {}
     for line in contents['deploy/release.env'].decode().splitlines():
@@ -28,6 +28,14 @@ def build(root, output):
         images[match[1].lower()] = match[2]
     if set(images) != {'controller', 'runtime'}:
         raise SystemExit('Both controller and runtime image pins are required')
+    # A controller cannot embed its own future digest. Release-image kits use
+    # never-overwritten version tags; the installer resolves them after pulling
+    # and writes digest-only Compose. Official post-publication kits use pins.
+    if version and version != 'development':
+        if not re.fullmatch(r'v[0-9]+\.[0-9]+\.[0-9]+(?:-[a-z0-9.-]+)?', version):
+            raise SystemExit('Invalid immutable release version')
+        images = {kind: f'ghcr.io/infrasika/agentic-browser-{kind}:{version}' for kind in images}
+        contents['deploy/release.env'] = ''.join(f'AB_{kind.upper()}_IMAGE={ref}\n' for kind, ref in images.items()).encode()
     # Native Compose needs no project checkout or helper after this one-time setup.
     compose = contents['compose.yaml'].decode()
     for key, image in [('AB_CONTROLLER_IMAGE', images['controller']), ('AB_RUNTIME_IMAGE', images['runtime'])]:
@@ -65,5 +73,6 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--root', type=Path, default=ROOT)
     parser.add_argument('--output', type=Path, default=ROOT / 'web/self-host-downloads')
+    parser.add_argument('--version', help='Image build only: resolve this immutable release to digests during installation')
     args = parser.parse_args()
-    build(args.root.resolve(), args.output.resolve())
+    build(args.root.resolve(), args.output.resolve(), args.version)

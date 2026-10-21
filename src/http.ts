@@ -23,9 +23,12 @@ import type { IdentityStore, Principal } from "./identity.js";
 import { checkBrowserRequest, teamAuthRoute } from "./team-http.js";
 import { attachDesktopGateway } from "./desktop-gateway.js";
 import { RemoteMcp } from "./remote-mcp.js";
+import { buildInfo, type StatusReader } from "./service-status.js";
 import { PrivateMcp } from "./private-mcp.js";
 
 const assets = new Map([
+  ["/request.js", ["request.js", "text/javascript; charset=utf-8"]],
+  ["/version.js", ["version.js", "text/javascript; charset=utf-8"]],
   ["/", ["index.html", "text/html; charset=utf-8"]],
   ["/public-demo.js", ["public-demo.js", "text/javascript; charset=utf-8"]],
   ["/public-browser.js", ["public-browser.js", "text/javascript; charset=utf-8"]],
@@ -93,7 +96,7 @@ function bearer(request: IncomingMessage) {
 
 export function createHttpServer(
   registry: SessionRegistry,
-  options: { token?: string; publicUrl: string; identity?: IdentityStore; defaultStartUrl?: string; demo?: boolean; publicBrowser?: boolean; publicMaxSessionsPerIp?: number; trustProxy?: boolean },
+  options: { token?: string; publicUrl: string; identity?: IdentityStore; defaultStartUrl?: string; demo?: boolean; publicBrowser?: boolean; publicMaxSessionsPerIp?: number; trustProxy?: boolean; statusReader?: StatusReader },
 ) {
   const publicDemo = options.demo && options.identity ? new PublicDemo(options.identity, registry) : undefined;
   const guestMode = options.demo || options.publicBrowser;
@@ -138,6 +141,8 @@ export function createHttpServer(
         const { sessionId, ticket } = z.object({ sessionId: z.string().uuid(), ticket: z.string().regex(/^[A-Za-z0-9_-]{43}$/) }).strict().parse(await readJson(request));
         return respond(response, 200, await remoteMcp.claim(sessionId, ticket, origin, response));
       }
+      if (method === "GET" && url.pathname === "/api/version")
+        return respond(response, 200, buildInfo);
       if (method === "GET" && url.pathname === "/health")
         return respond(response, 200, { status: "ok" });
       if (remoteMcp && method === 'GET' && url.pathname === '/api/public/capacity')
@@ -206,6 +211,14 @@ export function createHttpServer(
           "unauthorized",
           "A valid agent bearer token is required",
         );
+      }
+      if (url.pathname === '/api/service-status' && method === 'GET') {
+        if (guestMode || agentHash) throw new ServiceError(403, 'human_required', 'Sign in to your private workspace to view diagnostics.');
+        return respond(response, 200, { ...buildInfo, mode: options.identity ? 'authenticated' : 'legacy',
+          capacity: registry.capacity(), ownSessions: registry.list(ownerId).length,
+          mcp: { url: `${origin}/mcp`, authentication: privateMcp ? 'Personal Bearer token' : 'Local client adapter',
+            message: 'Endpoint configured. Verify the connection from your Agent; this does not check its token.' },
+          ...(options.statusReader ? { checks: await options.statusReader() } : {}) });
       }
       if (guestMode && url.pathname.startsWith('/api/profiles')) {
         if (method === 'GET' && url.pathname === '/api/profiles') return respond(response, 200, { available: false, profiles: [] });

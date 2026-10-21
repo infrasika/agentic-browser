@@ -4,6 +4,7 @@
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Self-hosting guide · Agentic Browser</title>
   <link rel="stylesheet" href="/app.css">
+  <script type="module" src="/version.js"></script>
 </head>
 <body>
 <header><a class="brand" href="/">a<span class="brand-dot">●</span> Agentic Browser</a><a href="/">Back to the demo ↗</a></header>
@@ -12,7 +13,7 @@
   <h1>Run your own<br><span class="muted">Agentic Browser.</span></h1>
   <p class="intro">Two public Docker images. One settings file. Connect your Agent with a URL and a personal token.</p>
   <p>Requires Docker Engine 26+, Compose 2.24.4+, and Bash. Supports Linux amd64/arm64 and Docker Desktop on Apple Silicon.</p>
-  <p><a href="/self-host/download/SELF_HOST.md">Read the complete self-hosting guide ↗</a> for client setup, remote access, team accounts, configuration, backup and recovery. Published images are pinned to v0.1.0-preview.4; Docker selects the host architecture.</p>
+  <p><a href="/self-host/download/SELF_HOST.md">Read the complete self-hosting guide ↗</a> for client setup, remote access, personal tokens, configuration, backup and recovery. The installer fixes image versions; Docker selects the host architecture.</p>
   <section class="panel">
     <h2>1. Install</h2>
     <pre tabindex="0">curl -fsSL https://agentic-browser.zkpass.org/install.sh | bash
@@ -34,7 +35,7 @@ AB_MAX_SESSIONS=1</pre>
       <table>
         <thead><tr><th scope="col">Mode</th><th scope="col">Access</th></tr></thead>
         <tbody>
-          <tr><td><code>authenticated</code> (default)</td><td>Member sign-in and personal Agent tokens; private member resources</td></tr>
+          <tr><td><code>authenticated</code> (default)</td><td>Your workspace sign-in and personal Agent tokens</td></tr>
           <tr><td><code>public</code></td><td>No registration or Agent token; temporary sessions with individual secret keys</td></tr>
         </tbody>
       </table>
@@ -71,15 +72,16 @@ AB_SESSION_MAX_LIFETIME_SECONDS=14400</pre>
   <section class="panel">
     <h2>Changes and maintenance</h2>
     <details id="apply-settings">
-      <summary>Apply settings, add teammates, or upgrade</summary>
+      <summary>Apply settings, recover access, or upgrade</summary>
       <p>After editing <code>.env</code>, finish active sessions and recreate the controller:</p>
       <pre tabindex="0">docker compose up -d --force-recreate --wait</pre>
       <p>A plain restart does not reload settings. Accounts and saved profiles remain in the data volume. After initial setup, you may remove both bootstrap username and password settings; changing them never resets an existing account.</p>
-      <p>Add teammates with <code>docker compose exec controller npm run members -- create alice</code>. Each member creates their own token. The initial account has the same private resource scope as other members.</p>
+      <p>Reset your workspace password with <code>docker compose exec controller npm run members -- password admin</code> (replace <code>admin</code> with your username). This revokes existing Agent tokens; sign in and create replacements.</p>
       <p>Only the controller mounts the Docker socket. Browser sessions use isolated runtime containers. Temporary data is removed on close; saved profiles persist. The host administrator controls stored data.</p>
       <p>Before upgrading, stop and back up the workspace. Download the <a href="/self-host/download/workspace-backup.sh" download="workspace-backup.sh">backup helper</a> and follow the <a href="/self-host/download/SELF_HOST.md">backup and recovery guide</a>. Preserve the project name when upgrading, and run only one controller for a workspace.</p>
     </details>
   </section>
+  <p data-service-version>Checking controller version…</p>
 </main>
 </body>
 </html>

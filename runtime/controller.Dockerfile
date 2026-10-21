@@ -21,10 +21,11 @@ COPY deploy/releases/ ./deploy/releases/
 COPY runtime/assets.lock.json runtime/chrome-seccomp.json ./runtime/
 COPY runtime/DISTRIBUTION-NOTICES.md runtime/PLAYWRIGHT-LICENSE ./runtime/
 COPY runtime/README.md ./runtime/
-RUN python3 scripts/package-self-host.py
-RUN mkdir /data && chown node:node /data && chmod 700 /data
 ARG AB_VERSION=development
 ARG AB_REVISION=unknown
+RUN python3 scripts/package-self-host.py --version "$AB_VERSION"
+RUN node -e 'require("fs").writeFileSync("build-info.json",JSON.stringify({version:process.argv[1],revision:process.argv[2]}))' "$AB_VERSION" "$AB_REVISION"
+RUN mkdir /data && chown node:node /data && chmod 700 /data
 LABEL org.opencontainers.image.source="https://github.com/infrasika/agentic-browser" \
       org.opencontainers.image.version="${AB_VERSION}" \
       org.opencontainers.image.revision="${AB_REVISION}" \

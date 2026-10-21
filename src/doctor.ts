@@ -1,3 +1,4 @@
+import { buildInfo } from "./service-status.js";
 import { execFile as execFileCallback } from 'node:child_process';
 import { promisify } from 'node:util';
 import { existsSync } from 'node:fs';
@@ -5,10 +6,19 @@ import { readFile, stat } from 'node:fs/promises';
 import { readConfig } from './config.js';
 
 const execFile = promisify(execFileCallback);
+console.log(`Controller ${buildInfo.version} (${buildInfo.revision})`);
+const remedies: Record<string, string> = {
+  Configuration: 'Check mode, public URL, initial username/password and documented ranges in .env.',
+  Docker: 'Start Docker and check the controller socket mount and supplementary socket group.',
+  'Local runtime image': 'Pull the pinned runtime image and confirm it matches the native host architecture.',
+  'Private data volume': 'Check the workspace volume exists and Docker Engine is 26+.',
+  'Local configuration permissions': 'Restrict the configuration file to its owner: chmod 600 .env.',
+  Platform: 'Use a non-root Linux amd64/arm64 controller; Docker Desktop supplies Linux on Mac.',
+};
 let failures = 0;
 async function check(name: string, operation: () => Promise<string> | string) {
   try { console.log(`PASS ${name}: ${await operation()}`); }
-  catch { failures++; console.log(`FAIL ${name}: Check the configuration and dependencies. Raw errors and credentials are omitted.`); }
+  catch { failures++; console.log(`FAIL ${name}: ${remedies[name] ?? "Check the configuration and dependencies."} Raw errors and credentials are omitted.`); }
 }
 if (existsSync('.env')) process.loadEnvFile('.env');
 await check('Node', () => { if (Number(process.versions.node.split('.')[0]) < 24) throw new Error(); return process.versions.node; });

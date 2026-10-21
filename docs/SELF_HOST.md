@@ -1,8 +1,8 @@
 # Self-host Agentic Browser
 
-Run a personal or team workspace on your own Docker host using the two public images. You do **not** need source access, a build, Node.js on the host, or a GHCR login. The [official demo](https://agentic-browser.zkpass.org/) is a separate service; its sessions and accounts do not move into your installation.
+Run your personal workspace on your own Docker host using the two public images. You do **not** need source access, a build, Node.js on the host, or a GHCR login. The [official demo](https://agentic-browser.zkpass.org/) is a separate service; its sessions and accounts do not move into your installation.
 
-The accepted image release is **v0.1.0-preview.4**. The installer embeds immutable multi-platform digests rather than floating tags. See [Frozen baseline](STATUS.md) for the exact version boundary and verification evidence.
+The accepted images are recorded in the installer and [Version status](STATUS.md). The installer embeds immutable multi-platform digests rather than floating tags. See [Frozen baseline](STATUS.md) for the exact version boundary and verification evidence.
 
 ## Choose where to run it
 
@@ -89,7 +89,7 @@ In the dashboard's **Connect your Agent** section:
 
 There are three separate sign-ins: your workspace account opens the dashboard; the personal Agent token authorizes MCP; the target website account signs into GitHub or another site inside Chrome. They are not interchangeable. Do not use your workspace password as an MCP token.
 
-Each teammate should have a separate workspace account and personal tokens. Sharing an account or token intentionally shares that identity's access.
+Create separate personal tokens for different Agents so each can be revoked independently. Existing account isolation is retained; team collaboration features are outside the product scope.
 
 ## 4. Connect Codex, Claude Code or another Agent
 
@@ -144,7 +144,7 @@ Send this to your Agent:
 
 > Use agentic-browser-local to open GitHub and send me a sign-in link. Wait until I hand control back, then count all the private repositories I own and list their names. Check every page and close the browser when finished.
 
-Open the returned link in a browser where you are signed in to the **same workspace member account**. Take control, click inside the remote website, and type directly. Complete the website login, then click **Hand back to Agent**. The Agent should list all personally owned private repositories and close the session. A working task proves the token, browser runtime, display transport and handoff all work together.
+Open the returned link in a browser where you are signed in to the **same workspace account**. Take control, click inside the remote website, and type directly. Complete the website login, then click **Hand back to Agent**. The Agent should list all personally owned private repositories and close the session. A working task proves the token, browser runtime, display transport and handoff all work together.
 
 For a test without an external account, substitute `https://example.com` and ask the Agent to read its title after handback. Site-specific anti-bot restrictions are separate from workspace connectivity.
 
@@ -203,13 +203,13 @@ ssh -N -L 3333:127.0.0.1:3333 ubuntu@SERVER_IP
 
 Keep that terminal open. Use `http://127.0.0.1:3333` and `/mcp` on your laptop. If local port 3333 is occupied, forward local port 4444 instead and use it in both addresses. The controller must be configured with a loopback public URL for its loopback port-forwarding allowance; an installation configured with a public domain expects that domain.
 
-### HTTPS domain for a team
+### Your HTTPS domain
 
 1. Point your domain's DNS record to the server and arrange a valid certificate.
 2. Set `.env` to `AB_PORT=8080`, `AB_BIND_ADDRESS=127.0.0.1`, and `AB_PUBLIC_URL=https://browser.example.com`.
 3. Configure Nginx to proxy that domain to `127.0.0.1:8080`. The supplied [Nginx template](../deploy/nginx-public.conf) includes WebSocket upgrades, long request timeouts, disabled buffering and limits. Replace its domain, certificate paths and upstream port. The template is also inside the [configuration bundle](https://agentic-browser.zkpass.org/self-host/download/agentic-browser-self-host.tar.gz).
 4. Validate with `sudo nginx -t`, then reload Nginx. Recreate the controller after editing `.env`.
-5. Use `https://browser.example.com` for members and `https://browser.example.com/mcp` for Agents.
+5. Use `https://browser.example.com` for the dashboard and `https://browser.example.com/mcp` for Agents.
 
 Keep Host/Origin and WebSocket upgrade headers intact. The proxy must overwrite client-IP headers. Enable `AB_TRUST_PROXY=true` only when direct untrusted access to the controller is prevented. Do not throttle the initial `/vendor/novnc/` module downloads; the template exempts them while limiting API requests.
 
@@ -236,19 +236,17 @@ This example assumes the trusted HTTPS proxy described above. Public mode needs 
 
 The homepage and `GET /api/public/capacity` show counts without exposing session IDs. When full, MCP returns a tool error containing the count, limit and a suggested retry interval. Other fixed public limits include 6 create attempts/minute/IP, 120 MCP requests/minute/IP, 8 in-flight requests/IP and 64 globally. Waiting does not extend a session. Browser egress blocks private, loopback, link-local, metadata and management destinations; per-session Docker containers alone would not prevent requests to internal services.
 
-## Members and routine operations
+## Account recovery and routine operations
 
-Run from the installation directory:
+To reset your workspace password, run this in the installation directory (replace `admin` with your username):
 
 ```sh
-docker compose exec controller npm run members -- create alice
-docker compose exec controller npm run members -- list
-docker compose exec controller npm run members -- password alice
-docker compose exec controller npm run members -- disable alice
-docker compose exec controller npm run members -- enable alice
+docker compose exec controller npm run members -- password admin
 ```
 
-Creation and password reset use an interactive hidden password prompt. Resetting a member password revokes that member's existing credentials. A member can also revoke a single Agent credential from their dashboard. Do not share an administrator's token to onboard a teammate.
+The command prompts for a new password without displaying it. Resetting the password revokes your existing Agent credentials and web sign-in. Sign in again and issue replacement tokens. Changing `AB_ADMIN_PASSWORD` does not reset an existing account.
+
+For installations with existing additional accounts, the `members` CLI still supports `list`, `create`, `disable` and `enable`; resource isolation is unchanged. This is compatibility support, not a planned team product.
 
 ```sh
 docker compose ps
@@ -260,6 +258,14 @@ curl --fail http://127.0.0.1:3333/health
 For a domain-configured workspace, use its HTTPS `/health` address; a direct loopback request may be rejected because its Host does not match. Avoid sharing full environment dumps or logs containing credentials.
 
 Use `docker compose stop --timeout 60 controller` to stop the workspace and `docker compose up -d --wait` to start it again. Routine stops and `down` retain the named volume. **Do not use `down --volumes` or delete the data volume unless you intend to erase accounts and saved profiles.** Do not use a global Docker prune as workspace cleanup.
+
+## Workspace status
+
+After signing in, open **Workspace status** on the dashboard and click **Check status**. It shows the controller version/revision, browser capacity, your session count, Agent endpoint, Docker connectivity, native runtime-image availability and free space on the workspace filesystem. Checks are read-only, time-bounded and cached for up to 15 seconds; they do not open browsers or read website login data.
+
+The endpoint being configured does not mean your Agent token has been tested. Check the connection from your Agent too. An available runtime image does not guarantee that every website will accept sign-in. Public visitors can read the controller version and aggregate capacity; host diagnostics require a private workspace sign-in and are not available to Agent tokens.
+
+If the service cannot start, its dashboard is unavailable as well. Use `docker compose ps`, `docker compose logs --tail 100 controller` and `docker compose exec controller npm run doctor` when the controller is running. For a stopped controller, run `docker compose run --rm --no-deps controller npm run doctor`.
 
 ## Troubleshooting
 
@@ -337,4 +343,14 @@ Start with `docker compose up -d --wait`, then check the workspace at `http://12
 
 Restoration also rolls account changes and token revocations back to the backup time. Before restoring external access, reapply later account disablements/revocations. Resetting a member's password with `docker compose exec controller npm run members -- password alice` invalidates that member's restored credentials; they then sign in and issue new Agent tokens. Only restore a trusted backup.
 
-The automated upgrade check currently covers preview.3 → preview.4 and rollback from the backup. Those releases use identical Chrome and extension versions. This does not establish compatibility across future Chrome/extension version changes; see [Frozen baseline](STATUS.md).
+Historical automated upgrade evidence covers preview.3 → preview.4 and rollback from the backup. Those releases use identical Chrome and extension versions. This does not establish compatibility across future Chrome/extension version changes; see [Frozen baseline](STATUS.md).
+
+## Apple Silicon release check
+
+Linux arm64 CI does not replace a physical Mac test. For each release you adopt, record the date, macOS and Docker Desktop versions, Mac model/allocated resources, the controller version shown in the UI and both image digests from `compose.yaml`. Do not include `.env`, tokens, cookies or private page contents in the report.
+
+1. Run the official installer in a new folder and start with one browser. Confirm `npm run doctor` passes and Workspace status reports `linux/arm64`.
+2. Create a personal token, connect your Agent and complete an example.com handoff, direct keyboard input, handback and close.
+3. Save a synthetic login profile, close its browser, recreate the controller and verify the profile can be reused. A display reconnect should preserve a live session; a controller restart should end it.
+4. Perform the stopped-workspace backup and fresh-volume restore described above. Confirm account access and the synthetic saved profile, then remove only the disposable test installation.
+5. Record pass/fail for each step, cleanup and any errors. Mark unrun steps as pending. The prior user-reported Mac success is not evidence for a later image version.

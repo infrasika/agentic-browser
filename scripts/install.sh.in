@@ -54,6 +54,23 @@ controller_image='@@CONTROLLER_IMAGE@@'
 runtime_image='@@RUNTIME_IMAGE@@'
 docker pull "$controller_image"
 docker pull "$runtime_image"
+# Resolve pulled references to digests before writing the installation. This
+# also supports the kit embedded inside a release image before its digest exists.
+resolve_digest() {
+  local reference="$1" repository="${1%%@*}" candidate
+  if [[ "$reference" =~ @sha256:[a-f0-9]{64}$ ]]; then printf '%s' "$reference"; return; fi
+  repository="${repository%%:*}"
+  while IFS= read -r candidate; do
+    if [[ "$candidate" == "$repository@sha256:"* && "${candidate##*@sha256:}" =~ ^[a-f0-9]{64}$ ]]; then
+      printf '%s' "$candidate"
+      return
+    fi
+  done < <(docker image inspect "$reference" --format '{{range .RepoDigests}}{{println .}}{{end}}')
+  printf 'Cannot determine a pinned digest for the pulled image.\n' >&2
+  return 1
+}
+controller_digest="$(resolve_digest "$controller_image")"
+runtime_digest="$(resolve_digest "$runtime_image")"
 # Probe the Linux-side socket group, including when hosted by Docker Desktop.
 socket_gid="$(docker run --rm --network none --read-only --cap-drop ALL \
   --security-opt no-new-privileges --user 1000:1000 \
@@ -64,9 +81,13 @@ case "$socket_gid" in ''|*[!0-9]*) printf 'Could not detect the Docker socket gr
 mkdir -p "$target"
 # Refuse to overwrite files even if another process creates them during pulls.
 set -C
-cat > "$target/compose.yaml" <<'AB_COMPOSE_FILE'
+compose_content="$(cat <<'AB_COMPOSE_FILE'
 @@COMPOSE@@
 AB_COMPOSE_FILE
+)"
+compose_content="${compose_content//"$controller_image"/"$controller_digest"}"
+compose_content="${compose_content//"$runtime_image"/"$runtime_digest"}"
+printf '%s\n' "$compose_content" > "$target/compose.yaml"
 cat > "$target/.env" <<'AB_SETTINGS_FILE'
 @@SETTINGS@@
 # Detected on this Docker host. Keep these values unless the host/context changes.

@@ -1,3 +1,4 @@
+import { requestJson } from "/request.js";
 const button = document.getElementById('connect-browser');
 const message = document.getElementById('connect-message');
 const readLink = () => /^([a-f0-9-]{36})\.([A-Za-z0-9_-]{43})$/.exec(location.hash.slice(1));
@@ -12,9 +13,9 @@ function showLink() {
   const valid = !!readLink();
   button.disabled = !valid || location.hash === rejectedLink;
   message.textContent = !valid
-    ? 'Incomplete handoff link. Copy the full URL from your Agent, including everything after #, or ask it to call browser_human_link for a new link.'
+    ? 'Incomplete handoff link. Copy the full URL from your Agent, including everything after #, or ask it for a new link.'
     : location.hash === rejectedLink
-      ? 'This link has been used or has expired. Ask your Agent to call browser_human_link for a new link.'
+      ? 'This link has been used or has expired. Ask your Agent for a new link.'
       : 'Link ready. Click “Connect and take control”.';
 }
 window.addEventListener('hashchange', showLink);
@@ -27,14 +28,12 @@ button.onclick = async () => {
   button.disabled = true;
   message.textContent = 'Connecting to the browser…';
   try {
-    const response = await fetch('/api/public/claim', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Agentic-Browser': '1' }, body: JSON.stringify({ sessionId: match[1], ticket: match[2] }) });
-    const result = await response.json();
-    if (response.status === 410) rejectedLink = claimingLink;
-    if (!response.ok) throw new Error(result.message || 'Unable to connect. Request a new link.');
+    const result = await requestJson('/api/public/claim', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Agentic-Browser': '1' }, body: JSON.stringify({ sessionId: match[1], ticket: match[2] }) });
     try { sessionStorage.removeItem('viewer-session'); sessionStorage.removeItem('team-viewer-id'); } catch { /* Storage may be disabled. */ }
     // Replace this history entry only after receiving the scoped human cookie.
     location.replace(result.humanUrl);
   } catch (error) {
+    if (error.status === 410) rejectedLink = claimingLink;
     connecting = false;
     showLink();
     if (location.hash === claimingLink && claimingLink !== rejectedLink)
