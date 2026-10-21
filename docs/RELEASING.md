@@ -12,8 +12,9 @@ The accepted stable release is **v0.1.0**, built from `d85b9196b498c12ead9ab6164
 | [Fresh installation](../deploy/releases/v0.1.0-install-verification.json) | Native amd64/arm64 account/token setup, workspace diagnostics, handoff and saved profiles |
 | [Upgrade and rollback](../deploy/releases/v0.1.0-upgrade-verification.json) | Preview.5 to v0.1.0, offline backup and fresh-volume restore on both platforms |
 | [Official HTTPS demo](../deploy/releases/v0.1.0-demo-verification.json) | MCP, remote display, takeover, handback, Agent reading, cleanup and setup downloads |
+| [Physical Apple Silicon Mac](../deploy/releases/v0.1.0-mac-verification.json) | Official installation on Mac16,10 / macOS 26.6.2 / Docker Desktop 4.95.0; real human GitHub handoff, saved login across browser close and controller recreation, offline backup and fresh-volume v0.1.0 restore |
 
-The release source passed 63 unit/API/packaging tests. Physical Apple Silicon acceptance of this exact release has not been recorded; native Linux arm64 CI is separate. Long-duration and optional-client checks from older releases are not new v0.1.0 evidence. Chrome/profile-format migration and live zkPass proofs are outside these results. Keep these limits explicit in release notes.
+The release source passed 63 unit/API/packaging tests. Physical Apple Silicon acceptance is recorded for one Mac and the exact image digests above, separately from native Linux arm64 CI. The Mac run passed the original installation suite and an additional real GitHub login/backup-recovery flow; disposable login data and backups were removed. Its same-version restore does not establish Mac upgrade/downgrade or Chrome/profile-format migration compatibility. Long-duration and optional-client checks from older releases are not new v0.1.0 evidence. Live zkPass proofs are outside these results. Keep these limits explicit in release notes.
 
 ## GitHub Actions
 

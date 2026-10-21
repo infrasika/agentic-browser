@@ -177,7 +177,7 @@ The current stable release is **`v0.1.0`**, promoting the application behavior a
 
 Both `ghcr.io/infrasika/agentic-browser-controller:latest` and `ghcr.io/infrasika/agentic-browser-runtime:latest` point to `v0.1.0`. Future stable releases advance these aliases; preview versions and older stable versions do not. Fixed `:v0.1.0` tags remain available. The installer continues to pin exact image digests; installed workspaces do not upgrade automatically.
 
-This release passed 63 unit/API/packaging tests, native Ubuntu amd64/arm64 installation, isolation/capacity and recovery checks, upgrade/rollback, and the official HTTPS handoff flow. Physical Apple Silicon acceptance is separate from Linux arm64 CI. See [Release verification](docs/RELEASING.md#release-verification) for the exact evidence and limits. Image-bundled documents are build-time snapshots; the official setup downloads contain the maintained guides.
+This release passed 63 unit/API/packaging tests, native Ubuntu amd64/arm64 installation, isolation/capacity and recovery checks, upgrade/rollback, and the official HTTPS handoff flow. A separate physical Apple Silicon Mac run passed installation, real GitHub handoff, saved-login retention and same-version backup/restore. See [Release verification](docs/RELEASING.md#release-verification) for the exact host, evidence and limits. Image-bundled documents are build-time snapshots; the official setup downloads contain the maintained guides.
 
 ## Documentation
 
