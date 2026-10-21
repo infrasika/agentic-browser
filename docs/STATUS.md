@@ -4,24 +4,31 @@ The product scope is **personal self-hosting plus a public demo**. Team collabor
 
 ## Current release
 
-Stable `v0.1.0` publication is in progress. Application code and browser assets are unchanged from preview.5; this release introduces stable/latest publication rules. The accepted preview.5 evidence below remains historical until separate v0.1.0 receipts are recorded.
+Stable `v0.1.0` is published. Application code and browser assets are unchanged from preview.5; the release adds stable/latest publication rules. Published-installation and upgrade acceptance are recorded separately below.
 
 | Surface | Version |
 | --- | --- |
-| Public images | `v0.1.0-preview.5`; immutable references in [deploy/release.env](../deploy/release.env) |
-| Release source | `5055b1f32be502e19a2446d57029aa61d1b206f3`, tagged `v0.1.0-preview.5` |
+| Public images | Stable `v0.1.0`; immutable references in [deploy/release.env](../deploy/release.env) |
+| Release source | `d85b9196b498c12ead9ab6164e3a174eaa15833a`, tagged `v0.1.0` |
+| Moving channel | Both `:latest` tags match `:v0.1.0`; only newer stable releases advance them |
 | Platforms | Native Linux amd64 and arm64; Docker chooses the host architecture |
 | Browser assets | Chrome 155.0.8059.79, zkPass TransGate 0.5.5, Schema Validator 0.1.3; unchanged from preview.4 |
 | Official demo | https://agentic-browser.zkpass.org/ |
 | Previous source baseline | `freeze-2026-10-21`; retained unchanged |
 
-Preview.5 contains personal-use onboarding, an authenticated workspace status panel, controller version/revision identification, clearer connection/session errors and the viewer cleanup that removes the auxiliary text-entry form. Accounts, personal tokens, opt-in saved login profiles and the existing isolation boundaries remain intact.
+V0.1.0 retains preview.5's personal-use onboarding, authenticated workspace status panel, controller version/revision identification, clearer connection/session errors and viewer cleanup. Accounts, personal tokens, opt-in saved login profiles and the existing isolation boundaries remain intact.
 
 The official site runs the published GHCR controller and runtime. Its installer uses those same image digests. Post-publication documentation and setup files are mounted read-only separately; there is no locally modified controller build. The installer embedded in an image resolves its immutable release tags to digests before writing `compose.yaml` because the image cannot contain its own future digest.
 
 Image-bundled documents are build-time snapshots. The [official status download](https://agentic-browser.zkpass.org/self-host/download/STATUS.md) and this repository's current branch contain later acceptance records. Earlier release manifests, digests, tags and receipts are immutable.
 
 ## Verification
+
+- TypeScript and all **63 unit/API/packaging tests** passed for v0.1.0, including release-channel guards for prereleases, version ordering, incomplete publication and retrying a partial alias update.
+- Native amd64/arm64 publication passed isolation, handoff, public capacity and recovery acceptance. Stable and latest tags are checked against the same multi-platform digests during public-pull verification.
+- Published v0.1.0 installation, preview.5 → v0.1.0 upgrade/rollback and the official deployment are awaiting their post-publication receipts.
+
+### Historical preview.5 acceptance
 
 - TypeScript and all **62 unit/API/packaging tests** passed for the release source.
 - Native amd64 and arm64 CI passed controller isolation, human handoff, public five-browser capacity and failure recovery. See [publication and anonymous-pull verification](../deploy/releases/v0.1.0-preview.5-public-verification.json).
@@ -35,7 +42,7 @@ Previous [sustained workload](../deploy/releases/v0.1.0-preview.4-soak-verificat
 
 ## Boundaries and maintenance
 
-- Physical Apple Silicon acceptance of preview.5 is still pending. Native Linux arm64 CI and the earlier user-reported Mac success do not replace it. Follow the [Mac checklist](SELF_HOST.md#apple-silicon-release-check).
+- Physical Apple Silicon acceptance of v0.1.0 is still pending. Native Linux arm64 CI and the earlier user-reported Mac success do not replace it. Follow the [Mac checklist](SELF_HOST.md#apple-silicon-release-check).
 - A controller restart ends active sessions. Saved profiles can be opened in new sessions afterward; display reconnection cannot recover an expired browser.
 - Website anti-bot checks, account verification and website-side login expiry still apply.
 - Browser/profile-format migration is not established by a controller-only release with unchanged Chrome assets. Use an offline backup before a future browser update.

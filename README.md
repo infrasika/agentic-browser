@@ -173,9 +173,9 @@ A controller restart ends active sessions; saved profiles can be opened in new s
 
 The product scope is **personal self-hosting plus a public demo**. Team collaboration, invitations and role management are not planned. Existing identity boundaries remain in place.
 
-The current public release is **`v0.1.0-preview.5`**. Its controller includes the personal onboarding, workspace status panel, improved connection messages and viewer cleanup. The official website and installer use the same published images, fixed by the references in [deploy/release.env](deploy/release.env).
+The current stable release is **`v0.1.0`**, promoting the application behavior accepted in preview.5. Its controller includes personal onboarding, the workspace status panel, improved connection messages and viewer cleanup. The official website and installer use the same published images, fixed by the references in [deploy/release.env](deploy/release.env).
 
-Stable publication is being prepared as **`v0.1.0`**, with the same application behavior as preview.5. Both `ghcr.io/infrasika/agentic-browser-controller:latest` and `ghcr.io/infrasika/agentic-browser-runtime:latest` track the newest stable release only. Preview versions do not replace them. The installer continues to pin exact image digests; installed workspaces do not upgrade automatically.
+Both `ghcr.io/infrasika/agentic-browser-controller:latest` and `ghcr.io/infrasika/agentic-browser-runtime:latest` point to `v0.1.0`. Future stable releases advance these aliases; preview versions and older stable versions do not. Fixed `:v0.1.0` tags remain available. The installer continues to pin exact image digests; installed workspaces do not upgrade automatically.
 
 The historical tag `freeze-2026-10-21` remains unchanged. See [Version status](docs/STATUS.md) for acceptance receipts and limitations. Image publication, deployment and post-publication acceptance are recorded separately; image-bundled documents are build-time snapshots, while the official downloadable guides track current acceptance.
 
