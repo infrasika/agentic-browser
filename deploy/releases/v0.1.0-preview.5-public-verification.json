@@ -1,0 +1,159 @@
+{
+  "version": "v0.1.0-preview.5",
+  "revision": "5055b1f32be502e19a2446d57029aa61d1b206f3",
+  "workflow": "https://github.com/infrasika/agentic-browser/actions/runs/39600012772",
+  "verifiedAt": "2026-10-21T12:49:31.055917+00:00",
+  "sourceRepositoryPrivate": true,
+  "images": {
+    "controller": {
+      "reference": "ghcr.io/infrasika/agentic-browser-controller@sha256:5f6b5855395d99c1031fc26205b8e1ec79324cb37fb2809bac04a529b7bd0578",
+      "platforms": [
+        "linux/amd64",
+        "linux/arm64"
+      ],
+      "anonymousManifestAndConfigAccess": true,
+      "anonymousPulls": {
+        "linux/amd64": true,
+        "linux/arm64": true
+      }
+    },
+    "runtime": {
+      "reference": "ghcr.io/infrasika/agentic-browser-runtime@sha256:8a0c82c4c1cedbf40fe5761d9d2cc0250ad72cd3c9abfb709437ea440bcb6ead",
+      "platforms": [
+        "linux/amd64",
+        "linux/arm64"
+      ],
+      "anonymousManifestAndConfigAccess": true,
+      "anonymousPulls": {
+        "linux/amd64": true,
+        "linux/arm64": true
+      }
+    }
+  },
+  "publicPullVerified": true,
+  "imagePackagesPublic": true,
+  "remainingAcceptance": [
+    "Published installer and upgrade/rollback on native amd64/arm64",
+    "Physical Apple Silicon run of this release",
+    "Browser-version profile migration (assets unchanged)",
+    "Live zkPass proof tests skipped by request"
+  ],
+  "nativeReliability": {
+    "amd64": {
+      "passed": true,
+      "elapsedMs": 523134,
+      "checks": [
+        {
+          "name": "isolated public deployment started",
+          "elapsedMs": 7108
+        },
+        {
+          "name": "runtime crash reclaimed without Agent request",
+          "elapsedMs": 53238,
+          "recoveryMs": 3203
+        },
+        {
+          "name": "public capacity cycle passed",
+          "elapsedMs": 60978,
+          "round": 1,
+          "peakSessions": 5,
+          "remainingSessions": 0
+        },
+        {
+          "name": "public capacity cycle passed",
+          "elapsedMs": 105195,
+          "round": 2,
+          "peakSessions": 5,
+          "remainingSessions": 0
+        },
+        {
+          "name": "public capacity cycle passed",
+          "elapsedMs": 149704,
+          "round": 3,
+          "peakSessions": 5,
+          "remainingSessions": 0
+        },
+        {
+          "name": "natural expiry started",
+          "elapsedMs": 154718,
+          "expectedExpiry": "2026-10-21T12:42:51.577Z"
+        },
+        {
+          "name": "natural expiry reclaimed disconnected browser",
+          "elapsedMs": 458624,
+          "cleanupAfterExpiryMs": 4031
+        },
+        {
+          "name": "controller crash cleared orphan containers and old capabilities",
+          "elapsedMs": 477544
+        },
+        {
+          "name": "five-member isolation, wait cancellation, reconnect and token revocation passed",
+          "elapsedMs": 515200
+        },
+        {
+          "name": "graceful shutdown reclaimed final active browser",
+          "elapsedMs": 522130
+        }
+      ]
+    },
+    "arm64": {
+      "passed": true,
+      "elapsedMs": 471284,
+      "checks": [
+        {
+          "name": "isolated public deployment started",
+          "elapsedMs": 6704
+        },
+        {
+          "name": "runtime crash reclaimed without Agent request",
+          "elapsedMs": 42360,
+          "recoveryMs": 1148
+        },
+        {
+          "name": "public capacity cycle passed",
+          "elapsedMs": 47008,
+          "round": 1,
+          "peakSessions": 5,
+          "remainingSessions": 0
+        },
+        {
+          "name": "public capacity cycle passed",
+          "elapsedMs": 82445,
+          "round": 2,
+          "peakSessions": 5,
+          "remainingSessions": 0
+        },
+        {
+          "name": "public capacity cycle passed",
+          "elapsedMs": 118225,
+          "round": 3,
+          "peakSessions": 5,
+          "remainingSessions": 0
+        },
+        {
+          "name": "natural expiry started",
+          "elapsedMs": 121536,
+          "expectedExpiry": "2026-10-21T12:41:06.147Z"
+        },
+        {
+          "name": "natural expiry reclaimed disconnected browser",
+          "elapsedMs": 423470,
+          "cleanupAfterExpiryMs": 2024
+        },
+        {
+          "name": "controller crash cleared orphan containers and old capabilities",
+          "elapsedMs": 437692
+        },
+        {
+          "name": "five-member isolation, wait cancellation, reconnect and token revocation passed",
+          "elapsedMs": 466339
+        },
+        {
+          "name": "graceful shutdown reclaimed final active browser",
+          "elapsedMs": 470496
+        }
+      ]
+    }
+  }
+}

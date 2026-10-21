@@ -173,7 +173,7 @@ test('published self-host installation: anonymous native images, human handoff a
   for (const [name, image] of [['controller', pins.AB_CONTROLLER_IMAGE], ['runtime', pins.AB_RUNTIME_IMAGE]]) {
     const detail = JSON.parse(await docker('image', 'inspect', image))[0];
     assert.equal(detail.Architecture, server.Arch); assert.equal(detail.Os, 'linux');
-    report.images[name] = { reference: image, id: detail.Id, platform: `${detail.Os}/${detail.Architecture}`, anonymousPull: true };
+    report.images[name] = { reference: image, id: detail.Id, platform: `${detail.Os}/${detail.Architecture}`, anonymousPull: true, version: detail.Config.Labels['org.opencontainers.image.version'], revision: detail.Config.Labels['org.opencontainers.image.revision'] };
   }
   assert.deepEqual(JSON.parse(await readFile(join(registry, 'config.json'), 'utf8')), {});
   await record('anonymous native pulls; installation contains only compose.yaml and private .env');
@@ -190,6 +190,25 @@ test('published self-host installation: anonymous native images, human handoff a
   const headers = { Origin: base, 'X-Agentic-Browser': '1' };
   const login = (value: string) => human.request.post(base + '/api/auth/login', { headers, data: { username: 'admin', password: value } });
   assert.equal((await login(password)).status(), 200);
+  const statusResponse = await human.request.get(base + '/api/service-status');
+  assert.equal(statusResponse.status(), 200);
+  const serviceStatus = await statusResponse.json();
+  assert.equal(serviceStatus.version, report.images.controller.version);
+  assert.equal(serviceStatus.revision, report.images.controller.revision);
+  assert.equal(serviceStatus.checks.platform, `linux/${server.Arch}`);
+  assert.equal(serviceStatus.checks.docker.state, 'ready');
+  assert.equal(serviceStatus.checks.runtime.state, 'ready');
+  assert.ok(Number.isFinite(serviceStatus.checks.storage.freeMiB));
+  const visitor = await browser.newContext();
+  assert.equal((await visitor.request.get(base + '/api/service-status')).status(), 401);
+  await visitor.close();
+  const dashboard = await human.newPage();
+  await dashboard.goto(base);
+  await dashboard.waitForFunction(() => document.querySelector('#service-status')?.textContent?.includes('Docker daemon reachable'));
+  assert.ok((await dashboard.locator('#service-status').innerText()).includes(report.images.controller.version));
+  await dashboard.close();
+  await record('personal dashboard and authenticated native Docker/runtime/storage diagnostics');
+
   if (proxy) {
     const cookies = await human.cookies(base);
     assert.equal(cookies.length, 1); assert.equal(cookies[0].secure, true); assert.equal(cookies[0].httpOnly, true);
@@ -207,6 +226,9 @@ test('published self-host installation: anonymous native images, human handoff a
   const profile = await profileResponse.json();
   const credential = await human.request.post(base + '/api/credentials', { headers, data: { name: 'Install acceptance', profileIds: [profile.id] } });
   assert.equal(credential.status(), 200); const key = await credential.json();
+  const agentProbe = await browser.newContext();
+  assert.equal((await agentProbe.request.get(base + '/api/service-status', { headers: { Authorization: `Bearer ${key.token}` } })).status(), 403);
+  await agentProbe.close();
   let client = await connect(key.token);
   assert.equal((await client.listTools()).tools.length, 11);
   const create = () => call(client, 'browser_create', { purpose: 'Synthetic installation acceptance', profileId: profile.id, url: 'https://agentic-browser.invalid/demo' });
