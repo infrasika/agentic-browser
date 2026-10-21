@@ -1,0 +1,192 @@
+{
+  "version": "v0.1.0",
+  "releaseRevision": "d85b9196b498c12ead9ab6164e3a174eaa15833a",
+  "verifierRevision": "20e317e006ba50d15536e743e299db414897022a",
+  "workflow": "https://github.com/infrasika/agentic-browser/actions/runs/39613280717",
+  "verifiedAt": "2026-10-21T14:06:19.579782+00:00",
+  "passed": true,
+  "scope": "Native fresh GitHub-hosted Ubuntu amd64/arm64 runners; physical Mac acceptance is separate.",
+  "sourceRepositoryPrivate": true,
+  "reports": {
+    "amd64": {
+      "startedAt": "2026-10-21T14:03:25.078Z",
+      "project": "ab-install-5ad80334-93e0-4582-99ec-3c17b375b722",
+      "host": {
+        "platform": "linux",
+        "arch": "x64",
+        "release": "6.17.0-1022-azure"
+      },
+      "installerUrl": "https://agentic-browser.zkpass.org/install.sh",
+      "freshHostedRunner": true,
+      "passed": true,
+      "checks": [
+        {
+          "name": "public installer matches reviewed configuration",
+          "elapsedMs": 1264
+        },
+        {
+          "name": "anonymous native pulls; installation contains only compose.yaml and private .env",
+          "elapsedMs": 38229
+        },
+        {
+          "name": "personal dashboard and authenticated native Docker/runtime/storage diagnostics",
+          "elapsedMs": 45691
+        },
+        {
+          "name": "account bootstrap, personal token, native desktop reconnect, human typing and Agent handback",
+          "elapsedMs": 51945
+        },
+        {
+          "name": "controller recreation preserves account, token and synthetic saved-profile cookie",
+          "elapsedMs": 66144
+        },
+        {
+          "name": "removing bootstrap settings preserves existing access",
+          "elapsedMs": 72457
+        },
+        {
+          "name": "same installation switches to public MCP with isolated temporary browser data",
+          "elapsedMs": 83197
+        }
+      ],
+      "sourceRevision": "20e317e006ba50d15536e743e299db414897022a",
+      "testHash": "29d9094f997cdf0865696d2de8a910af92b37cd2d8bf9a2ef834b693f28be29e",
+      "workflow": "https://github.com/infrasika/agentic-browser/actions/runs/39613280717",
+      "docker": {
+        "version": "28.0.4",
+        "os": "linux",
+        "arch": "amd64"
+      },
+      "composeVersion": "2.38.2",
+      "installerSha256": "aea713c81cb89b8e43ae7f0e47b072339843e499830a689bd2c00efa6febd133",
+      "images": {
+        "controller": {
+          "reference": "ghcr.io/infrasika/agentic-browser-controller@sha256:321e6df77b3b90cc2644ea11d2d916a90cbcbab06d07cffea615fc9538e8a9c7",
+          "id": "sha256:ea2fca8dfb71b067cb95dc93f7cc8c7dc3409bd8e9e07d789456765f134e04e6",
+          "platform": "linux/amd64",
+          "anonymousPull": true,
+          "version": "v0.1.0",
+          "revision": "d85b9196b498c12ead9ab6164e3a174eaa15833a"
+        },
+        "runtime": {
+          "reference": "ghcr.io/infrasika/agentic-browser-runtime@sha256:ab666bf4b4916107d2533d3453e7ea7012a3fe40d0b02fc9fd50d014887c8771",
+          "id": "sha256:86d002aca6e0d74e257c61a6cd197767f1a0651677efed38aa1c0b9b1eeec667",
+          "platform": "linux/amd64",
+          "anonymousPull": true,
+          "version": "v0.1.0",
+          "revision": "d85b9196b498c12ead9ab6164e3a174eaa15833a"
+        }
+      },
+      "resources": [
+        {
+          "cpu": "5.02%",
+          "memory": "182.7MiB / 1GiB",
+          "pids": "26"
+        },
+        {
+          "cpu": "0.40%",
+          "memory": "524.1MiB / 2GiB",
+          "pids": "179"
+        },
+        {
+          "cpu": "0.13%",
+          "memory": "45.04MiB / 128MiB",
+          "pids": "18"
+        }
+      ],
+      "scenariosPassed": true,
+      "cleanupErrors": [],
+      "elapsedMs": 83916
+    },
+    "arm64": {
+      "startedAt": "2026-10-21T14:03:22.593Z",
+      "project": "ab-install-05a7a623-07f6-471d-a55c-9b60201e96b7",
+      "host": {
+        "platform": "linux",
+        "arch": "arm64",
+        "release": "7.0.0-1017-azure"
+      },
+      "installerUrl": "https://agentic-browser.zkpass.org/install.sh",
+      "freshHostedRunner": true,
+      "passed": true,
+      "checks": [
+        {
+          "name": "public installer matches reviewed configuration",
+          "elapsedMs": 963
+        },
+        {
+          "name": "anonymous native pulls; installation contains only compose.yaml and private .env",
+          "elapsedMs": 33250
+        },
+        {
+          "name": "personal dashboard and authenticated native Docker/runtime/storage diagnostics",
+          "elapsedMs": 40907
+        },
+        {
+          "name": "account bootstrap, personal token, native desktop reconnect, human typing and Agent handback",
+          "elapsedMs": 46703
+        },
+        {
+          "name": "controller recreation preserves account, token and synthetic saved-profile cookie",
+          "elapsedMs": 60270
+        },
+        {
+          "name": "removing bootstrap settings preserves existing access",
+          "elapsedMs": 66477
+        },
+        {
+          "name": "same installation switches to public MCP with isolated temporary browser data",
+          "elapsedMs": 76660
+        }
+      ],
+      "sourceRevision": "20e317e006ba50d15536e743e299db414897022a",
+      "testHash": "29d9094f997cdf0865696d2de8a910af92b37cd2d8bf9a2ef834b693f28be29e",
+      "workflow": "https://github.com/infrasika/agentic-browser/actions/runs/39613280717",
+      "docker": {
+        "version": "28.0.4",
+        "os": "linux",
+        "arch": "arm64"
+      },
+      "composeVersion": "2.38.2",
+      "installerSha256": "aea713c81cb89b8e43ae7f0e47b072339843e499830a689bd2c00efa6febd133",
+      "images": {
+        "controller": {
+          "reference": "ghcr.io/infrasika/agentic-browser-controller@sha256:321e6df77b3b90cc2644ea11d2d916a90cbcbab06d07cffea615fc9538e8a9c7",
+          "id": "sha256:fd1f66ea8b57068535420828cff4141d6833ba8aaaeafc7281cee0bcbcf4a362",
+          "platform": "linux/arm64",
+          "anonymousPull": true,
+          "version": "v0.1.0",
+          "revision": "d85b9196b498c12ead9ab6164e3a174eaa15833a"
+        },
+        "runtime": {
+          "reference": "ghcr.io/infrasika/agentic-browser-runtime@sha256:ab666bf4b4916107d2533d3453e7ea7012a3fe40d0b02fc9fd50d014887c8771",
+          "id": "sha256:c1fc9a764a8006886d3d5d556c7c0ecfb42536c27fbf5d06f650f426bfdf7d7f",
+          "platform": "linux/arm64",
+          "anonymousPull": true,
+          "version": "v0.1.0",
+          "revision": "d85b9196b498c12ead9ab6164e3a174eaa15833a"
+        }
+      },
+      "resources": [
+        {
+          "cpu": "4.15%",
+          "memory": "170.4MiB / 1GiB",
+          "pids": "27"
+        },
+        {
+          "cpu": "0.47%",
+          "memory": "511MiB / 2GiB",
+          "pids": "180"
+        },
+        {
+          "cpu": "0.09%",
+          "memory": "40.88MiB / 128MiB",
+          "pids": "18"
+        }
+      ],
+      "scenariosPassed": true,
+      "cleanupErrors": [],
+      "elapsedMs": 77157
+    }
+  }
+}

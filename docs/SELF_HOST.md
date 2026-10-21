@@ -345,7 +345,7 @@ Start with `docker compose up -d --wait`, then check the workspace at `http://12
 
 Restoration also rolls account changes and token revocations back to the backup time. Before restoring external access, reapply later account disablements/revocations. Resetting a member's password with `docker compose exec controller npm run members -- password alice` invalidates that member's restored credentials; they then sign in and issue new Agent tokens. Only restore a trusted backup.
 
-Current automated upgrade evidence covers preview.4 → preview.5 and rollback from an offline backup on native amd64 and arm64. Those releases use identical Chrome and extension versions. This does not establish compatibility across future Chrome/extension version changes; see [Frozen baseline](STATUS.md).
+Current automated upgrade evidence covers preview.5 → stable v0.1.0 and rollback from an offline backup on native amd64 and arm64. Those releases use identical Chrome and extension versions. This does not establish compatibility across future Chrome/extension version changes; see [Version status](STATUS.md).
 
 ## Apple Silicon release check
 

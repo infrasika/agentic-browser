@@ -50,7 +50,7 @@ npm run test:public-mcp
 
 Install host Playwright/native-browser dependencies before applicable tests. HTTPS verification additionally needs Nginx, OpenSSL and `libnss3-tools`; it uses an isolated local CA/trust store and loopback proxy, without disabling TLS validation or reloading the host's real proxy. See the corresponding scripts for bounded-run options such as `npm run test:experience -- --minutes=1`.
 
-Separate `accept-self-host.yml`, `accept-upgrade.yml`, `accept-soak.yml`, `accept-experience.yml`, `accept-remote-client.yml` and `accept-https.yml` workflows run native Ubuntu amd64/arm64 checks. The external verifier needs a checkout and test dependencies; the resulting self-hosted installation does not. Existing-host, fresh Linux runner and physical Mac evidence must remain distinct. Preview.3/4 use identical Chrome assets, so their rollback evidence is not browser-format migration evidence.
+Separate `accept-self-host.yml`, `accept-upgrade.yml`, `accept-soak.yml`, `accept-experience.yml`, `accept-remote-client.yml` and `accept-https.yml` workflows run native Ubuntu amd64/arm64 checks. The external verifier needs a checkout and test dependencies; the resulting self-hosted installation does not. Existing-host, fresh Linux runner and physical Mac evidence must remain distinct. Rollback acceptance with unchanged Chrome assets does not establish browser-format migration compatibility.
 
 Further zkPass-specific testing remains skipped by request. The optional historical extension checks are retained for future explicitly authorized runtime work; they are not a task to resume during this freeze. Existing workflows that include those checks must be reviewed before a future publication rather than launched automatically.
 

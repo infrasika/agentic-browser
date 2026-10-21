@@ -1,0 +1,196 @@
+{
+  "version": "v0.1.0",
+  "releaseRevision": "d85b9196b498c12ead9ab6164e3a174eaa15833a",
+  "verifierRevision": "20e317e006ba50d15536e743e299db414897022a",
+  "workflow": "https://github.com/infrasika/agentic-browser/actions/runs/39613284124",
+  "verifiedAt": "2026-10-21T14:06:23.529711+00:00",
+  "passed": true,
+  "scope": "Native fresh GitHub-hosted Ubuntu amd64/arm64 runners; physical Mac acceptance is separate.",
+  "sourceRepositoryPrivate": true,
+  "reports": {
+    "amd64": {
+      "startedAt": "2026-10-21T14:02:47.498Z",
+      "from": "v0.1.0-preview.5",
+      "to": "v0.1.0",
+      "host": {
+        "platform": "linux",
+        "arch": "x64",
+        "release": "7.0.0-1017-azure"
+      },
+      "passed": true,
+      "checks": [
+        {
+          "name": "stopped v0.1.0-preview.5 workspace backed up; live/mounted volume and overwrite guards passed",
+          "elapsedMs": 99034
+        },
+        {
+          "name": "v0.1.0 preserves accounts, tokens, account isolation and website state",
+          "elapsedMs": 118311
+        },
+        {
+          "name": "checksum corruption rejected; fresh-volume rollback restores exact pre-upgrade profile and identity state",
+          "elapsedMs": 136265
+        },
+        {
+          "name": "post-backup revocations require reapplication; password rotation invalidates restored member tokens",
+          "elapsedMs": 136658
+        }
+      ],
+      "verifierRevision": "20e317e006ba50d15536e743e299db414897022a",
+      "sourceHashes": {
+        "test/upgrade.integration.ts": "52ba5d21a17d11fe5086aa63aff277f913a34254083fab0834a9847ea31ef2bd",
+        "scripts/workspace-backup.sh": "651886cce825a9e93050fc033f8a96d3e4e122d2de6f8f32b012693824665e2e"
+      },
+      "workflow": "https://github.com/infrasika/agentic-browser/actions/runs/39613284124",
+      "docker": {
+        "version": "28.0.4",
+        "os": "linux",
+        "arch": "amd64"
+      },
+      "composeVersion": "2.38.2",
+      "images": {
+        "v0.1.0-preview.5": {
+          "controller": {
+            "reference": "ghcr.io/infrasika/agentic-browser-controller@sha256:5f6b5855395d99c1031fc26205b8e1ec79324cb37fb2809bac04a529b7bd0578",
+            "id": "sha256:38054b8c7b70a0606997b35b98e3c5a708e205a2f1a490c2bfd49ee365ea79ce",
+            "platform": "linux/amd64",
+            "anonymousPull": true
+          },
+          "runtime": {
+            "reference": "ghcr.io/infrasika/agentic-browser-runtime@sha256:8a0c82c4c1cedbf40fe5761d9d2cc0250ad72cd3c9abfb709437ea440bcb6ead",
+            "id": "sha256:be115739902c86e41f1619b5df43837639d0f93f28548856726573da2d022c61",
+            "platform": "linux/amd64",
+            "anonymousPull": true
+          }
+        },
+        "v0.1.0": {
+          "controller": {
+            "reference": "ghcr.io/infrasika/agentic-browser-controller@sha256:321e6df77b3b90cc2644ea11d2d916a90cbcbab06d07cffea615fc9538e8a9c7",
+            "id": "sha256:ea2fca8dfb71b067cb95dc93f7cc8c7dc3409bd8e9e07d789456765f134e04e6",
+            "platform": "linux/amd64",
+            "anonymousPull": true
+          },
+          "runtime": {
+            "reference": "ghcr.io/infrasika/agentic-browser-runtime@sha256:ab666bf4b4916107d2533d3453e7ea7012a3fe40d0b02fc9fd50d014887c8771",
+            "id": "sha256:86d002aca6e0d74e257c61a6cd197767f1a0651677efed38aa1c0b9b1eeec667",
+            "platform": "linux/amd64",
+            "anonymousPull": true
+          }
+        }
+      },
+      "baselineAssets": {
+        "chrome": "155.0.8059.79",
+        "extensionsChecked": false
+      },
+      "backup": {
+        "bytes": 29546044,
+        "sha256": "b213ebd07458aba4af3dc4bb69e9fcb40a4fb07c62e3423f3b05d29d3f5aa4fa"
+      },
+      "upgradedAssets": {
+        "chrome": "155.0.8059.79",
+        "extensionsChecked": false
+      },
+      "restoredAssets": {
+        "chrome": "155.0.8059.79",
+        "extensionsChecked": false
+      },
+      "browserVersionChanged": false,
+      "extensionVersionsChanged": false,
+      "scenariosPassed": true,
+      "cleanupErrors": [],
+      "elapsedMs": 137504
+    },
+    "arm64": {
+      "startedAt": "2026-10-21T14:02:50.340Z",
+      "from": "v0.1.0-preview.5",
+      "to": "v0.1.0",
+      "host": {
+        "platform": "linux",
+        "arch": "arm64",
+        "release": "6.17.0-1022-azure"
+      },
+      "passed": true,
+      "checks": [
+        {
+          "name": "stopped v0.1.0-preview.5 workspace backed up; live/mounted volume and overwrite guards passed",
+          "elapsedMs": 73434
+        },
+        {
+          "name": "v0.1.0 preserves accounts, tokens, account isolation and website state",
+          "elapsedMs": 91558
+        },
+        {
+          "name": "checksum corruption rejected; fresh-volume rollback restores exact pre-upgrade profile and identity state",
+          "elapsedMs": 108492
+        },
+        {
+          "name": "post-backup revocations require reapplication; password rotation invalidates restored member tokens",
+          "elapsedMs": 108778
+        }
+      ],
+      "verifierRevision": "20e317e006ba50d15536e743e299db414897022a",
+      "sourceHashes": {
+        "test/upgrade.integration.ts": "52ba5d21a17d11fe5086aa63aff277f913a34254083fab0834a9847ea31ef2bd",
+        "scripts/workspace-backup.sh": "651886cce825a9e93050fc033f8a96d3e4e122d2de6f8f32b012693824665e2e"
+      },
+      "workflow": "https://github.com/infrasika/agentic-browser/actions/runs/39613284124",
+      "docker": {
+        "version": "28.0.4",
+        "os": "linux",
+        "arch": "arm64"
+      },
+      "composeVersion": "2.38.2",
+      "images": {
+        "v0.1.0-preview.5": {
+          "controller": {
+            "reference": "ghcr.io/infrasika/agentic-browser-controller@sha256:5f6b5855395d99c1031fc26205b8e1ec79324cb37fb2809bac04a529b7bd0578",
+            "id": "sha256:599bc4880f4b23d34e7632b299defbfba2287874ba00d91a2546bf0572a29f2c",
+            "platform": "linux/arm64",
+            "anonymousPull": true
+          },
+          "runtime": {
+            "reference": "ghcr.io/infrasika/agentic-browser-runtime@sha256:8a0c82c4c1cedbf40fe5761d9d2cc0250ad72cd3c9abfb709437ea440bcb6ead",
+            "id": "sha256:b1ef2cc46df27d18de412e81a4b84169c4b4a8caf43c97baa35aae2dd71ca76a",
+            "platform": "linux/arm64",
+            "anonymousPull": true
+          }
+        },
+        "v0.1.0": {
+          "controller": {
+            "reference": "ghcr.io/infrasika/agentic-browser-controller@sha256:321e6df77b3b90cc2644ea11d2d916a90cbcbab06d07cffea615fc9538e8a9c7",
+            "id": "sha256:fd1f66ea8b57068535420828cff4141d6833ba8aaaeafc7281cee0bcbcf4a362",
+            "platform": "linux/arm64",
+            "anonymousPull": true
+          },
+          "runtime": {
+            "reference": "ghcr.io/infrasika/agentic-browser-runtime@sha256:ab666bf4b4916107d2533d3453e7ea7012a3fe40d0b02fc9fd50d014887c8771",
+            "id": "sha256:c1fc9a764a8006886d3d5d556c7c0ecfb42536c27fbf5d06f650f426bfdf7d7f",
+            "platform": "linux/arm64",
+            "anonymousPull": true
+          }
+        }
+      },
+      "baselineAssets": {
+        "chrome": "155.0.8059.79",
+        "extensionsChecked": false
+      },
+      "backup": {
+        "bytes": 29331492,
+        "sha256": "2a78a9c167f05a37055b94fe9cf0e345288889bb673269b369a966578a122ddd"
+      },
+      "upgradedAssets": {
+        "chrome": "155.0.8059.79",
+        "extensionsChecked": false
+      },
+      "restoredAssets": {
+        "chrome": "155.0.8059.79",
+        "extensionsChecked": false
+      },
+      "browserVersionChanged": false,
+      "extensionVersionsChanged": false,
+      "scenariosPassed": true,
+      "cleanupErrors": [],
+      "elapsedMs": 109485
+    }
+  }
+}

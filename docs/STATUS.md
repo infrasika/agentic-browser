@@ -4,7 +4,7 @@ The product scope is **personal self-hosting plus a public demo**. Team collabor
 
 ## Current release
 
-Stable `v0.1.0` is published. Application code and browser assets are unchanged from preview.5; the release adds stable/latest publication rules. Published-installation and upgrade acceptance are recorded separately below.
+Stable `v0.1.0` is published and deployed. Application code and browser assets are unchanged from preview.5; the release adds stable/latest publication rules. Published-installation and upgrade acceptance are recorded separately below.
 
 | Surface | Version |
 | --- | --- |
@@ -25,8 +25,10 @@ Image-bundled documents are build-time snapshots. The [official status download]
 ## Verification
 
 - TypeScript and all **63 unit/API/packaging tests** passed for v0.1.0, including release-channel guards for prereleases, version ordering, incomplete publication and retrying a partial alias update.
-- Native amd64/arm64 publication passed isolation, handoff, public capacity and recovery acceptance. Stable and latest tags are checked against the same multi-platform digests during public-pull verification.
-- Published v0.1.0 installation, preview.5 → v0.1.0 upgrade/rollback and the official deployment are awaiting their post-publication receipts.
+- Native amd64/arm64 publication passed isolation, handoff, public capacity and recovery acceptance. [Anonymous pulls and tag verification](../deploy/releases/v0.1.0-public-verification.json) confirmed that `v0.1.0` and `latest` resolve to the same indexes for both images. The GitHub release is stable and marked Latest; source remains private.
+- [Fresh installation](../deploy/releases/v0.1.0-install-verification.json) passed on native amd64 and arm64, including credentials, workspace diagnostics, saved profiles and human handoff.
+- [Preview.5 → v0.1.0 upgrade and offline rollback](../deploy/releases/v0.1.0-upgrade-verification.json) passed on both architectures, including restored account/profile state and credential revocation handling.
+- The [official stable demo](../deploy/releases/v0.1.0-demo-verification.json) passed HTTPS MCP, a live browser display, takeover, handback, Agent reading and cleanup. The existing origin, settings and five-browser quota were preserved; official setup downloads use the stable image pins.
 
 ### Historical preview.5 acceptance
 
