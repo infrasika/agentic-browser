@@ -4,7 +4,7 @@ Run your personal workspace on your own Docker host using the two public images.
 
 The accepted images are recorded in the installer and [deploy/release.env](../deploy/release.env). The installer embeds immutable multi-platform digests rather than floating tags. See [Release verification](RELEASING.md#release-verification) for the version and verification evidence.
 
-Both image repositories also provide `:latest`, which follows the newest stable release, and fixed version tags such as `:v0.1.0`. Preview releases do not change `latest`. The installer uses exact digests so a later `docker compose pull` cannot silently upgrade your workspace. Use the [upgrade procedure](#backup-and-upgrade) to move both images together.
+Both image repositories also provide `:latest`, which follows the newest stable release, and fixed version tags such as `:v0.1.1`. Preview releases do not change `latest`. The installer uses exact digests so a later `docker compose pull` cannot silently upgrade your workspace. Use the [upgrade procedure](#backup-and-upgrade) to move both images together.
 
 ## Choose where to run it
 

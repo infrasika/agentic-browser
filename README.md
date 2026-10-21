@@ -173,11 +173,11 @@ A controller restart ends active sessions; saved profiles can be opened in new s
 
 The product scope is **personal self-hosting plus a public demo**. Team collaboration, invitations and role management are not planned. Existing identity boundaries remain in place.
 
-The current stable release is **`v0.1.0`**, promoting the application behavior accepted in preview.5. Its controller includes personal onboarding, the workspace status panel, improved connection messages and viewer cleanup. The official website and installer use the same published images, fixed by the references in [deploy/release.env](deploy/release.env).
+The current stable release is **`v0.1.1`**, a maintenance release updating both images to Node.js 24.22.1 and including the consolidated English guides. Browser assets, access modes and session behavior remain unchanged. The accepted image references are recorded in [deploy/release.env](deploy/release.env).
 
-Both `ghcr.io/infrasika/agentic-browser-controller:latest` and `ghcr.io/infrasika/agentic-browser-runtime:latest` point to `v0.1.0`. Future stable releases advance these aliases; preview versions and older stable versions do not. Fixed `:v0.1.0` tags remain available. The installer continues to pin exact image digests; installed workspaces do not upgrade automatically.
+Both `ghcr.io/infrasika/agentic-browser-controller:latest` and `ghcr.io/infrasika/agentic-browser-runtime:latest` point to `v0.1.1`. Future stable releases advance these aliases; preview versions and older stable versions do not. Fixed version tags remain available. The installer continues to pin exact image digests; installed workspaces do not upgrade automatically.
 
-This release passed 63 unit/API/packaging tests, native Ubuntu amd64/arm64 installation, isolation/capacity and recovery checks, upgrade/rollback, and the official HTTPS handoff flow. A separate physical Apple Silicon Mac run passed installation, real GitHub handoff, saved-login retention and same-version backup/restore. See [Release verification](docs/RELEASING.md#release-verification) for the exact host, evidence and limits. Image-bundled documents are build-time snapshots; the official setup downloads contain the maintained guides.
+This release passed 63 unit/API/packaging tests and native Ubuntu amd64/arm64 isolation, handoff, capacity and recovery checks. Published installation, upgrade/rollback and official-site acceptance are in progress. Physical Apple Silicon acceptance remains recorded for v0.1.0; it is not evidence for v0.1.1. See [Release verification](docs/RELEASING.md#release-verification) for the exact scope and limits. Image-bundled documents are build-time snapshots; the official setup downloads contain the maintained guides.
 
 ## Documentation
 

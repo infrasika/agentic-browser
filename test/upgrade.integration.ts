@@ -13,7 +13,7 @@ import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/
 
 const exec = promisify(execFile);
 const hash = (data: Uint8Array) => createHash('sha256').update(data).digest('hex');
-const versions = ['v0.1.0-preview.5', 'v0.1.0'] as const;
+const versions = ['v0.1.0', 'v0.1.1'] as const;
 
 test('published upgrade and offline restore: profiles, ownership and credential history', { timeout: 1200000 }, async t => {
   const started = Date.now(), id = randomUUID();

@@ -1,0 +1,65 @@
+{
+  "version": "v0.1.1",
+  "revision": "683b26aece0751e1923407f17e4073e189d07d68",
+  "workflow": "https://github.com/infrasika/agentic-browser/actions/runs/39665037510",
+  "verifiedAt": "2026-10-21T20:06:03.346143+00:00",
+  "sourceRepositoryPrivate": true,
+  "images": {
+    "controller": {
+      "reference": "ghcr.io/infrasika/agentic-browser-controller@sha256:01971ec91cb97aec5b002a2afe427bbe66a867d538f656e143c146bd25ad76d8",
+      "platforms": [
+        "linux/amd64",
+        "linux/arm64"
+      ],
+      "nativeNodeVersion": "v24.22.1",
+      "anonymousManifestAndConfigAccess": true,
+      "matchingTags": [
+        "v0.1.1",
+        "latest"
+      ],
+      "anonymousPulls": {
+        "linux/amd64": true,
+        "linux/arm64": true
+      }
+    },
+    "runtime": {
+      "reference": "ghcr.io/infrasika/agentic-browser-runtime@sha256:d7c9e8d0d4a3f4fe8cc39fab7143d686eac55f20fd0dc9fb6920a5c40725590c",
+      "platforms": [
+        "linux/amd64",
+        "linux/arm64"
+      ],
+      "nativeNodeVersion": "v24.22.1",
+      "anonymousManifestAndConfigAccess": true,
+      "matchingTags": [
+        "v0.1.1",
+        "latest"
+      ],
+      "anonymousPulls": {
+        "linux/amd64": true,
+        "linux/arm64": true
+      }
+    }
+  },
+  "publicPullVerified": true,
+  "imagePackagesPublic": true,
+  "remainingAcceptance": [
+    "Published installer and upgrade/rollback on native amd64/arm64",
+    "Physical Apple Silicon run of this release",
+    "Browser-version profile migration (assets unchanged)",
+    "Live zkPass proof tests skipped by request"
+  ],
+  "nativePublicationAcceptance": {
+    "amd64": {
+      "passed": true,
+      "elapsedMs": 511148
+    },
+    "arm64": {
+      "passed": true,
+      "elapsedMs": 465734
+    }
+  },
+  "stableRelease": true,
+  "githubLatest": "v0.1.1",
+  "nodeVersion": "24.22.1",
+  "browserAssetsChanged": false
+}
