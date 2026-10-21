@@ -13,7 +13,7 @@ import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/
 
 const exec = promisify(execFile);
 const hash = (data: Uint8Array) => createHash('sha256').update(data).digest('hex');
-const versions = ['v0.1.0-preview.4', 'v0.1.0-preview.5'] as const;
+const versions = ['v0.1.0-preview.5', 'v0.1.0'] as const;
 
 test('published upgrade and offline restore: profiles, ownership and credential history', { timeout: 1200000 }, async t => {
   const started = Date.now(), id = randomUUID();
@@ -191,7 +191,7 @@ test('published upgrade and offline restore: profiles, ownership and credential 
   assert.equal(await readFile(join(backup, 'compose.yaml'), 'utf8'), composeText);
   await assert.rejects(manage('backup', controller, backup));
   report.backup = { bytes: (await stat(join(backup, 'data.tar.gz'))).size, sha256: hash(await readFile(join(backup, 'data.tar.gz'))) };
-  await record('stopped preview.4 workspace backed up; live/mounted volume and overwrite guards passed');
+  await record(`stopped ${versions[0]} workspace backed up; live/mounted volume and overwrite guards passed`);
   await writeFile(join(original, '.env'), settings(1)); await start();
   report.upgradedAssets = await profileState(alice, 'before-alice', 'after-upgrade');
   await profileState(bob, 'before-bob'); await isolated(alice, bob);
@@ -202,7 +202,7 @@ test('published upgrade and offline restore: profiles, ownership and credential 
   await human(cookie, `/api/credentials/${laterRevoked.id}`, 'DELETE'); assert.equal(await tokenStatus(laterRevoked.token), 401);
   await assert.rejects(manage('restore', backup, `${project}-data`), /already exists/);
   await profileState(alice, 'after-upgrade');
-  await record('preview.5 preserves accounts, tokens, account isolation and website state');
+  await record(`${versions[1]} preserves accounts, tokens, account isolation and website state`);
   await stopped();
   const corrupt = join(root, 'corrupt'); await cp(backup, corrupt, { recursive: true });
   const archive = await open(join(corrupt, 'data.tar.gz'), 'r+'); await archive.write(Buffer.from([0]), 0, 1, 0); await archive.close();

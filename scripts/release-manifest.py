@@ -13,6 +13,7 @@ import tarfile
 ROOT = Path(__file__).resolve().parent.parent
 REPOS = {kind: f'ghcr.io/infrasika/agentic-browser-{kind}' for kind in ['controller', 'runtime']}
 DIGEST = re.compile(r'sha256:[a-f0-9]{64}')
+STABLE = re.compile(r'v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)')
 
 
 def deployment_contents(root=ROOT):
@@ -36,6 +37,53 @@ def deployment_contents(root=ROOT):
 
 def command(*args):
     return subprocess.check_output(args, text=True).strip()
+
+
+def stable_version(version):
+    match = STABLE.fullmatch(version)
+    return tuple(map(int, match.groups())) if match else None
+
+
+def promote_latest(version, directory):
+    """Move both aliases only after an immutable stable release is published.
+
+    Idempotent: retry this operation with the original RELEASE.json after a
+    partial alias update. Never rebuild or overwrite the immutable version.
+    The publication workflow serializes this operation across all versions.
+    """
+    candidate = stable_version(version)
+    if candidate is None:
+        print('Prerelease: latest remains unchanged')
+        return
+    manifest = json.loads((directory / 'RELEASE.json').read_text())
+    if manifest['version'] != version or manifest['revision'] != os.environ['GITHUB_SHA']:
+        raise SystemExit('Release identity mismatch')
+    pages = json.loads(command('gh', 'api', '--paginate', '--slurp',
+                               'repos/infrasika/agentic-browser/releases?per_page=100'))
+    stable = [item for page in pages for item in page
+              if not item['draft'] and not item['prerelease'] and stable_version(item['tag_name']) is not None]
+    if not any(item['tag_name'] == version for item in stable):
+        raise SystemExit('Publish the non-draft stable GitHub release before updating latest')
+    newest = max(stable, key=lambda item: stable_version(item['tag_name']))['tag_name']
+    if stable_version(newest) > candidate:
+        print(f'Newer stable release {newest} exists; latest remains unchanged')
+        return
+    # Preflight both immutable tags before modifying either mutable alias.
+    for kind, repo in REPOS.items():
+        ref = manifest['images'][kind]
+        if not ref.startswith(repo + '@') or not DIGEST.fullmatch(ref.split('@')[1]):
+            raise SystemExit('Unexpected image reference')
+        detail = json.loads(command('docker', 'buildx', 'imagetools', 'inspect', f'{repo}:{version}', '--format', '{{json .Manifest}}'))
+        platforms = {(m.get('platform', {}).get('os'), m.get('platform', {}).get('architecture')) for m in detail.get('manifests', [])}
+        if repo + '@' + detail['digest'] != ref or platforms != {('linux', 'amd64'), ('linux', 'arm64')}:
+            raise SystemExit(f'Immutable version digest/platform mismatch for {kind}')
+    for kind, repo in REPOS.items():
+        subprocess.run(['docker', 'buildx', 'imagetools', 'create', '--tag', f'{repo}:latest', manifest['images'][kind]], check=True)
+        detail = json.loads(command('docker', 'buildx', 'imagetools', 'inspect', f'{repo}:latest', '--format', '{{json .Manifest}}'))
+        if repo + '@' + detail['digest'] != manifest['images'][kind]:
+            raise SystemExit(f'Latest digest mismatch for {kind}')
+    subprocess.run(['gh', 'release', 'edit', version, '--latest'], check=True)
+    (directory / 'LATEST.json').write_text(json.dumps({'version': version, 'images': manifest['images'], 'verified': True}, indent=2) + '\n')
 
 
 def record(arch, directory):
@@ -111,6 +159,8 @@ This release focuses on personal self-hosting and the public demo:
 - Actionable connection, token and session errors without raw proxy responses.
 - Image-embedded installers resolve this immutable release to digest-pinned Compose.
 
+Stable versions (vX.Y.Z) update both image repositories' latest tags after publication. Prereleases leave latest unchanged, and older stable versions cannot move it backward. The installer continues to pin exact digests; existing installations do not update automatically.
+
 Chrome and extension assets are unchanged. Physical Apple Silicon acceptance remains separate from native Linux arm64 CI. New published-installation and upgrade/rollback receipts are recorded after publication.
 
 Official demo: https://agentic-browser.zkpass.org/
@@ -130,7 +180,9 @@ if __name__ == '__main__':
     sub = parser.add_subparsers(dest='mode', required=True)
     p = sub.add_parser('record'); p.add_argument('arch', choices=['amd64', 'arm64']); p.add_argument('directory', type=Path)
     p = sub.add_parser('publish'); p.add_argument('version'); p.add_argument('directory', type=Path)
+    p = sub.add_parser('latest'); p.add_argument('version'); p.add_argument('directory', type=Path)
     args = parser.parse_args()
     os.chdir(ROOT)
     if args.mode == 'record': record(args.arch, args.directory)
-    else: publish(args.version, args.directory)
+    elif args.mode == 'publish': publish(args.version, args.directory)
+    else: promote_latest(args.version, args.directory)

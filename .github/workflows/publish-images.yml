@@ -8,7 +8,8 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: image-release-${{ inputs.version }}
+  # Serialize all versions so concurrent publications cannot race on latest.
+  group: image-release
   cancel-in-progress: false
 jobs:
   build:
@@ -120,7 +121,11 @@ jobs:
         run: python3 scripts/release-manifest.py publish "$RELEASE_VERSION" output/image-digests
       - name: Create versioned release
         run: |
-          gh release create "$RELEASE_VERSION" --target "$GITHUB_SHA" --prerelease --title "Agentic Browser $RELEASE_VERSION" --notes-file output/release/NOTES.md output/release/agentic-browser-deploy.tar.gz output/release/SHA256SUMS output/release/RELEASE.json
+          flags=(--latest=false)
+          if [[ "$RELEASE_VERSION" == *-* ]]; then flags+=(--prerelease); fi
+          gh release create "$RELEASE_VERSION" --target "$GITHUB_SHA" "${flags[@]}" --title "Agentic Browser $RELEASE_VERSION" --notes-file output/release/NOTES.md output/release/agentic-browser-deploy.tar.gz output/release/SHA256SUMS output/release/RELEASE.json
+      - name: Update latest for the newest stable release only
+        run: python3 scripts/release-manifest.py latest "$RELEASE_VERSION" output/release
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: deployment-${{ inputs.version }}

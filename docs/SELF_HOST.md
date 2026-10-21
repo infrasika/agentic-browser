@@ -4,6 +4,8 @@ Run your personal workspace on your own Docker host using the two public images.
 
 The accepted images are recorded in the installer and [Version status](STATUS.md). The installer embeds immutable multi-platform digests rather than floating tags. See [Frozen baseline](STATUS.md) for the exact version boundary and verification evidence.
 
+Both image repositories also provide `:latest`, which follows the newest stable release, and fixed version tags such as `:v0.1.0`. Preview releases do not change `latest`. The installer uses exact digests so a later `docker compose pull` cannot silently upgrade your workspace. Use the [upgrade procedure](#backup-and-upgrade) to move both images together.
+
 ## Choose where to run it
 
 | Host | What to install | Where Chrome runs |

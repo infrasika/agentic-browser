@@ -8,6 +8,9 @@ import { promisify } from 'node:util';
 import { readConfig } from '../src/config.js';
 
 const exec = promisify(execFile);
+test('stable publication: latest preserves immutable digests and rejects prereleases, downgrades and partial publication', async () => {
+  await exec('python3', ['test/release_channel.py']);
+});
 test('release deployment pins override local tags and reject executable or mutable image configuration', async t => {
   const directory = await mkdtemp(join(tmpdir(), 'agentic-release-'));
   t.after(() => rm(directory, { recursive: true, force: true }));

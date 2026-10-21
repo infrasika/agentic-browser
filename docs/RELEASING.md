@@ -13,6 +13,10 @@ Keep the source repository private. These two GHCR packages are public:
 
 Historical version tags, release manifests, archives and verification receipts are immutable. Keep earlier receipts in `deploy/releases/`, including the preview.3 evidence used by rollback acceptance. Temporary logs, reports, build helpers and screenshots belong in ignored `output/`; they are not public distribution files.
 
+`latest` is the only moving image tag. Both controller and runtime point to the highest published stable `vX.Y.Z` release; versions with a suffix such as `-preview.5` never update it. The publication workflow serializes releases, verifies both immutable multi-platform indexes, copies those exact indexes to `latest`, then marks the GitHub release as Latest. Older stable releases cannot move this channel backward. Existing deployments keep their pinned digests until explicitly upgraded.
+
+Registry updates across two repositories are not atomic. If channel promotion fails, keep using the immutable version references. Retry only `python3 scripts/release-manifest.py latest VERSION output/release` with the original `RELEASE.json`, its matching `GITHUB_SHA`, and authorized GHCR/GitHub credentials; serialize it with other publications. This operation is idempotent. Do not rebuild or overwrite the published version to repair an alias.
+
 The standalone installer writes just `compose.yaml` and `.env`, with literal accepted image references. `npm run package:self-host` generates `/install.sh`, the backup helper, user-guide downloads and a source-free configuration archive. The controller image build runs this packager automatically. The allowlist in `scripts/release-manifest.py` must exclude private settings, source, browser data and local artifacts.
 
 `SETUP.json` records file hashes and image pins; `SHA256SUMS` covers the reproducible setup archive. Documentation may advance without changing pins only when the pinned images support the documented operations. Do not describe a local website UI build as a newly published GHCR version. GitHub Release assets inherit the private repository's access controls; users obtain the public installer and guides from the website.
@@ -30,7 +34,7 @@ Tests use disposable installations and synthetic identities. Select candidate im
 | Public MCP | `npm run test:public-mcp` | Five-browser capacity, guest isolation, direct input, handoff and cleanup |
 | Failure recovery | `npm run test:reliability` | Repeated capacity cycles, natural expiry, browser/controller interruption and revocation |
 | Published installation | `npm run test:self-host` | Anonymous pulls, native platform, downloaded installer, account/token/profile lifecycle |
-| Published upgrade | `npm run test:upgrade` | Preview.3 → preview.4 and fresh-volume restore from an offline backup |
+| Published upgrade | `npm run test:upgrade` | The version pair in the verifier, plus fresh-volume restore from an offline backup |
 | Sustained workload | `npm run test:soak` | Two measured active hours, split between public/authenticated five-browser workloads |
 | Desktop/site experience | `npm run test:experience` | 15 measured minutes of changing pixels/input, reconnect and public website tasks |
 | Optional stdio client | `npm run test:remote-client` | Published client image without host/server/socket mounts |

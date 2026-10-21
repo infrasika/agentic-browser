@@ -4,6 +4,8 @@ The product scope is **personal self-hosting plus a public demo**. Team collabor
 
 ## Current release
 
+Stable `v0.1.0` publication is in progress. Application code and browser assets are unchanged from preview.5; this release introduces stable/latest publication rules. The accepted preview.5 evidence below remains historical until separate v0.1.0 receipts are recorded.
+
 | Surface | Version |
 | --- | --- |
 | Public images | `v0.1.0-preview.5`; immutable references in [deploy/release.env](../deploy/release.env) |
