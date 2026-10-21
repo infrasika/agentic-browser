@@ -82,3 +82,14 @@ For a real sign-in test, use the ordinary user handoff and wait for explicit han
 - The image's embedded installer may name its immutable release tags because an image cannot embed its own future digest. It resolves pulled references and writes digest-only Compose. Generate the official download kit after publication with the accepted digests, and mount that kit read-only at `/app/web/self-host-downloads` when deploying the official site. Application code stays in the published controller image.
 
 Dedicated zkPass checks remain skipped. Native runtime startup and its existing isolation checks are retained; no live proof success is claimed.
+
+## Official-site setup files
+
+The site serves the same published controller as self-hosted installations. Build its post-publication download kit in a persistent deployment directory, separate from disposable `output/` reports:
+
+```sh
+python3 scripts/package-self-host.py --output .deployment/public-setup
+bash scripts/compose.sh -f deploy/compose.site.yaml up -d --force-recreate --wait
+```
+
+Select the accepted controller/runtime digests in the site's private `.env` first. Wait for zero active sessions before recreation. The optional override mounts only the public setup files, read-only. Keep `.deployment/public-setup` while the site uses this override, and include the override on subsequent site restarts. Ordinary personal installations do not need this file or directory.

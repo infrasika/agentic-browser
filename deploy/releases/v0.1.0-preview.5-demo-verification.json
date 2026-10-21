@@ -1,0 +1,32 @@
+{
+  "passed": true,
+  "startedAt": "2026-10-21T12:51:04.472Z",
+  "finishedAt": "2026-10-21T12:51:11.120Z",
+  "origin": "https://agentic-browser.zkpass.org",
+  "version": {
+    "version": "v0.1.0-preview.5",
+    "revision": "5055b1f32be502e19a2446d57029aa61d1b206f3"
+  },
+  "checks": [
+    "HTTPS MCP: 9 tools",
+    "isolated browser and example.com",
+    "full one-use human link",
+    "live remote display",
+    "human handback",
+    "Agent snapshot after handback",
+    "own browser closed"
+  ],
+  "capacity": {
+    "currentSessions": 0,
+    "maxSessions": 5,
+    "availableSessions": 5,
+    "full": false
+  },
+  "releaseVersion": "v0.1.0-preview.5",
+  "images": {
+    "controller": "ghcr.io/infrasika/agentic-browser-controller@sha256:5f6b5855395d99c1031fc26205b8e1ec79324cb37fb2809bac04a529b7bd0578",
+    "runtime": "ghcr.io/infrasika/agentic-browser-runtime@sha256:8a0c82c4c1cedbf40fe5761d9d2cc0250ad72cd3c9abfb709437ea440bcb6ead"
+  },
+  "downloadsVerified": true,
+  "downloadScope": "Pinned installer and English guides match the official setup kit; archive SHA256SUMS is checked separately during packaging."
+}

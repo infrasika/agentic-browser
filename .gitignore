@@ -158,3 +158,6 @@ output/
 
 # Built from the deployment allowlist; never store local bundles in Git.
 web/self-host-downloads/
+
+# Persistent official-site setup artifacts; separate from disposable test output.
+.deployment/
