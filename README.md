@@ -6,7 +6,7 @@ Your Agent opens a website and works on your task. When a step needs a person—
 
 The browser runs on the deployment host. You interact with its live display in a web page; you do not need to install a separate desktop viewer or give the Agent control of your everyday local Chrome.
 
-**[Official demo](https://agentic-browser.zkpass.org/) · [Public demo guide](docs/PUBLIC_DEMO.md) · [Self-hosting guide](docs/SELF_HOST.md) · [Version status](docs/STATUS.md)**
+**[Official demo](https://agentic-browser.zkpass.org/) · [Public demo guide](docs/PUBLIC_DEMO.md) · [Self-hosting guide](docs/SELF_HOST.md) · [Technical architecture](docs/ARCHITECTURE.md)**
 
 ## What it does
 
@@ -177,9 +177,7 @@ The current stable release is **`v0.1.0`**, promoting the application behavior a
 
 Both `ghcr.io/infrasika/agentic-browser-controller:latest` and `ghcr.io/infrasika/agentic-browser-runtime:latest` point to `v0.1.0`. Future stable releases advance these aliases; preview versions and older stable versions do not. Fixed `:v0.1.0` tags remain available. The installer continues to pin exact image digests; installed workspaces do not upgrade automatically.
 
-The historical tag `freeze-2026-10-21` remains unchanged. See [Version status](docs/STATUS.md) for acceptance receipts and limitations. Image publication, deployment and post-publication acceptance are recorded separately; image-bundled documents are build-time snapshots, while the official downloadable guides track current acceptance.
-
-Recorded checks cover native Ubuntu amd64/arm64 installation, public MCP isolation/capacity, human handoff, saved profiles, backup-based rollback, sustained workloads and HTTPS transport. Linux arm64 CI and physical Apple Silicon acceptance are separate. See [Version status and evidence](docs/STATUS.md) for exactly what passed and the remaining limitations.
+This release passed 63 unit/API/packaging tests, native Ubuntu amd64/arm64 installation, isolation/capacity and recovery checks, upgrade/rollback, and the official HTTPS handoff flow. Physical Apple Silicon acceptance is separate from Linux arm64 CI. See [Release verification](docs/RELEASING.md#release-verification) for the exact evidence and limits. Image-bundled documents are build-time snapshots; the official setup downloads contain the maintained guides.
 
 ## Documentation
 
@@ -187,48 +185,12 @@ Recorded checks cover native Ubuntu amd64/arm64 installation, public MCP isolati
 | --- | --- |
 | [Public demo guide](docs/PUBLIC_DEMO.md) | Visitors: setup, tasks, handoff, limits and troubleshooting |
 | [Self-hosting guide](docs/SELF_HOST.md) | Operators and members: installation, settings, credentials, recovery, storage and recovery |
-| [MCP integration reference](docs/AGENT_CLIENT.md) | Agent authors: tool authority, handoff contracts, waits and errors |
-| [Architecture](docs/ARCHITECTURE.md) | Contributors: components, control lifecycle, isolation, networking and profiles |
-| [Frozen baseline](docs/STATUS.md) | Version boundaries, accepted behavior and verification evidence |
-| [Release maintenance](docs/RELEASING.md) | Maintainers: validation, immutable image publication and deployment |
-| [Runtime maintenance](runtime/README.md) | Maintainers: Chrome/extension asset locks and sandbox checks |
+| [Technical architecture and contributor guide](docs/ARCHITECTURE.md) | Components and diagrams, source map, control/data boundaries, MCP contracts and local development |
+| [Release maintenance](docs/RELEASING.md) | GitHub Actions, verification, browser assets, immutable images, stable/latest tags and official-site deployment |
 
 ## Development
 
-Repository access is required. Use Node.js 24+, npm, Python 3, Bash and Docker. Source development uses local image tags; ordinary self-hosting uses the pinned public images above.
-
-```sh
-npm ci
-npm run check
-npm test
-bash scripts/build-container-images.sh
-cp .env.example .env
-# Set AB_ADMIN_PASSWORD before the first authenticated startup.
-bash scripts/compose.sh up -d --wait
-```
-
-If `.env` already exists, keep it and update supported settings instead of overwriting it. Do not commit credentials or browser state.
-
-| Path | Purpose |
-| --- | --- |
-| `src/` | Controller, identities, MCP, browser engines, storage and network policy |
-| `web/` | Public website, member dashboard and browser viewer |
-| `runtime/` | Browser image, asset locks, sandbox profile and distribution notices |
-| `scripts/` | Setup, builds, packaging, backup and acceptance runners |
-| `test/` | Unit, API and disposable browser/deployment acceptance tests |
-| `deploy/` | Accepted image pins, proxy template and versioned verification receipts |
-| `docs/` | User guides and maintainer references |
-| `output/` | Ignored local logs, screenshots and test reports |
-
-For native browser tests, install the test dependencies with `npm run browser:install` and `npm run desktop:install`. Representative checks are:
-
-```sh
-npm run test:desktop
-npm run test:public-mcp
-npm run test:self-host
-```
-
-Integration tests require their documented host dependencies and may pull images or create disposable containers. Use the [release acceptance table](docs/RELEASING.md#acceptance-commands) to select the appropriate scope. Synthetic tests do not require real website credentials. The source/legacy Compose wrappers remain for compatibility and testing; further zkPass-specific testing is paused.
+Start with the [architecture and source map](docs/ARCHITECTURE.md), then follow [Developing and contributing](docs/ARCHITECTURE.md#7-developing-and-contributing). Source development requires repository access, Node.js 24+, Python 3, Bash and Docker. Ordinary self-hosting only needs the published images. Test fixtures use disposable installations and synthetic credentials; keep `.env` and browser state out of commits.
 
 ## Distribution and third-party notices
 

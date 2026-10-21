@@ -55,8 +55,12 @@ def build(root, output, version=None):
     output.mkdir(parents=True, exist_ok=True)
     (output / 'install.sh').write_text(installer)
     (output / 'workspace-backup.sh').write_bytes(contents['scripts/workspace-backup.sh'])
-    for name in ['PUBLIC_DEMO.md', 'SELF_HOST.md', 'AGENT_CLIENT.md', 'STATUS.md']:
+    for name in ['PUBLIC_DEMO.md', 'SELF_HOST.md', 'ARCHITECTURE.md', 'RELEASING.md']:
         (output / name).write_bytes(contents[f'docs/{name}'])
+    # Existing stable controllers and saved links use these download names.
+    # Generate aliases from canonical guides, but keep them out of the archive.
+    for alias, name in {'AGENT_CLIENT.md': 'ARCHITECTURE.md', 'STATUS.md': 'RELEASING.md'}.items():
+        (output / alias).write_bytes(contents[f'docs/{name}'])
     archive = output / 'agentic-browser-self-host.tar.gz'
     with archive.open('wb') as raw, gzip.GzipFile(filename='', mode='wb', fileobj=raw, mtime=0) as compressed:
         with tarfile.open(fileobj=compressed, mode='w', format=tarfile.PAX_FORMAT) as bundle:

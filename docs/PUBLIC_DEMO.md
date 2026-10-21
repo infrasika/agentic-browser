@@ -140,4 +140,4 @@ codex mcp remove agentic-browser
 claude mcp remove agentic-browser
 ```
 
-For custom Agent integrations and error handling, see the [MCP protocol reference](AGENT_CLIENT.md). For installation, accounts, tokens and saved profiles on your own host, see [Self-hosting](SELF_HOST.md).
+For custom Agent integrations and error handling, see the [MCP integration reference](ARCHITECTURE.md#6-mcp-integration-reference). For installation, accounts, tokens and saved profiles on your own host, see [Self-hosting](SELF_HOST.md).

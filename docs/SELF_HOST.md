@@ -2,7 +2,7 @@
 
 Run your personal workspace on your own Docker host using the two public images. You do **not** need source access, a build, Node.js on the host, or a GHCR login. The [official demo](https://agentic-browser.zkpass.org/) is a separate service; its sessions and accounts do not move into your installation.
 
-The accepted images are recorded in the installer and [Version status](STATUS.md). The installer embeds immutable multi-platform digests rather than floating tags. See [Frozen baseline](STATUS.md) for the exact version boundary and verification evidence.
+The accepted images are recorded in the installer and [deploy/release.env](../deploy/release.env). The installer embeds immutable multi-platform digests rather than floating tags. See [Release verification](RELEASING.md#release-verification) for the version and verification evidence.
 
 Both image repositories also provide `:latest`, which follows the newest stable release, and fixed version tags such as `:v0.1.0`. Preview releases do not change `latest`. The installer uses exact digests so a later `docker compose pull` cannot silently upgrade your workspace. Use the [upgrade procedure](#backup-and-upgrade) to move both images together.
 
@@ -345,7 +345,7 @@ Start with `docker compose up -d --wait`, then check the workspace at `http://12
 
 Restoration also rolls account changes and token revocations back to the backup time. Before restoring external access, reapply later account disablements/revocations. Resetting a member's password with `docker compose exec controller npm run members -- password alice` invalidates that member's restored credentials; they then sign in and issue new Agent tokens. Only restore a trusted backup.
 
-Current automated upgrade evidence covers preview.5 → stable v0.1.0 and rollback from an offline backup on native amd64 and arm64. Those releases use identical Chrome and extension versions. This does not establish compatibility across future Chrome/extension version changes; see [Version status](STATUS.md).
+Current automated upgrade evidence covers preview.5 → stable v0.1.0 and rollback from an offline backup on native amd64 and arm64. Those releases use identical Chrome and extension versions. This does not establish compatibility across future Chrome/extension version changes; see [Release verification](RELEASING.md#release-verification).
 
 ## Apple Silicon release check
 

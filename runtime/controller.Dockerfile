@@ -20,7 +20,6 @@ COPY deploy/release.env deploy/nginx-public.conf ./deploy/
 COPY deploy/releases/ ./deploy/releases/
 COPY runtime/assets.lock.json runtime/chrome-seccomp.json ./runtime/
 COPY runtime/DISTRIBUTION-NOTICES.md runtime/PLAYWRIGHT-LICENSE ./runtime/
-COPY runtime/README.md ./runtime/
 ARG AB_VERSION=development
 ARG AB_REVISION=unknown
 RUN python3 scripts/package-self-host.py --version "$AB_VERSION"

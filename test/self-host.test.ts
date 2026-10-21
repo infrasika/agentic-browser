@@ -23,10 +23,17 @@ test('public self-host download is reproducible, pinned, source-free, and availa
   const backupHelper = await fetch(service.base + '/self-host/download/workspace-backup.sh');
   assert.equal(backupHelper.status, 200);
   assert.equal(await backupHelper.text(), await readFile('scripts/workspace-backup.sh', 'utf8'));
-  for (const name of ['PUBLIC_DEMO.md', 'SELF_HOST.md', 'AGENT_CLIENT.md', 'STATUS.md']) {
+  for (const name of ['PUBLIC_DEMO.md', 'SELF_HOST.md', 'ARCHITECTURE.md', 'RELEASING.md']) {
     const guide = await fetch(service.base + '/self-host/download/' + name);
     assert.equal(guide.status, 200);
     assert.equal(await guide.text(), await readFile('docs/' + name, 'utf8'));
+  }
+  for (const [alias, canonical] of [['AGENT_CLIENT.md', 'ARCHITECTURE.md'], ['STATUS.md', 'RELEASING.md']]) {
+    const guide = await fetch(service.base + '/self-host/download/' + alias);
+    assert.equal(guide.status, 200);
+    const expected = await readFile('docs/' + canonical, 'utf8');
+    assert.equal(await guide.text(), expected);
+    assert.equal(await readFile('web/self-host-downloads/' + alias, 'utf8'), expected, 'Earlier published controllers can serve consolidated guides');
   }
   const download = '/self-host/download/agentic-browser-self-host.tar.gz';
   const response = await fetch(service.base + download);
@@ -43,6 +50,9 @@ test('public self-host download is reproducible, pinned, source-free, and availa
   assert.ok(names.includes('agentic-browser/scripts/compose.sh'));
   assert.ok(names.includes('agentic-browser/scripts/workspace-backup.sh'));
   assert.ok(names.includes('agentic-browser/deploy/release.env'));
+  for (const obsolete of ['docs/STATUS.md', 'docs/AGENT_CLIENT.md', 'runtime/README.md']) {
+    assert.ok(!names.includes('agentic-browser/' + obsolete), 'Consolidated documents must not be duplicated in the archive');
+  }
   for (const name of names) {
     assert.ok(name.startsWith('agentic-browser/') && !name.split('/').includes('..'));
     assert.doesNotMatch(name, /(?:^|\/)(?:src|test|\.git|\.data|node_modules|output)(?:\/|$)|\.(?:ts|log)$|\/(?:\.env|\.env\.public|\.env\.compose)$/);

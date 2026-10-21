@@ -1,6 +1,35 @@
 # Release maintenance
 
-Maintain a personal self-hosted browser and public demo. Team feature development is out of scope. See [Version status](STATUS.md) for the accepted release and work in progress.
+This guide covers browser assets, GitHub Actions, image publication and the official deployment. For source structure and local development, see [Technical architecture](ARCHITECTURE.md). For installation and operator backup procedures, see [Self-hosting](SELF_HOST.md).
+
+## Release verification
+
+The accepted stable release is **v0.1.0**, built from `d85b9196b498c12ead9ab6164e3a174eaa15833a`. Both public images support native Linux amd64/arm64, and their `latest` aliases match the immutable version indexes. The official site and installer use the same digests in [deploy/release.env](../deploy/release.env).
+
+| Evidence | Verified scope |
+| --- | --- |
+| [Publication and anonymous pulls](../deploy/releases/v0.1.0-public-verification.json) | Native isolation, handoff, capacity/recovery, both public platforms, stable/latest equality |
+| [Fresh installation](../deploy/releases/v0.1.0-install-verification.json) | Native amd64/arm64 account/token setup, workspace diagnostics, handoff and saved profiles |
+| [Upgrade and rollback](../deploy/releases/v0.1.0-upgrade-verification.json) | Preview.5 to v0.1.0, offline backup and fresh-volume restore on both platforms |
+| [Official HTTPS demo](../deploy/releases/v0.1.0-demo-verification.json) | MCP, remote display, takeover, handback, Agent reading, cleanup and setup downloads |
+
+The release source passed 63 unit/API/packaging tests. Physical Apple Silicon acceptance of this exact release has not been recorded; native Linux arm64 CI is separate. Long-duration and optional-client checks from older releases are not new v0.1.0 evidence. Chrome/profile-format migration and live zkPass proofs are outside these results. Keep these limits explicit in release notes.
+
+## GitHub Actions
+
+All release and acceptance workflows are manually dispatched. The two matrix runners are `ubuntu-24.04` (amd64) and `ubuntu-24.04-arm` (arm64); builds run natively rather than emulating ARM on x86.
+
+| Workflow file | Input and purpose |
+| --- | --- |
+| `.github/workflows/publish-images.yml` | Required unused `version`; checks source, builds and validates both images, then publishes indexes and a GitHub Release; advances `latest` only for a newer stable release |
+| `.github/workflows/accept-self-host.yml` | No inputs; verifies anonymous image installation using the official installer |
+| `.github/workflows/accept-upgrade.yml` | No inputs; verifies the version pair in `test/upgrade.integration.ts`, including backup/restore |
+| `.github/workflows/accept-soak.yml` | `minutes` (default 120); sustained public/authenticated browser workloads |
+| `.github/workflows/accept-experience.yml` | `minutes` (default 15); desktop input, changing display, reconnect and website tasks |
+| `.github/workflows/accept-remote-client.yml` | No inputs; optional stdio client without server-volume/socket mounts |
+| `.github/workflows/accept-https.yml` | No inputs; HTTPS/WSS, secure cookies and proxy failure handling |
+
+The publication build jobs need `packages: write`; the publication job also needs `contents: write` to create the release. Acceptance workflows need only `contents: read`, use anonymous registry pulls and create disposable installations. Actions are commit-pinned. Publication is serialized across versions to protect the moving channel; acceptance artifacts are finite-retention reports, not permanent release evidence.
 
 ## Fixed inputs and public artifacts
 
@@ -11,7 +40,7 @@ Keep the source repository private. These two GHCR packages are public:
 
 `deploy/release.env` selects the accepted multi-platform image-index digests. Base images, npm versions and `runtime/assets.lock.json` pin build inputs. Do not refresh browser/extension locks implicitly. Deployment by digest fixes image bytes; source rebuilds using Debian repositories are not guaranteed byte-identical.
 
-Historical version tags, release manifests, archives and verification receipts are immutable. Keep earlier receipts in `deploy/releases/`, including the preview.3 evidence used by rollback acceptance. Temporary logs, reports, build helpers and screenshots belong in ignored `output/`; they are not public distribution files.
+Published version tags, release manifests and archives are immutable. Keep current stable receipts and the baseline records read by upgrade acceptance in `deploy/releases/`. Older intermediate reports remain in Git history and published release artifacts. Temporary logs, reports, build helpers and screenshots belong in ignored `output/`; they are not public distribution files.
 
 `latest` is the only moving image tag. Both controller and runtime point to the highest published stable `vX.Y.Z` release; versions with a suffix such as `-preview.5` never update it. The publication workflow serializes releases, verifies both immutable multi-platform indexes, copies those exact indexes to `latest`, then marks the GitHub release as Latest. Older stable releases cannot move this channel backward. Existing deployments keep their pinned digests until explicitly upgraded.
 
@@ -20,6 +49,22 @@ Registry updates across two repositories are not atomic. If channel promotion fa
 The standalone installer writes just `compose.yaml` and `.env`, with literal accepted image references. `npm run package:self-host` generates `/install.sh`, the backup helper, user-guide downloads and a source-free configuration archive. The controller image build runs this packager automatically. The allowlist in `scripts/release-manifest.py` must exclude private settings, source, browser data and local artifacts.
 
 `SETUP.json` records file hashes and image pins; `SHA256SUMS` covers the reproducible setup archive. Documentation may advance without changing pins only when the pinned images support the documented operations. Do not describe a local website UI build as a newly published GHCR version. GitHub Release assets inherit the private repository's access controls; users obtain the public installer and guides from the website.
+
+Image-bundled guides are build-time snapshots. Public download kits may contain newer documentation without changing published image bytes. The old `AGENT_CLIENT.md` and `STATUS.md` download URLs are generated compatibility aliases for the consolidated architecture and release guides; they are not separate maintained documents and are excluded from the configuration archive.
+
+## Browser assets and runtime builds
+
+`runtime/assets.lock.json` pins Chrome 155.0.8059.79 for both architectures, TransGate 0.5.5 and Schema Validator 0.1.3. The runtime installs the original signed extensions locally into clean profiles and contains no personal website state.
+
+```sh
+npm run runtime:build
+```
+
+The first asset fetch needs network access; later builds reuse `output/runtime/packages/` only when hashes match. A changed upstream package fails verification. For an intentional browser/extension update, run `python3 scripts/fetch-runtime-assets.py --refresh-lock`, review the lock changes and run appropriate native acceptance. Keep verified caches because upstream URLs may stop serving older packages.
+
+Dedicated zkPass acceptance is excluded from the normal publication workflow. The optional `scripts/test-extensions.sh` uses offline, disposable containers and synthetic data to check bundled extension UI/storage, sandbox state and handoff. It mounts no real profile or Docker socket. These checks do not establish live TransGate proof success, external-node availability or cross-version profile compatibility. Run them only as part of a specifically scoped extension change.
+
+Keep the Chrome sandbox enabled and preserve [distribution notices](../runtime/DISTRIBUTION-NOTICES.md), [Playwright's license](../runtime/PLAYWRIGHT-LICENSE) and applicable dependency licenses. Runtime and network boundaries are documented in [Architecture](ARCHITECTURE.md#5-authentication-and-isolation-invariants).
 
 ## Acceptance commands
 
@@ -52,8 +97,6 @@ Install host Playwright/native-browser dependencies before applicable tests. HTT
 
 Separate `accept-self-host.yml`, `accept-upgrade.yml`, `accept-soak.yml`, `accept-experience.yml`, `accept-remote-client.yml` and `accept-https.yml` workflows run native Ubuntu amd64/arm64 checks. The external verifier needs a checkout and test dependencies; the resulting self-hosted installation does not. Existing-host, fresh Linux runner and physical Mac evidence must remain distinct. Rollback acceptance with unchanged Chrome assets does not establish browser-format migration compatibility.
 
-Further zkPass-specific testing remains skipped by request. The optional historical extension checks are retained for future explicitly authorized runtime work; they are not a task to resume during this freeze. Existing workflows that include those checks must be reviewed before a future publication rather than launched automatically.
-
 ## Publish a future version
 
 After a future release is requested:
@@ -63,7 +106,7 @@ After a future release is requested:
 3. Use the workflow's scoped `GITHUB_TOKEN`; no server-side registry login or personal token is required. The workflow needs package publication permissions and native ARM runner availability.
 4. Verify **only the two GHCR packages** are Public, then verify anonymous pulls of both platforms. Keep the source repository private.
 5. Preserve the original `RELEASE.json`, `agentic-browser-deploy.tar.gz` and `SHA256SUMS`. Add separate verification receipts; never rewrite publication evidence to claim checks that ran later.
-6. Update `deploy/release.env` after acceptance. Regenerate setup files, verify public downloads and run the clean-install workflow. Record the version, verifier revision, platforms, outcomes and cleanup in a new receipt and the status page.
+6. Update `deploy/release.env` after acceptance. Regenerate setup files, verify public downloads and run clean-install and upgrade workflows. Record the version, verifier revision, platforms, outcomes and cleanup in a new receipt; update this guide's release-verification table and README.
 
 Published versions cannot be overwritten. A partially published run needs another unused version. Authentication/network failures do not establish that a version tag is available.
 
