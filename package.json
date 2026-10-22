@@ -7,6 +7,10 @@
     "node": ">=24"
   },
   "scripts": {
+    "setup:librechat": "node scripts/librechat-config.mjs setup",
+    "doctor:librechat": "node scripts/librechat-config.mjs check",
+    "start:service": "tsx src/service.ts",
+    "test:service": "tsx --test test/browser-service.test.ts test/librechat-config.test.ts",
     "setup": "node scripts/setup.mjs",
     "predev": "npm run package:self-host",
     "dev": "tsx watch src/main.ts",

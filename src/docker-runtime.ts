@@ -13,7 +13,7 @@ import { runtimeMount, type RuntimeVolume } from './runtime-mounts.js';
 
 const exec = promisify(execFile);
 const docker = (args: string[]) => exec('docker', args, { timeout: 60000, maxBuffer: 2 * 1024 * 1024 });
-const recordSchema = z.object({ id: z.string().uuid(), name: z.string(), hostname: z.string(), ownerId: z.string().uuid().optional(), profileId: z.string().uuid().optional() }).strict();
+const recordSchema = z.object({ id: z.string().uuid(), name: z.string(), hostname: z.string(), ownerId: z.string().regex(/^[A-Za-z0-9_:@.-]{1,128}$/).optional(), profileId: z.string().uuid().optional() }).strict();
 type RuntimeRecord = z.infer<typeof recordSchema>;
 
 export class DockerEngine implements BrowserEngine {

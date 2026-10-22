@@ -187,6 +187,7 @@ This release passed 63 unit/API/packaging tests, native Ubuntu amd64/arm64 insta
 | [Self-hosting guide](docs/SELF_HOST.md) | Operators and members: installation, settings, credentials, recovery, storage and recovery |
 | [Technical architecture and contributor guide](docs/ARCHITECTURE.md) | Components and diagrams, source map, control/data boundaries, MCP contracts and local development |
 | [Release maintenance](docs/RELEASING.md) | GitHub Actions, verification, browser assets, immutable images, stable/latest tags and official-site deployment |
+| [Hosted LibreChat integration](docs/plans/LIBRECHAT_INTEGRATION.md) | Native Agent tools, private Browser API, local accounts, credits, queue and same-page browser; see the development progress for acceptance and rollout status |
 
 ## Development
 

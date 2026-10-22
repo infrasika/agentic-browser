@@ -2,6 +2,8 @@
 
 This guide covers browser assets, GitHub Actions, image publication and the official deployment. For source structure and local development, see [Technical architecture](ARCHITECTURE.md). For installation and operator backup procedures, see [Self-hosting](SELF_HOST.md).
 
+The hosted Agent migration is tracked separately in the [LibreChat integration plan](plans/LIBRECHAT_INTEGRATION.md) and [development progress](plans/LIBRECHAT_PROGRESS.md). The current [deployment guide](../deploy/librechat/README.md) uses native tools and a private HTTP Browser Service; complete its acceptance gates before switching the public site. The procedures below describe the existing browser-only release.
+
 ## Release verification
 
 The accepted stable release is **v0.1.1**, built from `683b26aece0751e1923407f17e4073e189d07d68`. Both public images support native Linux amd64/arm64, and their `latest` aliases match the immutable version indexes. This maintenance release updates both images and CI to Node.js 24.22.1, with Chrome and extension locks unchanged. The official site and installer use the same digests in [deploy/release.env](../deploy/release.env).
