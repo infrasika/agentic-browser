@@ -21,8 +21,8 @@
 
 ## 项目与实现
 
-- Browser：`/home/ubuntu/Yu/agentic-browser`，分支 `codex/librechat-integration`。
-- LibreChat：`/home/ubuntu/Yu/librechat-agent`，分支 `codex/browser-demo`；上游 `61892206974618971b9001d109485d994dac2816`，标识 `v0.8.9-rc1`。
+- Browser：`/home/ubuntu/Yu/agentic-browser`，分支 `codex/librechat-integration`；集成主提交 `fc6c824`。
+- LibreChat：`/home/ubuntu/Yu/librechat-agent`，分支 `codex/browser-demo`；上游 `61892206974618971b9001d109485d994dac2816`，标识 `v0.8.9-rc1`；定制提交 `b79c128`。
 - LC 新逻辑在 `packages/api/src/browser/`，共享协议在 data-provider，Turnstile 配置映射在 data-schemas；`api/` 负责依赖注入与路由接线；同屏 UI 在 `client/src/components/Chat/Browser/`。
 - 执行链路：原生 graph tools + 固定 Browser Skill 指引 → 私有 HTTP Browser Service。新部署不安装、不运行 MCP。
 - 内部恢复绑定原 generation/user/task，使用短期 JWT 与 HMAC，经过标准账户/权限/余额检查。已补齐上游 resume 路径缺少的原子余额预留。
@@ -39,6 +39,7 @@
 | Turnstile AppService 投影回归 | 通过，2 tests | verification.required/hostname/timeout 保留；未配置时不改变其它部署 |
 | LC ChatRoute/ChatView | 通过，28 tests | 初始消息并行加载、路由切换、面板接入 |
 | 类型、lint、生产构建 | 通过 | data-provider/API/client/data-schemas 类型检查；相关源码 lint；API/client/data-schemas 最终构建 |
+| 提交静态检查 | 通过 | LibreChat 提交钩子通过 ESLint、格式、import、package.json、设计规则、CSS 与循环依赖检查；生成协议按目标格式同步 |
 | Lighthouse | 通过 | 3 次冷加载中位 LCP 3379ms / TBT 360ms / CLS 0.018；预算 4500/500/0.1 未调整 |
 | 真实 Browser Service | 通过，最终复验 20:50 UTC | `browser-service-real.json`：Example Domain 实际内容、JPEG、人工输入、归还保留页面、FIFO、全部清理 |
 | 真实 Qwen + UI 闭环 | 通过 | example.com → handoff → 归还 → snapshot → 回复 → close；`output/playwright/librechat-handoff.png` |
