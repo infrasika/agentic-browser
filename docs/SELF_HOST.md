@@ -284,7 +284,18 @@ If the service cannot start, its dashboard is unavailable as well. Use `docker c
 | Expired session | Open a new session. Reuse an explicitly saved profile if available; temporary data is not recoverable. |
 | Saved profile busy | Close its existing session and wait for cleanup before opening another. |
 | Changed `.env` but nothing changed | Use `up -d --force-recreate --wait`; check stale shell overrides. Bootstrap variables never reset passwords. |
-| Website denies login | The website may reject a remote/data-center browser. Test a public page to separate runtime connectivity from website restrictions. |
+| Website denies login | Check the website's exact message and follow [Website sign-in checks](#website-sign-in-checks). A working remote desktop does not guarantee that a website will accept sign-in. |
+
+### Website sign-in checks
+
+1. Open `https://example.com`, take control, and test the address bar and keyboard. If this works, inspect the target website separately from MCP and display connectivity.
+2. Read the full login dialog, scrolling **inside** it if needed. A validation error can appear below the visible field. A request returning HTTP 200 can still carry an application error; it does not prove that login succeeded.
+3. Complete any offered CAPTCHA, device approval or account verification yourself in the remote browser. Agent tools pause during human control. You do not need to send the Agent your password or verification code.
+4. If the website says login is temporarily limited, stop retries and follow its recovery guidance. Recreating browsers repeatedly is not a recovery strategy. See [X login help](https://help.x.com/en/managing-your-account/log-in-issues).
+
+After a successful login in an authenticated workspace, explicitly use a saved profile if you want to retain it for later sessions. This preserves local login state; it does not guarantee that the website will skip future verification. Public demo sessions remain temporary.
+
+Cloudflare settings for your workspace domain do not grant access to third-party accounts. Moving execution to Cloudflare Browser Run is not a guaranteed remedy either: its [FAQ](https://developers.cloudflare.com/browser-run/faq/#will-browser-run-be-detected-by-bot-management) states that Cloudflare identifies Browser Run requests as bot traffic.
 
 ## Backup and upgrade
 

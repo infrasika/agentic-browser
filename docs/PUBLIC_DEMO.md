@@ -128,7 +128,7 @@ The deployment administrator controls the server and stored data, and your Agent
 | All browser slots are in use | Check the count on the homepage and try later. Close your own unused session. |
 | Viewer is connected in another window | Close your other viewer tab before reconnecting here. |
 | Viewer stays on “Connecting” | Check connectivity and session expiry, then use **Reconnect**. Persistent WebSocket/proxy problems need the operator. |
-| Google, GitHub or X rejects sign-in | Complete the site's offered verification if possible, or try another task. Browser isolation does not bypass website anti-bot restrictions. |
+| Website rejects sign-in | Scroll inside the login dialog to read the full error. Complete offered verification yourself; stop retries if login is temporarily limited. See [Website sign-in checks](SELF_HOST.md#website-sign-in-checks). Browser isolation does not bypass website anti-bot restrictions. |
 | Agent is still waiting after login | Click **Hand back to Agent**; logging in alone does not transfer control. Then tell the Agent to continue if its turn ended. |
 | `localhost` cannot be loaded | The official demo uses the public HTTPS domain. Loopback URLs belong to a self-hosted setup and require the service or a tunnel on that machine. |
 
