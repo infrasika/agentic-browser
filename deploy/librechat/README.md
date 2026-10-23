@@ -74,6 +74,8 @@ sudo systemctl enable --now agentic-browser-service librechat-browser-demo
 
 bootstrap 在 HTTP listener 开放前创建受控首个管理员与只读 Demo Agent 权限。重跑不重置密码或 credits；已有非管理员占据配置邮箱时拒绝启动。
 
+管理员已存在，直接在登录页使用私密配置中的 `DEMO_ADMIN_EMAIL` / `DEMO_ADMIN_PASSWORD`。不要通过 signup 修改管理员密码：LibreChat 对重复邮箱返回统一注册提示，但保留原密码。验收新用户注册时使用尚未注册的邮箱。
+
 Nginx 切换前备份 `/etc/nginx/conf.d/agentic-browser.conf` 到不在 `conf.d` 下的私密备份目录。排空旧 Demo 会话，确认 3080/8081/8082 监听健康，单独校验新文件。只替换这一站点，`sudo nginx -t` 成功后 reload。保留其它站点，勿调用旧 `scripts/update-nginx.sh`（它仍管理旧站点）。
 
 当前拓扑是 Cloudflare HTTPS → origin HTTP:80；此配置不新增 origin TLS。切换时核实 Cloudflare IP 段、HTTPS 和缓存策略，认证 HTML、API、SSE 和 WS 不应被共享缓存。公网验收必须检查真实 Turnstile、新注册 credits、Qwen 任务、同屏输入、归还恢复、MCP/internal 不可访问。

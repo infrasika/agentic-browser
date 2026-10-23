@@ -1,12 +1,12 @@
 # LibreChat Browser Demo 开发进度
 
-实施依据：[设计](LIBRECHAT_INTEGRATION.md) / [开发计划](LIBRECHAT_DEVELOPMENT.md) / [部署](../../deploy/librechat/README.md)。更新：2026-10-22 UTC。
+实施依据：[设计](LIBRECHAT_INTEGRATION.md) / [开发计划](LIBRECHAT_DEVELOPMENT.md) / [部署](../../deploy/librechat/README.md)。更新：2026-10-23（北京时间）。
 
 ## 当前状态
 
 **公开入口已于 20:47 UTC 切换到 [Browser Demo](https://agentic-browser.zkpass.org)。** 使用用户选择的 `qwen3.7-plus`；Qwen、Turnstile、管理员和服务密钥已配置，无需重复填写。
 
-原生浏览器工具、聊天同屏、排队、接管归还自动继续、后台恢复、账号隔离、credits 和注销回收已通过隔离真实验收。公网 HTTPS、路由封锁、WebSocket Upgrade 与无效授权拒绝、缺失/无效 Turnstile 拒绝均通过。**P5 尚未全部验收：自动化浏览器停在真实 Turnstile 人机挑战，已请用户用自己的浏览器注册/登录并运行 Demo；不能把它记为真实注册成功。**
+原生浏览器工具、聊天同屏、排队、接管归还自动继续、后台恢复、账号隔离、credits 和注销回收已通过隔离真实验收。公网 HTTPS、路由封锁、WebSocket Upgrade 与无效授权拒绝、缺失/无效 Turnstile 拒绝均通过。**P5 尚未全部验收：用户已通过真实 Turnstile，注册/登录请求进入后续认证流程；本次 signup 使用的是预建管理员邮箱，重复注册不会覆盖原密码，随后登录因密码不匹配被拒绝。已核实私密配置中的管理员密码与数据库匹配。新账号创建及公网 Demo 闭环仍待完成。**
 
 | 阶段 | 状态 | 证据 / 剩余事项 |
 | --- | --- | --- |
@@ -52,7 +52,8 @@
 | 私密配置 doctor / 协议同步 | 通过 | 不输出密钥；setup 重跑保留原值；两项目生成协议一致 |
 | 生产 Turnstile 拒绝路径 | 原站、公网均通过 | `turnstile-origin.json` / `turnstile-public.json`：登录和注册均拒绝缺失/无效 token |
 | 公网 Nginx / WS | 通过 | `public-routing.json`：MCP/internal 404，旧匿名入口 410，伪造身份头不能登录，WSS 可 Upgrade 但错误 grant 被关闭；Cloudflare DYNAMIC，首页 no-store |
-| 真人公网挑战与任务 | 待用户验收 | 自动化浏览器显示 Verify you are human；没有绕过或关闭挑战 |
+| 真人公网挑战 | 通过 | 2026-10-23 用户的真实注册/登录通过强制 Turnstile 中间件；重复邮箱和密码不匹配发生在后续认证阶段 |
+| 真人公网登录与任务 | 待用户完成 | 使用配置文件中的预建管理员密码登录，或用未注册邮箱创建新账号后测试 Demo |
 
 ## 部署记录
 
@@ -66,8 +67,14 @@
 
 ## 剩余验收与限制
 
-1. 用户在自己的浏览器完成真实 Turnstile 注册/登录，运行至少一个 Demo；随后检查新账号 USER 权限与 200,000 初始 credits，以及公网任务/WS/归还恢复。
+1. 用户使用私密配置中的管理员账号登录，或换未注册邮箱验证新账号创建，运行至少一个 Demo；随后检查新账号 USER 权限与 200,000 初始 credits，以及公网任务/WS/归还恢复。
 2. 最终发布验收还需公网第二账号隔离与排队确认；隔离环境已自动通过相同后端流程。
 3. 当前 4 vCPU / 15GiB，首次放行 5。扩容或调整并发前重新压测；不能把逻辑硬上限 20 写成机器已支持 20 并发。
 4. codebase-memory-mcp 持续返回 Transport closed，已按项目规则回退到定位文件读取；不修改用户已有 `scripts/update-nginx.sh`。
 5. 上游在 MCP 功能关闭时仍有图标目录查询、禁用标题生成时仍有标题轮询，控制台可出现预期 404；页面和原生工具流程不依赖这些响应。当前不为消除这些请求重新开放 MCP 路由。
+
+## 2026-10-23 登录问题排查
+
+用户报告 signup 跳转后登录失败。服务器两次注册记录均为 Email in use；数据库仍只有部署时创建的管理员，未产生新账号。随后登录记录为 Password does not match，未见封禁或限流记录。已在内存中使用 bcrypt 核验 DEMO_ADMIN_PASSWORD 与该账号密码散列匹配，不输出密码或散列。
+
+LibreChat 为避免泄露邮箱是否已注册，对重复邮箱也返回统一的 HTTP 200 注册提示；该操作不会覆盖已有密码。直接使用 `.deployment/librechat/private.env` 中 DEMO_ADMIN_EMAIL / DEMO_ADMIN_PASSWORD 登录。重复 signup 不是密码重置。
