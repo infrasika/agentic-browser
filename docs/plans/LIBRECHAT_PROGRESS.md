@@ -97,3 +97,12 @@ LibreChat 为避免泄露邮箱是否已注册，对重复邮箱也返回统一�
 - 已于 2026-10-23 19:46（北京时间）通过上游 Redis 配置失效通知在线加载，无需重启；运行进程确认重新读取配置，正在人工接管的浏览器保持运行。19:48 完成旧默认标题补名，共 3 条，更新前创建的非手动默认标题剩余 0 条。
 - 配置 schema、脚本语法和 diff 检查通过；Lighthouse 复验通过，中位 LCP 3416ms / TBT 422ms / CLS 0.018，预算未调整。
 - 报告 `output/librechat/chat-titles-real.json`、`chat-titles-backfill.json`；截图 `output/playwright/chat-title-handoff.png`。
+
+## 2026-10-23 浏览器交接显示
+
+- 修复正常控制权切换被误报断线的问题：立即显示交接状态，保留上一帧，收到并解码新的只读画面后再切换。旧连接的关闭及迟到错误不会覆盖新连接状态；实际连接失败和超时仍显示重连入口。
+- 保留后端 revision / viewer 撤销机制，同一 Chrome 与 lease 继续运行；冻结帧仅在当前页面内存中保留，恢复或离开会话后清除。新增 `browser.viewerConnectTimeoutMs` 配置，默认 30 秒。
+- 前端 7 项交接/异常/清理回归、API 10 项回归通过；data-provider/API/client 类型检查、相关 lint、构建与受影响静态检查通过。Lighthouse 三次冷加载中位 LCP 3661ms / TBT 456ms / CLS 0.018，预算未调整。
+- 隔离真实 Qwen + Chrome + UI 验收通过：将控制响应延迟 1.5 秒，确认旧输入连接撤销后仍显示冻结帧，随后显示只读画面，全程无断线提示，浏览器 session 不变；主动断开 viewer 后可重连；Done 后任务自动恢复并完成。390px 深色手机布局无横向溢出。
+- 首次发布于 12:24 UTC 完成公网复核，页面及 44 个入口/样式/面板资源正常；发布前生产无活跃 lease，仅重启 LibreChat，Browser Service 未重启。旧前端与发布记录已备份，旧哈希资源保留。最终版本及复核时间以私密 `release.json` 和 `browser-display-production.json` 为准。
+- 报告 `output/librechat/browser-display-real.json`、`browser-display-production.json`；截图 `output/playwright/browser-returning-control.png`、`browser-returning-mobile.png`、`browser-display-mobile.png`。隔离验收进程已停止，无需新增密钥配置。

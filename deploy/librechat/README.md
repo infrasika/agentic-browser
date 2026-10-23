@@ -94,6 +94,16 @@ Nginx 切换前备份 `/etc/nginx/conf.d/agentic-browser.conf` 到不在 `conf.d
 
 ## 验收命令
 
+### 浏览器交接显示
+
+点击 `Done — continue task` 或 `Take control` 时，面板保留上一帧并显示控制权切换状态。后端仍立即撤销旧 viewer 授权；前端识别 `Browser access changed` 关闭事件并刷新状态，等新的只读 JPEG 解码完成后移除过渡画面。冻结帧只在当前页面内存中存在，恢复显示或离开会话后清除。
+
+真实断线保留 `Reconnect`；等待连接或交接超时也进入重试状态。LibreChat 的 `browser.viewerConnectTimeoutMs` 默认 30,000ms，可配置范围 1,000–120,000ms，仅控制显示等待时间，不改变 Browser session 生命周期。相关实现位于 LibreChat 的 `client/src/components/Chat/Browser/Screen.tsx`，回归测试位于同目录 `__tests__/Screen.spec.tsx`。
+
+前端升级先构建到独立输出目录并验收，再发布资源和入口文件；保留旧的哈希资源供已打开的页面使用。不要直接在正在提供服务的 `client/dist` 上运行会清空目录的构建。
+
+### 服务与端到端验收
+
 ```bash
 npm run check
 npm test
