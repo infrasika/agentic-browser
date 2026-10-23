@@ -13,10 +13,8 @@ const values = parseEnv(await readFile(resolve(directory, 'private.env'), 'utf8'
 const model = values.QWEN_MODEL;
 if (!model || !values.TURNSTILE_SITE_KEY) throw new Error('Run doctor:librechat before rendering');
 const permissionOff = { use: false, create: false, share: false, public: false };
-const starters = [
-  'Open example.com, read the page, and explain what it is used for.',
-  'Open example.com and let me take control. When I return control, inspect the page and finish the task.',
-];
+// Agent bootstrap and homepage cards use the same deployment-owned definition.
+const { conversation_starters: starters } = JSON.parse(await readFile(resolve(checkout, 'config/browser-demo.json'), 'utf8'));
 await mkdir(directory, { recursive: true, mode: 0o700 });
 for (const acceptance of [false, true]) {
   const origin = acceptance ? 'http://127.0.0.1:3081' : values.DOMAIN_CLIENT;

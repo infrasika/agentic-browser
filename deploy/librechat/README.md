@@ -80,6 +80,16 @@ Nginx 切换前备份 `/etc/nginx/conf.d/agentic-browser.conf` 到不在 `conf.d
 
 当前拓扑是 Cloudflare HTTPS → origin HTTP:80；此配置不新增 origin TLS。切换时核实 Cloudflare IP 段、HTTPS 和缓存策略，认证 HTML、API、SSE 和 WS 不应被共享缓存。公网验收必须检查真实 Turnstile、新注册 credits、Qwen 任务、同屏输入、归还恢复、MCP/internal 不可访问。
 
+## GitHub Demo
+
+聊天首页有两个入口：介绍 GitHub，以及统计当前个人账号拥有的私有仓库数量与名称。后者通过浏览器完成：Agent 打开 GitHub 登录页并交出控制权 → 用户在右侧浏览器完成登录和二次验证、离开登录表单 → 点击 `Done — continue task` → Agent 自动继续读取仓库列表。无需申请 GitHub OAuth App 或提供 PAT。
+
+默认统计个人账号拥有的 private 仓库；组织仓库及仅有协作权限的仓库不计入，用户可在聊天里明确扩大范围。任务指引要求核对 owner/Private 筛选、遍历分页、按 `owner/name` 去重，返回账号、统计范围、数量和名称/链接；不打开仓库内容或修改 GitHub 状态。登录未完成时重新接管，遇到会话时限、额度或分页限制时报告已核实的部分结果，不能声称完整数量。列表元数据会进入 Agent 的模型上下文和当前聊天记录；密码和验证码由用户在人工控制阶段自行输入。
+
+入口文案及任务指引统一放在 LibreChat 项目的 `config/browser-demo.json`。配置渲染器读取同一份 starters；bootstrap 只同步部署管理的 Agent 名称、描述、指引和 starters。仅配置管理员拥有的固定 Agent 可更新，内容未变时不创建新版本；账号、密码、余额、模型和工具配置保持原值。修改后重新渲染配置并重启 LibreChat，刷新页面、开启新聊天即可看到更新。
+
+自动验收已覆盖真实 Qwen 打开 GitHub、交出控制权，以及未登录就归还后再次要求登录；真实私有仓库数量和跨页完整性需用户登录后验收。报告：`output/librechat/github-demo-real.json`。仓库筛选依据：[GitHub 仓库列表文档](https://docs.github.com/en/repositories/creating-and-managing-repositories/viewing-all-your-repositories)。
+
 ## 验收命令
 
 ```bash

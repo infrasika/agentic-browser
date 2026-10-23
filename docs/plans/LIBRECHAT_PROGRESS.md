@@ -70,7 +70,7 @@
 1. 用户使用私密配置中的管理员账号登录，或换未注册邮箱验证新账号创建，运行至少一个 Demo；随后检查新账号 USER 权限与 200,000 初始 credits，以及公网任务/WS/归还恢复。
 2. 最终发布验收还需公网第二账号隔离与排队确认；隔离环境已自动通过相同后端流程。
 3. 当前 4 vCPU / 15GiB，首次放行 5。扩容或调整并发前重新压测；不能把逻辑硬上限 20 写成机器已支持 20 并发。
-4. codebase-memory-mcp 持续返回 Transport closed，已按项目规则回退到定位文件读取；不修改用户已有 `scripts/update-nginx.sh`。
+4. 早期 codebase-memory-mcp 返回 Transport closed 时按项目规则回退读取；2026-10-23 GitHub Demo 开发时已恢复可用，索引未覆盖的新增模块按规则回退。不修改用户已有 `scripts/update-nginx.sh`。
 5. 上游在 MCP 功能关闭时仍有图标目录查询、禁用标题生成时仍有标题轮询，控制台可出现预期 404；页面和原生工具流程不依赖这些响应。当前不为消除这些请求重新开放 MCP 路由。
 
 ## 2026-10-23 登录问题排查
@@ -78,3 +78,13 @@
 用户报告 signup 跳转后登录失败。服务器两次注册记录均为 Email in use；数据库仍只有部署时创建的管理员，未产生新账号。随后登录记录为 Password does not match，未见封禁或限流记录。已在内存中使用 bcrypt 核验 DEMO_ADMIN_PASSWORD 与该账号密码散列匹配，不输出密码或散列。
 
 LibreChat 为避免泄露邮箱是否已注册，对重复邮箱也返回统一的 HTTP 200 注册提示；该操作不会覆盖已有密码。直接使用 `.deployment/librechat/private.env` 中 DEMO_ADMIN_EMAIL / DEMO_ADMIN_PASSWORD 登录。重复 signup 不是密码重置。
+
+## 2026-10-23 GitHub Demo
+
+- 将两个 example.com 聊天入口替换为 GitHub 公开介绍和私有仓库统计。默认统计当前个人账号拥有的 private 仓库，返回数量及 `owner/name`，不打开代码内容；任务指引包含登录核验、范围/可见性筛选、分页去重、部分结果与清理规则。
+- LibreChat `config/browser-demo.json` 统一管理入口与任务指引，Browser 项目的部署渲染器复用。补齐已有 Agent 的受控配置更新，重启不重置账号/credits、不重复创建 Agent 版本；不新增 MCP、OAuth 或 GitHub API token。
+- API 构建、workspace 类型检查、相关 lint 与 3 项 bootstrap 回归通过；覆盖已有 Agent 更新幂等、禁止改写其他 owner，以及更新失败不能报成功。
+- 本次受影响的静态检查通过；Lighthouse 复验通过，三次冷加载中位 LCP 3213ms / TBT 349ms / CLS 0.018，预算未调整。
+- 真实 Qwen + Chrome + UI 验收通过：点击私有仓库卡片 → 打开 GitHub 登录页 → 立即人工接管；未输入凭据就点击继续 → 自动恢复、读取新快照 → 再次请求登录，没有误报零仓库。退出后 lease 已回收。报告 `output/librechat/github-demo-real.json`，截图 `output/playwright/github-demo-starters.png`、`github-demo-handoff.png`。
+- 已更新公开部署，2026-10-23 19:21（北京时间）复核通过：生产 Agent 与 modelSpecs 文案一致；账号、密码、角色、余额、模型和 owner 保持原值；服务重启及第二次 bootstrap 合计仅产生一个新 Agent 版本。公网及回环配置接口正常，隔离验收进程已停止。报告 `output/librechat/github-demo-production.json`；LibreChat 提交 `5271643`。
+- **真实私有仓库列表及跨页数量仍待用户登录后核验**；本次自动化没有登录用户的 GitHub，也没有读取其私有仓库。
