@@ -17,8 +17,8 @@ const occupied = "'starting','active','closing','cleanup_pending'";
 
 export class SchedulerStore {
   private db: DatabaseSync;
-  constructor(path: string, readonly maxSessions = 20, private now = Date.now) {
-    if (!Number.isInteger(maxSessions) || maxSessions < 1 || maxSessions > 20) throw new Error('Invalid capacity');
+  constructor(path: string, readonly maxSessions = 10, private now = Date.now) {
+    if (!Number.isInteger(maxSessions) || maxSessions < 1 || maxSessions > 10) throw new Error('Invalid capacity');
     if (path !== ':memory:') {
       mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
       if (existsSync(path) && (!lstatSync(path).isFile() || lstatSync(path).isSymbolicLink())) throw new Error('Unsafe scheduler file');

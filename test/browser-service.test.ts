@@ -50,31 +50,32 @@ test('history cleanup preserves unacknowledged recovery, live leases, and recent
 
 test('FIFO capacity is global and per account; cleanup retains its slot until confirmed', async () => {
   const cleanup = deferred(); let creations = 0;
-  const store = new SchedulerStore(':memory:', 20);
+  assert.throws(() => new SchedulerStore(':memory:', 11), /Invalid capacity/);
+  const store = new SchedulerStore(':memory:');
   const service = new BrowserService(store, engine(async () => {
     const index = creations++;
     return workspace({ async close() { if (index === 0) await cleanup.promise; } });
   }), options);
   try {
-    const users = Array.from({ length: 21 }, () => principal());
+    const users = Array.from({ length: 11 }, () => principal());
     const requests = users.map(() => input());
     const leases = users.map((user, i) => service.acquire(user, requests[i]));
     await service.idle();
-    assert.deepEqual(store.capacity(), { occupied: 20, maximum: 20 });
-    assert.equal(creations, 20);
-    assert.equal(service.status(leases[20].id, users[20]).position, 1);
+    assert.deepEqual(store.capacity(), { occupied: 10, maximum: 10 });
+    assert.equal(creations, 10);
+    assert.equal(service.status(leases[10].id, users[10]).position, 1);
     assert.throws(() => service.acquire(principal(users[0].userId), input()), /Another browser task/);
     assert.equal(service.acquire(users[0], requests[0]).id, leases[0].id);
     const releasing = service.release(leases[0].id, users[0]);
     await delay(0);
-    assert.equal(store.capacity().occupied, 20);
-    assert.equal(creations, 20);
+    assert.equal(store.capacity().occupied, 10);
+    assert.equal(creations, 10);
     cleanup.resolve(); await releasing; await service.idle();
-    assert.equal(creations, 21);
-    assert.equal(service.status(leases[20].id, users[20]).state, 'active');
-    assert.equal(store.capacity().occupied, 20);
+    assert.equal(creations, 11);
+    assert.equal(service.status(leases[10].id, users[10]).state, 'active');
+    assert.equal(store.capacity().occupied, 10);
     const events = store.events(0);
-    assert.equal(events.filter(event => event.type === 'slot_ready').length, 21);
+    assert.equal(events.filter(event => event.type === 'slot_ready').length, 11);
   } finally { cleanup.resolve(); await service.close(); }
 });
 

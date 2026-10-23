@@ -62,7 +62,7 @@ try {
   const output = resolve('output/librechat');
   await mkdir(output, { recursive: true });
   const report = { startedAt, completedAt: new Date().toISOString(), passed, runtimeImage, checks,
-    scope: 'Two real Docker browsers, sequentially admitted at capacity 1. Not a 20-browser load test.' };
+    scope: 'Two real Docker browsers, sequentially admitted at capacity 1. Not a 10-browser load test.' };
   await writeFile(join(output, 'browser-service-real.json'), JSON.stringify(report, null, 2) + '\n');
   console.log(JSON.stringify(report, null, 2));
 }

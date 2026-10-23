@@ -19,7 +19,7 @@ const parsed = z.object({
   DOMAIN_CLIENT: z.string().url(),
   BROWSER_DATA_DIR: z.string().default('.data/librechat-browser'),
   BROWSER_RUNTIME_IMAGE: z.string().min(1),
-  BROWSER_MAX_SESSIONS: z.coerce.number().int().min(1).max(20).default(20),
+  BROWSER_MAX_SESSIONS: z.coerce.number().int().min(1).max(10).default(10),
   BROWSER_MAX_QUEUED: z.coerce.number().int().min(1).max(1000).default(100),
   BROWSER_SESSION_TTL_SECONDS: z.coerce.number().int().min(30).max(600).default(300),
   BROWSER_QUEUE_TTL_SECONDS: z.coerce.number().int().min(30).max(1800).default(600),

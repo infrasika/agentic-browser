@@ -54,7 +54,7 @@ Turnstile 在生产登录/注册均校验成功状态、hostname 和 action；�
 
 ## 容量与保留
 
-每个账号最多一个未清理的 lease（排队也占该账号名额），系统硬上限 20。运行放行量由 `BROWSER_MAX_SESSIONS` 决定，首次部署设置 **5**。本机真实 1/5/10 Chrome 短时测试通过，20 档因保留 3 GiB 内存的保护条件提前终止；不能宣称已支持 20 个任意网站并发。需要更多并发时先扩容并压测。
+每个账号最多一个未清理的 lease（排队也占该账号名额），系统硬上限 10。运行放行量由 `BROWSER_MAX_SESSIONS` 决定，首次部署设置 **5**。本机真实 1/5/10 Chrome 短时测试通过；从 5 提高到 10 前仍需按实际任务复测，必要时扩容。超过 10 的配置会在部署渲染、服务启动和调度器构造时被拒绝。历史 20 档曾因内存保护终止，已退出当前计划和容量验收脚本。
 
 session 默认 5 分钟、绝对上限 10 分钟；排队默认 10 分钟。未确认清理的容器继续占配额。已结束、事件已确认的 lease/操作记录默认保留 24 小时；未确认事件和未清理资源不清除。LC checkpoint 1 小时。`BROWSER_RECORD_RETENTION_HOURS` 可设 24–720。
 
@@ -111,7 +111,7 @@ BROWSER_RUNTIME_IMAGE=sha256:YOUR_VERIFIED_IMAGE_ID npx tsx scripts/accept-brows
 BROWSER_RUNTIME_IMAGE=sha256:YOUR_VERIFIED_IMAGE_ID npx tsx scripts/accept-browser-capacity.ts
 ```
 
-真实容量脚本创建独立 ledger/容器，按 1/5/10/20 档运行快照与帧任务，保留内存余量并在 finally 清理。报告在 `output/librechat/`，不提交 Git。它是短时合成负载，不替代持续压测。
+真实容量脚本创建独立 ledger/容器，按 1/5/10 档运行快照与帧任务，保留内存余量并在 finally 清理。报告在 `output/librechat/`，不提交 Git。它是短时合成负载，不替代持续压测。
 
 LC 另需修改 workspace 的 `tsc --noEmit`、Browser/Redis/恢复策略 Jest、前端路由测试和 `E2E_CHROMIUM_CHANNEL=chrome LIGHTHOUSE_CHROME_FLAGS=--no-sandbox npm run lighthouse:run`。Lighthouse 使用一次性 DB/服务，不指向线上，且不与容量测试/构建并行运行。
 

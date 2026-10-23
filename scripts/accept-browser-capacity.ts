@@ -12,7 +12,7 @@ if (!image) throw new Error('Set BROWSER_RUNTIME_IMAGE');
 const directory = await mkdtemp(join(tmpdir(), 'browser-capacity-'));
 const engine = new DockerEngine({ dataDirectory: directory, image, network: 'public' });
 await engine.initialize();
-const store = new SchedulerStore(join(directory, 'scheduler.sqlite'), 20);
+const store = new SchedulerStore(join(directory, 'scheduler.sqlite'), 10);
 const service = new BrowserService(store, engine, { ttlMs: 600000, maxLifetimeMs: 600000, queueTtlMs: 600000, maxQueued: 25 });
 const available = async () => Number(/MemAvailable:\s+(\d+)/.exec(await readFile('/proc/meminfo', 'utf8'))?.[1] ?? 0) / 1024;
 const stages: unknown[] = [];
@@ -21,7 +21,7 @@ let failure: string | undefined;
 let recommendedMax = 0;
 const startedAt = new Date().toISOString();
 try {
-  for (const count of [1, 5, 10, 20]) {
+  for (const count of [1, 5, 10]) {
     const started = Date.now();
     while (leases.length < count) {
       if (await available() < 3072) throw new Error('memory_reserve_3_gib');
@@ -56,11 +56,11 @@ try {
     if (!passed) throw new Error('latency_or_memory_budget');
     recommendedMax = count;
   }
-  const waiting = service.acquire({ userId: 'capacity-user-21', conversationId: 'capacity-chat-21', taskId: 'capacity-task-21' },
-    { acquisitionId: 'open-21', purpose: 'Queue overflow acceptance', url: 'https://example.com' });
+  const waiting = service.acquire({ userId: 'capacity-user-11', conversationId: 'capacity-chat-11', taskId: 'capacity-task-11' },
+    { acquisitionId: 'open-11', purpose: 'Queue overflow acceptance', url: 'https://example.com' });
   assert.equal(waiting.state, 'queued');
   await service.release(waiting.id, waiting);
-  assert.equal(store.capacity().occupied, 20);
+  assert.equal(store.capacity().occupied, 10);
 } catch (error) {
   failure = error instanceof Error ? error.message : 'capacity_failed';
 } finally {
