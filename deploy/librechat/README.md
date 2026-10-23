@@ -60,7 +60,7 @@ session 默认 5 分钟、绝对上限 10 分钟；排队默认 10 分钟。未�
 
 ## 启动与上线顺序
 
-本机已于 2026-10-22 完成服务安装、备份和域名切换；真人 Turnstile 成功与公网任务闭环仍待验收，详见进度文档。以下是重建/升级步骤。
+本机已于 2026-10-22 完成服务安装、备份和域名切换，2026-10-24 完成当前 5 并发配置的最终公网任务验收。真人挑战、真实普通账号/额度、合成任务与 GitHub 真人结果的证据范围见进度文档。以下是重建/升级步骤。
 
 ```bash
 cd /home/ubuntu/Yu/agentic-browser
@@ -88,7 +88,7 @@ Nginx 切换前备份 `/etc/nginx/conf.d/agentic-browser.conf` 到不在 `conf.d
 
 入口文案及任务指引统一放在 LibreChat 项目的 `config/browser-demo.json`。配置渲染器读取同一份 starters；bootstrap 只同步部署管理的 Agent 名称、描述、指引和 starters。仅配置管理员拥有的固定 Agent 可更新，内容未变时不创建新版本；账号、密码、余额、模型和工具配置保持原值。修改后重新渲染配置并重启 LibreChat，刷新页面、开启新聊天即可看到更新。
 
-自动验收已覆盖真实 Qwen 打开 GitHub、交出控制权，以及未登录就归还后再次要求登录；真实私有仓库数量和跨页完整性需用户登录后验收。报告：`output/librechat/github-demo-real.json`。仓库筛选依据：[GitHub 仓库列表文档](https://docs.github.com/en/repositories/creating-and-managing-repositories/viewing-all-your-repositories)。
+自动验收已覆盖真实 Qwen 打开 GitHub、交出控制权，以及未登录就归还后再次要求登录。2026-10-24 用户已确认自己账号下的私有仓库数量和名称与实际列表一致；这是当前账号的真人业务验收，不扩展为任意分页规模的验证。报告：`output/librechat/github-demo-real.json`、`github-inventory-human.json`。仓库筛选依据：[GitHub 仓库列表文档](https://docs.github.com/en/repositories/creating-and-managing-repositories/viewing-all-your-repositories)。
 
 聊天历史使用 LibreChat 原生自动标题：Qwen 在首条请求发出后生成简短任务名称，语言跟随请求，等待人工接管时也会显示。部署渲染器设置 `titleConvo: true`、`titleTiming: immediate` 和当前模型；`titlePromptTemplate: '{input}'` 仅使用用户请求，自定义 `titlePrompt` 必须保留 `{convo}` 占位符。标题用量走原有 credits 记账；手动改名由上游所有权机制保护。验收报告：`output/librechat/chat-titles-real.json`。
 
@@ -118,6 +118,31 @@ LC 另需修改 workspace 的 `tsc --noEmit`、Browser/Redis/恢复策略 Jest�
 `accept-librechat-accounts.mjs CONVERSATION_ID` 只访问回环验收站与 `accept-*@example.invalid` 测试账号，验证真实接管任务的账号隔离和后台归还恢复；`accept-librechat-budget.mjs` 临时将第二个测试账号余额置零，验证 SSE 拒绝与无扣费，并在 finally 恢复。不得改为生产账号执行。`accept-librechat-recovery.mjs` 验证真实 FIFO、停止和归还时零余额拒绝；`accept-librechat-logout.mjs` 验证 WS 撤销、任务取消及后台不重开。
 
 `accept-librechat-turnstile.mjs [https://agentic-browser.zkpass.org]` 检查真实挑战拒绝路径；`accept-librechat-public.mjs` 检查公网封锁、缓存和无授权 WS 拒绝。它们不能代替真人挑战成功验收。
+
+### 最终公网任务验收
+
+`node scripts/audit-librechat-production.mjs` 只读核对真实普通账号、初始额度与消费账本、关闭自动补充，以及接管归还和任务完成记录。输出只有汇总结果，不含账号身份、聊天或仓库内容。仅对空闲、没有余额预留的账号核账；运行中的账号需等任务结束后再核对。
+
+```bash
+# 先启动隔离 LC / Browser（容量 1），使用独立 DB、Redis 前缀和 ledger。
+node scripts/accept-librechat-public-journey.mjs --run --acceptance
+
+# 隔离通过，明确获准占用生产容量且生产空闲后，运行一次。
+node scripts/accept-librechat-public-journey.mjs --run
+```
+
+脚本使用 LibreChat 原生方法创建专用普通账号和内存中的短期登录 token，不自动完成注册、登录或 Turnstile 挑战，不改变生产挑战配置。公网模式通过真实 HTTPS/WSS 路径验证 Qwen 接管、跨账号拒绝、满额排队、取消撤销连接、自动到号与归还后完成。当前 5 个名额创建 6 个临时账号，使用 example.com 合成任务，不访问真实用户的 GitHub。
+
+运行前要求无活跃 lease 且有足够内存；等待时检查真实用户到来、3 GiB 内存保留和 6 分钟期限，遇到这些条件退出并释放测试资源。测试会短暂占满名额并消耗 Qwen 额度。默认不带参数只显示用法。`finally` 取消专用任务，通过原生聊天删除接口清除 checkpoint/消息，再删除专用账号、余额和用量记录，并验证旧 token 已不能认证；Browser 终态审计记录仍按正常保留期限清理。
+
+报告在 `output/librechat/acceptance-journey.json`、`public-journey.json`、`production-audit.json`。2026-10-24 最终汇总为 `public-journey-final.json`，保留原报告的清理告警，并关联同批次清理复核的通过证据。私密恢复清单保存在 `.deployment/librechat/journey-acceptance/` 或 `public-acceptance/`，权限 0700/0600，不保存密码和 token。失败诊断仅包含专用合成任务。清理失败时按报告的 `recoveryRunId` 执行：
+
+```bash
+node scripts/accept-librechat-public-journey.mjs --cleanup RUN_UUID
+# 隔离环境需再加 --acceptance。
+```
+
+同一环境的 `running.lock` 防止并行验收；若进程被强制杀死，先核对确无验收进程，再移走该环境的遗留锁并执行对应清理。不要删除其他账号或清空整个数据库。人工挑战成功与 GitHub 业务结果的确认分别记录，不能用合成账号脚本代替。
 
 ## 备份、日志和回滚
 

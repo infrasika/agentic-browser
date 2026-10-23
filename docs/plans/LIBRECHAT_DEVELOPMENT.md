@@ -1,6 +1,6 @@
 # LibreChat Browser Demo 开发计划
 
-状态：开发与隔离验收已完成，已部署，用户已反馈实际操作聊天和远程浏览器；P5 新普通账号/初始额度、公网双账号及 GitHub 私有仓库完整结果验收待完成。关联 [设计](LIBRECHAT_INTEGRATION.md)、[进度](LIBRECHAT_PROGRESS.md)。
+状态：2026-10-24，D0–P5 已完成；当前放行 5 个活跃 session 的公网发布验收通过。普通账号及初始 credits 已只读核账，公网 6 个专用账号完成隔离/满额排队/归还恢复，GitHub 私有仓库数量和名称由用户确认。20 个真实浏览器并发仍需扩容后压测。关联 [设计](LIBRECHAT_INTEGRATION.md)、[进度](LIBRECHAT_PROGRESS.md)。
 
 ## 目标与工作目录
 
