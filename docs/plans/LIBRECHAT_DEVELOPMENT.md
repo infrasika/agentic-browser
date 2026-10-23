@@ -1,6 +1,6 @@
 # LibreChat Browser Demo 开发计划
 
-状态：开发与隔离验收已完成，已部署；P5 真人公网闭环验收待完成。关联 [设计](LIBRECHAT_INTEGRATION.md)、[进度](LIBRECHAT_PROGRESS.md)。
+状态：开发与隔离验收已完成，已部署，用户已反馈实际操作聊天和远程浏览器；P5 新普通账号/初始额度、公网双账号及 GitHub 私有仓库完整结果验收待完成。关联 [设计](LIBRECHAT_INTEGRATION.md)、[进度](LIBRECHAT_PROGRESS.md)。
 
 ## 目标与工作目录
 
