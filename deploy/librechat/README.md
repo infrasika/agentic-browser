@@ -113,6 +113,22 @@ BROWSER_RUNTIME_IMAGE=sha256:YOUR_VERIFIED_IMAGE_ID npx tsx scripts/accept-brows
 
 真实容量脚本创建独立 ledger/容器，按 1/5/10 档运行快照与帧任务，保留内存余量并在 finally 清理。报告在 `output/librechat/`，不提交 Git。它是短时合成负载，不替代持续压测。
 
+新增持续容量脚本使用独立 ledger、Docker instance 标签、回环数据 listener 和真实已授权 JPEG 连接：
+
+```bash
+BROWSER_RUNTIME_IMAGE=sha256:YOUR_VERIFIED_IMAGE_ID node --import tsx scripts/accept-browser-soak.ts --run
+# 对照当前 5 会话配置：
+BROWSER_RUNTIME_IMAGE=sha256:YOUR_VERIFIED_IMAGE_ID node --import tsx scripts/accept-browser-soak.ts --run --capacity=5
+```
+
+默认容量 10、持续负载 300 秒；仅允许容量 5 或 10。`--hold-seconds=30` 可用于短检查，少于 300 秒的结果不能作为提升至 10 的依据。约半数浏览器访问 GitHub 公开首页，其余访问 example.com；画面按生产数据 listener 的真实节奏推送，同时定期执行滚动和快照。没有 Qwen 调用、生产测试账号或私有仓库访问。
+
+开始要求生产无活跃 lease、至少 8 GiB 可用内存；每秒观察生产 lease 和可用内存，出现真实用户、低于 3 GiB 或达到总期限时退出并清理。门槛为操作 p95 < 3 秒、每路帧间隔 p95 < 3 秒且平均至少每 3 秒一帧、生产回环配置接口 p95 < 1 秒；另检查排队到号、授权撤销和接管后原 session 可继续。
+
+报告分别保存在 `output/librechat/browser-soak-10.json`、`browser-soak-5.json`，包含页面范围、持续时间、延迟、最低可用内存及清理结果。只有容量 10、完整 300 秒、所有检查及清理均通过，`eligibleForTenSlots` 才为 true。失败保持原生产容量，不降低门槛；不能用 5 会话通过或旧的轻页面短时测试替代。脚本结束时还按测试 instance 标签检查残留容器，并只读复核测试 ledger 无活跃记录。
+
+2026-10-24 实测：10 会话触发内存保护，5 会话完整 301 秒通过，因此生产仍为 5。此次资源抽样和持续负载结果见进度文档；提升到 10 前需先处理资源余量并复测。
+
 LC 另需修改 workspace 的 `tsc --noEmit`、Browser/Redis/恢复策略 Jest、前端路由测试和 `E2E_CHROMIUM_CHANNEL=chrome LIGHTHOUSE_CHROME_FLAGS=--no-sandbox npm run lighthouse:run`。Lighthouse 使用一次性 DB/服务，不指向线上，且不与容量测试/构建并行运行。
 
 `accept-librechat-accounts.mjs CONVERSATION_ID` 只访问回环验收站与 `accept-*@example.invalid` 测试账号，验证真实接管任务的账号隔离和后台归还恢复；`accept-librechat-budget.mjs` 临时将第二个测试账号余额置零，验证 SSE 拒绝与无扣费，并在 finally 恢复。不得改为生产账号执行。`accept-librechat-recovery.mjs` 验证真实 FIFO、停止和归还时零余额拒绝；`accept-librechat-logout.mjs` 验证 WS 撤销、任务取消及后台不重开。
