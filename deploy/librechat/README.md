@@ -90,6 +90,8 @@ Nginx 切换前备份 `/etc/nginx/conf.d/agentic-browser.conf` 到不在 `conf.d
 
 自动验收已覆盖真实 Qwen 打开 GitHub、交出控制权，以及未登录就归还后再次要求登录；真实私有仓库数量和跨页完整性需用户登录后验收。报告：`output/librechat/github-demo-real.json`。仓库筛选依据：[GitHub 仓库列表文档](https://docs.github.com/en/repositories/creating-and-managing-repositories/viewing-all-your-repositories)。
 
+聊天历史使用 LibreChat 原生自动标题：Qwen 在首条请求发出后生成简短任务名称，语言跟随请求，等待人工接管时也会显示。部署渲染器设置 `titleConvo: true`、`titleTiming: immediate` 和当前模型；`titlePromptTemplate: '{input}'` 仅使用用户请求，自定义 `titlePrompt` 必须保留 `{convo}` 占位符。标题用量走原有 credits 记账；手动改名由上游所有权机制保护。验收报告：`output/librechat/chat-titles-real.json`。
+
 ## 验收命令
 
 ```bash

@@ -71,7 +71,7 @@
 2. 最终发布验收还需公网第二账号隔离与排队确认；隔离环境已自动通过相同后端流程。
 3. 当前 4 vCPU / 15GiB，首次放行 5。扩容或调整并发前重新压测；不能把逻辑硬上限 20 写成机器已支持 20 并发。
 4. 早期 codebase-memory-mcp 返回 Transport closed 时按项目规则回退读取；2026-10-23 GitHub Demo 开发时已恢复可用，索引未覆盖的新增模块按规则回退。不修改用户已有 `scripts/update-nginx.sh`。
-5. 上游在 MCP 功能关闭时仍有图标目录查询、禁用标题生成时仍有标题轮询，控制台可出现预期 404；页面和原生工具流程不依赖这些响应。当前不为消除这些请求重新开放 MCP 路由。
+5. 上游在 MCP 功能关闭时仍有图标目录查询，控制台可出现预期 404；页面和原生工具流程不依赖这些响应。标题生成已启用，不再按禁用路径运行。当前不为消除图标请求重新开放 MCP 路由。
 
 ## 2026-10-23 登录问题排查
 
@@ -88,3 +88,12 @@ LibreChat 为避免泄露邮箱是否已注册，对重复邮箱也返回统一�
 - 真实 Qwen + Chrome + UI 验收通过：点击私有仓库卡片 → 打开 GitHub 登录页 → 立即人工接管；未输入凭据就点击继续 → 自动恢复、读取新快照 → 再次请求登录，没有误报零仓库。退出后 lease 已回收。报告 `output/librechat/github-demo-real.json`，截图 `output/playwright/github-demo-starters.png`、`github-demo-handoff.png`。
 - 已更新公开部署，2026-10-23 19:21（北京时间）复核通过：生产 Agent 与 modelSpecs 文案一致；账号、密码、角色、余额、模型和 owner 保持原值；服务重启及第二次 bootstrap 合计仅产生一个新 Agent 版本。公网及回环配置接口正常，隔离验收进程已停止。报告 `output/librechat/github-demo-production.json`；LibreChat 提交 `5271643`。
 - **真实私有仓库列表及跨页数量仍待用户登录后核验**；本次自动化没有登录用户的 GitHub，也没有读取其私有仓库。
+
+## 2026-10-23 聊天历史标题
+
+- 原因：部署配置关闭了 Qwen 的 `titleConvo`。启用上游即时标题生成，使用已有模型和凭据，根据首条用户请求生成简短名称；无新增 LibreChat 业务代码。
+- 真实 Qwen 验收：英文卡片生成 `Count and List Private GitHub Repos`，人工接管期间已显示、刷新后保留；中文请求生成 `三句话介绍GitHub用途`。标题用量进入 credits 账本；零余额拒绝模型执行，无标题调用或额外扣费。
+- 旧默认标题通过上游 `saveConvo` 的 generated 模式补名：限定用户和会话、不覆盖手动标题、不新增会话、保留消息与历史排序；先保存私密备份。隔离真实数据库已验证这些约束。
+- 已于 2026-10-23 19:46（北京时间）通过上游 Redis 配置失效通知在线加载，无需重启；运行进程确认重新读取配置，正在人工接管的浏览器保持运行。19:48 完成旧默认标题补名，共 3 条，更新前创建的非手动默认标题剩余 0 条。
+- 配置 schema、脚本语法和 diff 检查通过；Lighthouse 复验通过，中位 LCP 3416ms / TBT 422ms / CLS 0.018，预算未调整。
+- 报告 `output/librechat/chat-titles-real.json`、`chat-titles-backfill.json`；截图 `output/playwright/chat-title-handoff.png`。
