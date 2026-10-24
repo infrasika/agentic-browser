@@ -9,6 +9,8 @@
   "scripts": {
     "setup:librechat": "node scripts/librechat-config.mjs setup",
     "doctor:librechat": "node scripts/librechat-config.mjs check",
+    "health:librechat": "tsx scripts/check-librechat-health.ts",
+    "verify:librechat-backup": "tsx scripts/verify-librechat-backup.ts",
     "start:service": "tsx src/service.ts",
     "test:service": "tsx --test test/browser-service.test.ts test/librechat-config.test.ts",
     "setup": "node scripts/setup.mjs",

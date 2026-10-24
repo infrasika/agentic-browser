@@ -54,7 +54,7 @@ Turnstile 在生产登录/注册均校验成功状态、hostname 和 action；�
 
 ## 容量与保留
 
-每个账号最多一个未清理的 lease（排队也占该账号名额），系统硬上限 10。运行放行量由 `BROWSER_MAX_SESSIONS` 决定，首次部署设置 **5**。本机真实 1/5/10 Chrome 短时测试通过；从 5 提高到 10 前仍需按实际任务复测，必要时扩容。超过 10 的配置会在部署渲染、服务启动和调度器构造时被拒绝。历史 20 档曾因内存保护终止，已退出当前计划和容量验收脚本。
+每个账号最多一个未清理的 lease（排队也占该账号名额），系统硬上限 10。运行放行量由 `BROWSER_MAX_SESSIONS` 决定，当前保持 **5**。本机真实 1/5/10 Chrome 短时测试通过，后续混合页面持续测试仅 5 档通过；用户已要求暂不考虑扩容。超过 10 的配置会在部署渲染、服务启动和调度器构造时被拒绝。历史 20 档曾因内存保护终止，已退出当前计划和容量验收脚本。
 
 session 默认 5 分钟、绝对上限 10 分钟；排队默认 10 分钟。未确认清理的容器继续占配额。已结束、事件已确认的 lease/操作记录默认保留 24 小时；未确认事件和未清理资源不清除。LC checkpoint 1 小时。`BROWSER_RECORD_RETENTION_HOURS` 可设 24–720。
 
@@ -127,7 +127,7 @@ BROWSER_RUNTIME_IMAGE=sha256:YOUR_VERIFIED_IMAGE_ID node --import tsx scripts/ac
 
 报告分别保存在 `output/librechat/browser-soak-10.json`、`browser-soak-5.json`，包含页面范围、持续时间、延迟、最低可用内存及清理结果。只有容量 10、完整 300 秒、所有检查及清理均通过，`eligibleForTenSlots` 才为 true。失败保持原生产容量，不降低门槛；不能用 5 会话通过或旧的轻页面短时测试替代。脚本结束时还按测试 instance 标签检查残留容器，并只读复核测试 ledger 无活跃记录。
 
-2026-10-24 实测：10 会话触发内存保护，5 会话完整 301 秒通过，因此生产仍为 5。此次资源抽样和持续负载结果见进度文档；提升到 10 前需先处理资源余量并复测。
+2026-10-24 实测：10 会话触发内存保护，5 会话完整 301 秒通过，因此生产仍为 5。此次资源抽样和持续负载结果见进度文档；按用户最新要求暂不推进扩容。
 
 LC 另需修改 workspace 的 `tsc --noEmit`、Browser/Redis/恢复策略 Jest、前端路由测试和 `E2E_CHROMIUM_CHANNEL=chrome LIGHTHOUSE_CHROME_FLAGS=--no-sandbox npm run lighthouse:run`。Lighthouse 使用一次性 DB/服务，不指向线上，且不与容量测试/构建并行运行。
 
@@ -159,6 +159,35 @@ node scripts/accept-librechat-public-journey.mjs --cleanup RUN_UUID
 ```
 
 同一环境的 `running.lock` 防止并行验收；若进程被强制杀死，先核对确无验收进程，再移走该环境的遗留锁并执行对应清理。不要删除其他账号或清空整个数据库。人工挑战成功与 GitHub 业务结果的确认分别记录，不能用合成账号脚本代替。
+
+## 日常巡检与已有备份验证
+
+```bash
+cd /home/ubuntu/Yu/agentic-browser
+npm run health:librechat
+npm run verify:librechat-backup -- --run 20261022T204507Z
+```
+
+`health:librechat` 是只读巡检，每项独立报告；退出码 **0 正常、1 告警、2 故障**。输出在 `output/librechat/health-latest.json`，每次原子替换。不会创建账号或浏览器、修改额度、调用模型或修复生产状态。它不依赖曾有真人任务或未过期的历史记录，适合正常空闲期间使用；`audit-librechat-production.mjs` 则用于特定发布的账号/额度/真人任务证据，不宜替代日常巡检。
+
+巡检覆盖 systemd 及运行容量与配置一致、回环三个 HTTP listener、公网首页和 MCP/internal/旧入口封锁、Mongo/Redis ping、SQLite `quick_check` 与配额/回收/outbox、可用内存及磁盘、私密配置权限与 Turnstile/credits 防护，以及数据备份时效/恢复证据。单次结果只是当时状态，不证明模型或完整用户流程可用。
+
+| 检查异常 | 处理方向 |
+| --- | --- |
+| `private_configuration` 或 systemd/HTTP/数据库 error | 在服务器检查对应组件；不将原始日志或密钥复制到报告 |
+| `browser_ledger` error | 检查超时 lease、超过 2 分钟未确认的事件和清理；不要手工删除占位记录来释放名额 |
+| `browser_ledger` warning | 存在 `cleanup_pending`，资源仍占配额；检查 Browser Service 的清理原因 |
+| `host_resources` warning/error | 内存少于 3 GiB 或磁盘少于 5 GiB 时告警，少于 1 GiB 时故障；不自动扩容/删数据 |
+| `data_backup` warning | 缺少数据库备份或最新一份已超过 24 小时；前端/单 Agent 备份不计入 |
+| `backup_restore` warning | 最新 Mongo 归档尚无匹配 SHA-256 且清理成功的恢复证据，需运行隔离验证 |
+
+`verify:librechat-backup` 默认不带参数只显示用法，只接受 `.deployment/librechat/backups/` 下的一层目录名，读取其中的 `manifest.json` 和 `production-mongo.archive.gz`。拒绝符号链接、非私密文件、超过 64 MiB 的压缩归档或内存余量不足。使用 Compose 中已在本机存在的固定 Mongo 镜像，无自动拉取。
+
+恢复容器无外网、发布端口、宿主目录/生产数据挂载，限制 1 GiB 内存和 0.5 CPU；数据写入临时 tmpfs，2 GiB 是文件系统上限而非预分配内存，实际仍受容器内存上限约束。将 `LibreChatBrowserDemo.*` 映射至 `restore_verification.*`，恢复集合与索引，并逐集合运行完整校验；仅在测试容器关闭 TTL 删除。不启动 LibreChat，不调用 Qwen，不恢复或重放任务。
+
+每次演练有独立 UUID 和容器标签，结束时按标签清理，验证零残留。报告存入 `output/librechat/backup-restore-UUID.json` 和 `backup-restore-latest.json`，只含时间、SHA-256、数量、阶段和清理结果。失败不会输出原始 `mongorestore` 日志。若进程被强制杀死或 Docker 不可用，按名称 `librechat-restore-UUID` 和标签 `dev.agentic-browser.restore-check=UUID` 确认测试实例后清理；不要批量删除其他 Mongo 容器。
+
+2026-10-24 已验证切换前归档能恢复 60 个集合和 64 条记录，索引与清理通过。这证明该 Mongo 归档可恢复，**不证明备份足够新、跨集合/服务一致、配置密钥已备份，或整站恢复成功**。当前尚未配置定期备份/巡检任务，下一阶段补齐一致备份生成与完整恢复流程。
 
 ## 备份、日志和回滚
 
