@@ -40,7 +40,8 @@ try {
     // Compare only idle accounts; reservations/in-flight deductions need a later snapshot.
     const active = ledger.prepare("SELECT COUNT(*) AS n FROM leases WHERE userId = ? AND state IN ('queued','starting','active','closing','cleanup_pending')").get(String(user._id)).n;
     if (active || balance.reservedCredits > 0) continue;
-    const inferredStart = balance.tokenCredits - (usage[0]?.value ?? 0);
+    const adminCredits = (balance.adminCredits ?? []).reduce((sum, adjustment) => sum + adjustment.credits, 0);
+    const inferredStart = balance.tokenCredits - (usage[0]?.value ?? 0) - adminCredits;
     assert.ok(Math.abs(inferredStart - config.balance.startBalance) < 0.01,
       'Idle account balance and transaction ledger do not reconcile to the configured initial credits');
     reconciled += 1;

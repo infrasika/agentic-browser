@@ -262,3 +262,16 @@ commit 是研究参照，不是已批准生产版本。在线文档标注 Latest
 实施基线：**不使用 MCP；原生工具 + 只读 Skill；原生同屏面板；Browser 统一配额；LC 统一执行；旧接入层在版本切换时退休。** LC 的 `api/` 只做 Express 接线，新后端行为放 `packages/api`，共享协议与配置放 `packages/data-provider`，遵守固定版本上游 AGENTS.md。
 
 实际开发、测试和部署状态以进度文档为准。只有通过相应验收才能标记完成；真实 Qwen、公开注册防滥用和 10 浏览器压力验收不得用模拟测试替代。
+
+
+## 15. 已实施补充：全站预算、管理与找回
+
+2026-10-25（北京时间）按用户选择新增每日 **20,000,000 credits**，以 Asia/Shanghai 零点划分账期，个人赠额保持 200,000 且不自动补充。它与 Browser 并发配额独立：Browser 继续管理每人一个、运行 5 / 硬上限 10；LC 管理所有账号和模型费用。
+
+LC 的 Mongo `SiteBudget` 保存全站额度、每日已用/预留/不确定成本、持久请求 hold 和额度修改审计。Qwen transport 在每次请求（含标题与恢复）前原子预留，已知 usage 后幂等结算；没有 usage 保守计费，崩溃遗留 hold 不自动返还。模型和费率必须受部署配置控制，文本上下文与输出上界固定；管理员降低预算不取消已在途请求。总额按 credits 费率核算，不是阿里云账单级开关，也不覆盖其他应用用同一 key 的调用。
+
+管理 `/demo-admin` 由 LC 登录态和每请求 ADMIN 校验保护，普通用户无权访问管理 API。预算修改采用 revision 比较，给普通本地账号充值采用幂等 ID，审计与增额在同一 balance 文档原子提交。前端只调用 LC 的管理接口，Browser 项目不建立第二套用户数据库。
+
+邮件复用 LC 原生密码找回，Cloudflare Email Sending SMTP 负责发送，使用已验证子域名地址。密钥与邮箱放私密部署文件，一次测试成功的配置指纹才允许启用找回。重置链接 15 分钟、服务端即时过期检查、原子单次消费、限流和同源保护；重置后旧登录失效且 credits 保留。邮件收据只证明 Cloudflare 接受，收件箱确认单独记录。
+
+实现归属：`packages/api/src/budget/` 为 transport/管理行为，`packages/data-schemas` 为持久化，`packages/data-provider` 为配置和协议，`client/src/components/Demo` 为管理 UI；Browser 仓库仅补部署、验收和文档。未引入 MCP、OAuth 或额外账号服务。

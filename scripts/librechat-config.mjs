@@ -43,6 +43,8 @@ async function setup() {
     'DOMAIN_SERVER=https://agentic-browser.zkpass.org',
     'QWEN_API_KEY=', 'QWEN_BASE_URL=', 'QWEN_MODEL=', 'QWEN_PROMPT_RATE=', 'QWEN_COMPLETION_RATE=',
     'TURNSTILE_SITE_KEY=', 'TURNSTILE_SECRET_KEY=', 'DEMO_ADMIN_EMAIL=', 'DEMO_ADMIN_PASSWORD=',
+    '# Optional Cloudflare Email Sending; password reset stays disabled until mail:test:librechat succeeds.',
+    'CLOUDFLARE_EMAIL_API_TOKEN=', 'DEMO_EMAIL_FROM=', 'DEMO_EMAIL_TEST_TO=',
     '# Provisional starting credits; calibrate using the actual demo before public release.',
     'DEMO_START_CREDITS=200000',
     ...generated.map(key => `${key}=${randomBytes(key === 'CREDS_IV' ? 16 : 32).toString('hex')}`),

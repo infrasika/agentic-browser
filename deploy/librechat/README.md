@@ -196,3 +196,17 @@ npm run verify:librechat-backup -- --run 20261022T204507Z
 - 原始服务日志可能含账号或站点内容，仅在服务器保存。查看 LC 验收日志可用 `node scripts/read-librechat-log.mjs /tmp/lc-browser-server.log` 脱敏，报告不要包含密码、token、完整请求或私密页面截图。
 - 应用升级失败时停止新会话、保留数据库/ledger，回到上一已验收的集成版本；没有可用版本则启用维护页。**不能通过重新开放公共 MCP 作为回滚方式。**
 - 控制 API 不可用时注销返回可重试错误，不宣称远程浏览器授权已撤销；服务恢复后重试注销会关闭该账号连接与 lease。会话绝对 TTL 提供最终回收边界。
+
+
+## 全站预算、管理与密码找回
+
+- 管理员登录后从 **设置 → 常规 → Admin Panel** 进入 `/demo-admin`；普通账号无入口，直接请求管理 API 返回 403，匿名请求返回 401。
+- 默认全站每日 **20,000,000 credits**，按当前费率约 $20；上海零点划分日期。个人初始 200,000 credits 不自动补充。管理员可修改总预算、查看账号余额并增加普通本地账号 credits。充值记录与余额同文档原子写入，重试 ID 不重复入账。
+- `balance.siteBudget` 只保护其 `endpoints` 列出的模型服务；本部署仅提供 Qwen。增加模型或其他付费 endpoint 前必须配置费率并验证 transport 保护。`dailyCredits` 仅用于首次初始化；已保存的管理设置优先。
+- 每次模型调用先原子预留上界，再按 usage 结算。失联/缺 usage 保守扣下预留；进程崩溃的 hold 不自动过期退款。管理员可看到 reserved / uncertain，调查后处理，不能直接清空在途预留。跨午夜请求归入开始日期；下调预算不会中止已放行调用。
+- 私密配置增加 `CLOUDFLARE_EMAIL_API_TOKEN`、`DEMO_EMAIL_FROM`、`DEMO_EMAIL_TEST_TO`。发信地址必须位于 Cloudflare Email Sending 已验证的域名下，例如开通 `mail.zkpass.ai` 时使用 `replay@mail.zkpass.ai`。
+- `npm run mail:test:librechat` 使用 `smtp.mx.cloudflare.net:465` 隐式 TLS、用户名 `api_token`，只向配置的测试地址发送一封无凭据验收邮件。成功收据绑定当前配置指纹；之后运行 `node scripts/render-librechat-config.mjs` 才启用生产密码找回。邮件配置变更后须重测；不要手工打开缺邮件服务的密码找回功能。
+- 找回链接沿用原生 15 分钟有效期，接口即时检查过期时间，不依赖 Mongo TTL 删除时机；通过校验后原子消费再修改密码，旧会话失效，个人 credits 不变。保留原生请求/提交限流和同源检查。
+- 自动隔离验收：先构建 LC data-provider、API、data-schemas、client 到独立制品目录，再运行 `node scripts/accept-librechat-controls.mjs`。当前脚本使用 `budget-20261024` 制品目录、回环 3093/18899/11025/18025、随机独立 Mongo 库；使用模拟模型和本地邮件捕获，不使用 Qwen 或 Cloudflare 密钥。`--hold` 留给 UI 验收，SIGTERM 后清理服务及数据库。不要对包含 node_modules 符号链接的制品目录执行清理构建；构建到新目录或显式 `--no-clean`。
+
+Cloudflare 官方参考：[SMTP](https://developers.cloudflare.com/email-service/api/smtp/)、[发信域名开通](https://developers.cloudflare.com/email-service/get-started/send-emails/)。
