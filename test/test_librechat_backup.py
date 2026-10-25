@@ -154,6 +154,12 @@ class Backups(unittest.TestCase):
                 job.recover()
         self.assertTrue(job.gate.exists() and job.state_path.exists())
 
+    def test_rescue_does_not_depend_on_backup_policy_or_storage(self):
+        (self.root / 'deploy/librechat/backup.json').unlink()
+        job = backup.Backup(self.root, self.runtime, recover_only=True)
+        job.recover()
+        self.assertFalse(job.gate.exists())
+
     def test_retention_only_removes_old_complete_automatic_backups(self):
         directory = self.root / 'backups'
         directory.mkdir()

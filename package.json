@@ -13,6 +13,7 @@
     "health:librechat": "tsx scripts/check-librechat-health.ts",
     "backup:librechat": "python3 scripts/backup-librechat.py",
     "verify:librechat-backup": "tsx scripts/verify-librechat-backup.ts",
+    "verify:librechat-recovery": "python3 scripts/verify-librechat-recovery.py",
     "start:service": "tsx src/service.ts",
     "test:service": "tsx --test test/browser-service.test.ts test/librechat-config.test.ts",
     "setup": "node scripts/setup.mjs",

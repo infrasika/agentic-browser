@@ -97,7 +97,7 @@ def prune_backups(directory, keep, protected):
 
 
 class Backup:
-    def __init__(self, root=ROOT, runtime=Path('/run/librechat-backup')):
+    def __init__(self, root=ROOT, runtime=Path('/run/librechat-backup'), recover_only=False):
         self.root, self.runtime = root, runtime
         self.checkout = root.parent / 'librechat-agent'
         self.private = root / '.deployment/librechat'
@@ -105,6 +105,10 @@ class Backup:
         self.state_path = runtime / 'state.json'
         self.gate = runtime / 'maintenance'
         self.report = {'startedAt': now(), 'status': 'failed', 'stage': 'preflight'}
+        # Rescue must still work if a policy edit or missing backup disk caused
+        # the original job to fail. Recovery only needs its private stop intent.
+        if recover_only:
+            return
         self.config = json.loads((root / 'deploy/librechat/backup.json').read_text())
         if (self.config['timeZone'] != 'Asia/Shanghai' or self.config['startHour'] != 4 or
                 not 1 <= self.config['drainTimeoutSeconds'] <= 30 or
@@ -356,9 +360,10 @@ def main():
     modes.add_argument('--recover', action='store_true')
     args = parser.parse_args()
     os.umask(0o077)
-    job = Backup()
+    job = Backup(recover_only=args.recover)
     # systemd owns this directory; never create an alternate production gate.
-    for path, private in [(job.runtime, False), (job.private, True), (job.backups, True)]:
+    directories = [(job.runtime, False)] if args.recover else [(job.runtime, False), (job.private, True), (job.backups, True)]
+    for path, private in directories:
         if path.resolve() != path or not path.is_dir() or path.stat().st_uid != os.getuid() or (private and path.stat().st_mode & 0o077):
             raise BackupError('unsafe_directory')
     with (job.runtime / 'lock').open('a') as lock:

@@ -187,7 +187,7 @@ npm run verify:librechat-backup -- --run 20261022T204507Z
 
 每次演练有独立 UUID 和容器标签，结束时按标签清理，验证零残留。报告存入 `output/librechat/backup-restore-UUID.json` 和 `backup-restore-latest.json`，只含时间、SHA-256、数量、阶段和清理结果。失败不会输出原始 `mongorestore` 日志。若进程被强制杀死或 Docker 不可用，按名称 `librechat-restore-UUID` 和标签 `dev.agentic-browser.restore-check=UUID` 确认测试实例后清理；不要批量删除其他 Mongo 容器。
 
-2026-10-24 已验证切换前归档能恢复 60 个集合和 64 条记录，索引与清理通过。这证明该 Mongo 归档可恢复，**不证明备份足够新、跨集合/服务一致、配置密钥已备份，或整站恢复成功**。当前尚未配置定期备份/巡检任务，下一阶段补齐一致备份生成与完整恢复流程。
+2026-10-24 已验证切换前归档能恢复 60 个集合和 64 条记录，索引与清理通过。这证明该 Mongo 归档可恢复，**不证明备份足够新、跨集合/服务一致、配置密钥已备份，或整站恢复成功**。自动备份已在 P9 启用，完整应用恢复也已通过本机隔离演练；定期巡检与主动告警仍未接通。
 
 ## 备份、日志和回滚
 
@@ -231,4 +231,15 @@ Cloudflare 官方参考：[SMTP](https://developers.cloudflare.com/email-service
 
 故障时先查看 `systemctl status librechat-browser-backup.service` 和脱敏报告。备份进程已停止后可执行 `npm run backup:librechat -- --recover`，它只恢复本次停止的应用服务，不恢复数据库。不要在服务不健康时手动移除维护文件。未完成目录仅供本机诊断，确认没有正在运行的备份后才清理对应目录。
 
-目前备份以无活跃任务、应用停止写入为边界；Mongo TTL 与 Redis 过期机制仍可能运行，不承诺跨服务同一时刻事务快照。已验证 Mongo 恢复、Redis RDB 格式和 SQLite 完整性；将所有组件恢复到新环境并启动应用的完整灾难恢复仍属 P9.2。
+目前备份以无活跃任务、应用停止写入为边界；Mongo TTL 与 Redis 过期机制仍可能运行，不承诺跨服务同一时刻事务快照。已验证 Mongo 恢复、Redis RDB 格式和 SQLite 完整性；P9.2 进一步通过了隔离应用冷启动、Redis RDB 转 AOF 后重启、账号与账本保持等验收。它复用本机已安装依赖和固定镜像，尚不等同于裸机重建。
+
+
+## 完整应用恢复演练
+
+```bash
+npm run verify:librechat-recovery -- --run auto-TIMESTAMP-ID
+```
+
+只接受完整自动备份，逐文件校验摘要后在无外网的临时命名空间中启动恢复的 Mongo、Redis、Browser Service 和 LibreChat。使用专用数据库容器，没有生产数据挂载或公开端口；应用副本的 Docker 写操作被阻断，并核对账号、余额、预算、聊天/消费账本和权限。成功后清理所有副本资源。
+
+2026-10-25 已从首份自动备份完成验收，生产进程保持不变。详细步骤、失败清理及目标环境恢复顺序见 [恢复手册](RECOVERY.md)。报告为 `output/librechat/recovery-latest.json`，保留按 UUID 命名的历史结果。演练复用现有匹配依赖与镜像；同机备份、裸机环境准备和异地副本的限制见手册。
