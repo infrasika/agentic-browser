@@ -1,6 +1,6 @@
 # 完整 Agent 自部署（开发预览）
 
-本目录提供完整 LibreChat Agent 的配置与 Compose 拓扑。它使用原生浏览器工具，不需要 MCP 客户端。当前镜像在本地构建验收；公开镜像与面向最终用户的安装包尚未发布，不能使用旧 MCP 安装器来安装这套 Agent。
+本目录提供完整 LibreChat Agent 的配置、Compose 拓扑与 `agentctl.py` 安装运维入口。它使用原生浏览器工具，不需要 MCP 客户端。当前镜像在本地构建验收；公开镜像与面向最终用户的安装包尚未发布，不能使用旧 MCP 安装器来安装这套 Agent。完整命令见 [私有部署运维手册](OPERATIONS.md)。
 
 2026-10-26（北京时间）：P10.1/P10.2 同机隔离验收通过，包含真实 Chrome、普通账号权限、排队/接管自动继续、重启保留、桌面和 390px 手机布局。使用模拟模型，没有调用付费模型；这不是干净新服务器的安装验收。
 
@@ -36,7 +36,7 @@ node /app/selfhost/init.mjs render /config
 
 将安装目录的 `config/` 挂载到 `/config`，使用宿主文件所有者的 UID/GID。初始化故意不填写模型/key/费率，配置不完整时拒绝启动。`render` 生成精确路由的 `nginx.conf`；不要将例子的模型费率直接视为当前供应商报价。
 
-`compose.yaml` 的 `.env` 仅保存项目名称、镜像引用、UID/GID、Docker socket/GID、对外端口、origin 和运行容量。origin/容量必须与 settings 一致，后续安装工具将负责生成和校验；开发阶段请明确核对。只有 gateway 发布默认回环端口，Mongo/Redis/Browser 控制端口都不发布。Docker socket 只挂载给 Browser Service。
+`agentctl.py` 根据 settings 和固定版本清单自动生成 `.env`，保存项目名称、镜像引用、UID/GID、Docker socket/GID、对外端口、origin 和运行容量。不要手工编辑派生的 `.env`；修改配置后用 `apply` 在空闲时备份并重新加载。只有 gateway 发布默认回环端口，Mongo/Redis/Browser 控制端口都不发布。Docker socket 只挂载给 Browser Service。
 
 运行时镜像应提前拉取并固定 digest；Browser Service 根据会话创建 Chrome 和 egress 容器，不在 Compose 中启动共用 Chrome。运行时只挂载本会话的卷子目录。
 
@@ -45,6 +45,8 @@ node /app/selfhost/init.mjs render /config
 ```bash
 node --test test/agent-deployment.test.mjs
 node scripts/accept-agent-compose.mjs --run
+python3 -m unittest discover -s test -p test_agent_operations.py
+node scripts/accept-agent-operations.mjs --run
 ```
 
 验收使用唯一 Compose project、新数据库/数据卷、回环 3334，以及不收费的模拟模型；真实 Chrome 访问 example.com。模型模拟不代替真实供应商兼容性验收。完整流程包括关闭注册、管理员和普通用户登录/权限、原生工具、跨账号隔离、满额排队、输入 WebSocket、归还自动继续、预算与重启保留。结束清理本次专用容器/卷，生产进程应保持不变。
@@ -53,4 +55,4 @@ node scripts/accept-agent-compose.mjs --run
 
 ## 尚未交付的范围
 
-安装发行包、管理员账号管理命令、通用 SMTP、可移植备份与升级/恢复属于 P10.3；独立新主机安装/恢复与公开镜像发布属于 P10.4/P10.5。当前公网 P9 的 systemd 备份不能直接用于 Compose。旧 MCP 账号/token 和持久浏览器 profile 不自动迁移。
+P10.3 的安装、普通账号创建/密码恢复、通用 TLS/STARTTLS SMTP、Compose 停写备份/新实例恢复及同拓扑镜像升级由 `agentctl.py` 提供，验收状态以开发计划为准。独立新主机安装/恢复与公开镜像、发行包仍属 P10.4/P10.5。自动定时备份、轮转、异地副本和宿主中断 watchdog 尚未安装；当前公网 P9 的 systemd 备份不能直接用于 Compose。旧 MCP 账号/token 和持久浏览器 profile 不自动迁移。

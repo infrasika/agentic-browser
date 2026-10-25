@@ -27,6 +27,11 @@ export const settingsSchema = z.object({
     timeZone: z.string().refine(value => { try { new Intl.DateTimeFormat('en', { timeZone: value }); return true; } catch { return false; } }).default('Asia/Shanghai'),
   }).strict(),
   browser: z.object({ maximum: z.number().int().min(1).max(10).default(1) }).strict(),
+  smtp: z.object({
+    host: z.string().regex(/^[a-zA-Z0-9.-]+$/), port: z.number().int().min(1).max(65535),
+    encryption: z.enum(['tls', 'starttls']), from: z.string().email(),
+    username: z.string().default(''),
+  }).strict().optional(),
 }).strict().superRefine((value, ctx) => {
   if (value.registration === 'public' && (!value.turnstileSiteKey || !value.origin.startsWith('https://'))) {
     ctx.addIssue({ code: 'custom', path: ['registration'], message: 'Public registration requires HTTPS and Turnstile' });
@@ -40,9 +45,11 @@ export const secretsSchema = z.object({
   CREDS_KEY: z.string().regex(/^[a-f0-9]{64}$/),
   CREDS_IV: z.string().regex(/^[a-f0-9]{32}$/),
   TURNSTILE_SECRET_KEY: z.string().default(''),
+  SMTP_PASSWORD: z.string().default(''),
 }).strict();
 export function validateSettings(settings, secrets) {
   const config = settingsSchema.parse(settings), credentials = secretsSchema.parse(secrets);
   if (Boolean(config.turnstileSiteKey) !== Boolean(credentials.TURNSTILE_SECRET_KEY)) throw new Error('Both Turnstile keys are required together');
+  if (config.smtp && Boolean(config.smtp.username) !== Boolean(credentials.SMTP_PASSWORD)) throw new Error('Both SMTP credentials are required together');
   return { config, credentials };
 }

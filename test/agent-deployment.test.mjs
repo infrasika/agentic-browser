@@ -68,3 +68,17 @@ test('gateway restricts the browser surface and does not trust supplied identity
   assert.match(nginx,/proxy_next_upstream off/);
   assert.throws(()=>gatewayConfiguration('https://foo$bar.example.test'));
 });
+
+test('SMTP requires a credential pair and verification bound to sender, credentials and origin', async () => {
+  const { mailConfiguration } = await import('../deploy/agent/app/mail.mjs');
+  const smtp={host:'smtp.example.test',port:465,encryption:'tls',from:'agent@example.test',username:'account'};
+  assert.throws(()=>validateSettings({...settings,smtp},secrets));
+  assert.throws(()=>validateSettings({...settings,smtp:{...smtp,encryption:'none'}},{...secrets,SMTP_PASSWORD:'secret'}));
+  const {config,credentials}=validateSettings({...settings,smtp},{...secrets,SMTP_PASSWORD:'secret'});
+  const unverified=mailConfiguration(config,credentials);
+  assert.equal(unverified.env.ALLOW_PASSWORD_RESET,'false');
+  const receipt={fingerprint:unverified.fingerprint,accepted:true};
+  assert.equal(mailConfiguration(config,credentials,receipt).env.ALLOW_PASSWORD_RESET,'true');
+  assert.equal(mailConfiguration({...config,origin:'https://other.example.test'},credentials,receipt).enabled,false);
+  assert.equal(mailConfiguration(config,{...credentials,SMTP_PASSWORD:'changed'},receipt).enabled,false);
+});

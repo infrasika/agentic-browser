@@ -44,13 +44,20 @@ http {
     proxy_read_timeout 300s;
     proxy_send_timeout 300s;
     proxy_next_upstream off;
+    error_page 503 = @maintenance;
+    location @maintenance {
+      default_type text/plain;
+      add_header Retry-After 60 always;
+      add_header X-Agent-Maintenance 1 always;
+      return 503 'Agent maintenance in progress. Please try again shortly.\n';
+    }
     location ~ ^/(?:mcp|api/mcp|internal|browser/(?:mcp|internal))(?:/|$) { return 404; }
     location ~ ^/(?:connect|view|claim)(?:/|$) { return 410; }
-    location = /browser/v1/observe { proxy_pass http://viewer; }
-    location = /browser/v1/input { proxy_pass http://viewer; }
+    location = /browser/v1/observe { if (-f /maintenance/active) { return 503; } proxy_pass http://viewer; }
+    location = /browser/v1/input { if (-f /maintenance/active) { return 503; } proxy_pass http://viewer; }
     location = /browser { return 404; }
     location ^~ /browser/ { return 404; }
-    location / { proxy_pass http://chat; }
+    location / { if (-f /maintenance/active) { return 503; } proxy_pass http://chat; }
   }
 }
 `;

@@ -49,7 +49,10 @@
     "verify": "bash scripts/acceptance.sh",
     "build:agent": "python3 scripts/build-agent-images.py --run",
     "test:agent-config": "node --test test/agent-deployment.test.mjs",
-    "accept:agent": "node scripts/accept-agent-compose.mjs --run"
+    "accept:agent": "node scripts/accept-agent-compose.mjs --run",
+    "agent": "python3 deploy/agent/agentctl.py",
+    "test:agent-ops": "python3 -m unittest discover -s test -p test_agent_operations.py",
+    "accept:agent-ops": "node scripts/accept-agent-operations.mjs --run"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.32.1",

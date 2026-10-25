@@ -25,7 +25,7 @@ try {
       'secrets.env': ['# Private values; never commit this file.', 'QWEN_API_KEY=',
         'DEMO_ADMIN_PASSWORD=' + randomBytes(24).toString('hex'),
         ...['JWT_SECRET', 'JWT_REFRESH_SECRET', 'CREDS_KEY', 'CREDS_IV'].map(key => key + '=' + randomBytes(key === 'CREDS_IV' ? 16 : 32).toString('hex')),
-        'TURNSTILE_SECRET_KEY=', ''].join('\n'),
+        'TURNSTILE_SECRET_KEY=', 'SMTP_PASSWORD=', ''].join('\n'),
       'browser-token': randomBytes(32).toString('hex') + '\n',
     };
     for (const [name, content] of Object.entries(files)) {

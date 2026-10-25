@@ -1,0 +1,98 @@
+# 私有 Agent 运维（开发预览）
+
+使用 `agentctl.py` 管理一个完整 Agent 实例，应用只在镜像里运行；宿主需要 Linux amd64、Python 3、Docker Engine 26+ 和 Compose v2。当前使用本地预览镜像，公开镜像和安装发行包仍在 P10.5。命令不会接入已有公网的 systemd、账号或数据库。
+
+## 初始化与启动
+
+发行包将包含 `agentctl.py`、`compose.yaml` 和 `release.json`。版本清单固定 Agent、Browser Service、Chrome runtime 和 gateway 的镜像 digest；普通模式拒绝 `latest` 等可变标签。开发者可用 `--development` 显式允许本机 `sha256:` image ID。
+
+```bash
+python3 agentctl.py --directory /srv/my-agent init --release release.json
+```
+
+该命令创建私密目录、随机服务/JWT/加密密钥及初始管理员密码。已有目录会拒绝初始化，避免覆盖数据。按输出位置一次编辑 `config/settings.json` 与 `config/secrets.env`：
+
+- 管理员邮箱；密码已随机生成，可以在首次启动前修改。
+- Qwen 模型、区域对应的 base URL、API key、输入/输出费率；不自动采用示例价格。
+- 外部 origin、名称、初始 credits、每日预算、账期时区和浏览器并发。默认并发 1，每账号 1，最大允许 10；实际容量由服务器资源决定。
+- 默认关闭注册，无需 Cloudflare。公开注册必须使用 HTTPS 并设置完整 Turnstile 配置。
+
+```bash
+python3 agentctl.py --directory /srv/my-agent up
+python3 agentctl.py --directory /srv/my-agent doctor
+```
+
+默认入口只监听 `127.0.0.1:3333`，可通过 SSH 隧道体验。远程 HTTPS 由部署者现有代理终结，外层代理需支持 WebSocket、长连接、不缓存，并保留配置的 Host。数据库、Browser 控制 API 和 MCP 均不发布公网。
+
+`.env` 由工具从 settings 自动生成，不需要手动同步 origin/容量。修改运行中的 settings 或 secrets 后，等待任务空闲并运行 `apply`：先备份、停止写入，再加载新配置；不会重置已有密码或发放 credits。管理面板内保存的日预算优先于首次 YAML 默认值。
+
+```bash
+python3 agentctl.py --directory /srv/my-agent apply
+```
+
+## 普通账号与密码恢复
+
+```bash
+python3 agentctl.py --directory /srv/my-agent user-create
+python3 agentctl.py --directory /srv/my-agent user-reset
+```
+
+命令交互输入邮箱，创建时还输入显示名/用户名；密码使用隐藏输入且要求重复确认。重复创建返回 `already_exists`，不修改原密码和余额。新账号始终是普通用户，使用原生注册路径领取一次初始额度。
+
+服务器侧恢复命令复用原生单次密码重置，撤销旧登录、refresh session 和 passkey，不增加 credits，也不发送邮件。已启用的双因素认证不会被此命令自动关闭。自动化可用 `--input-file /private/account.json`，文件必须由当前用户持有、权限 0600；密码不接受命令行参数，不写到报告中。
+
+## 可选通用 SMTP
+
+不依赖特定邮件供应商。`settings.json` 增加：
+
+```json
+"smtp": {
+  "host": "smtp.example.org",
+  "port": 465,
+  "encryption": "tls",
+  "from": "agent@example.org",
+  "username": "your-smtp-user"
+}
+```
+
+在 `secrets.env` 填写 `SMTP_PASSWORD`。支持隐式 TLS 或强制 STARTTLS（通常为 587）；验证服务端证书，不提供关闭证书验证的开关。用户名/密码必须成对提供；受控无认证 SMTP 可同时留空。发信域名认证仍由邮件供应商管理。
+
+```bash
+python3 agentctl.py --directory /srv/my-agent mail-test --to your-address@example.org
+python3 agentctl.py --directory /srv/my-agent apply
+```
+
+`mail-test` 只向指定地址发送一封配置测试邮件；SMTP 接受后保存与域名、SMTP 配置和凭据绑定的验证收据，`apply` 后启用原生 Forgot Password。修改这些配置后旧收据失效，找回入口关闭，需重新测试。SMTP 接受不等于到达收件箱，部署者仍需核对收件。未配置邮件时可使用服务器侧恢复命令。
+
+## 备份与恢复
+
+```bash
+python3 agentctl.py --directory /srv/my-agent backup
+python3 agentctl.py --directory /srv/my-agent verify-backup /srv/my-agent/backups/BACKUP_NAME
+```
+
+有运行、排队、人工接管、未确认事件或未清理 runtime 时会延后，不终止用户任务。空闲时入口进入维护状态并排空已进入应用的请求，再停止 Agent、Browser、Redis 和 Mongo 写入。归档包括六个数据卷、配置/密钥、Compose 和固定镜像清单；每个文件有 SHA-256，完整验证后才去掉 `.pending` 标记。备份结束先恢复健康，再解除维护。
+
+这是停写后的完整数据卷快照，恢复要求相同数值 UID/GID、匹配的固定镜像及 Compose v1 拓扑；不支持跨 Mongo 大版本转换。归档包含密钥、账号和聊天，目录/文件权限为 0700/0600，应使用受控存储。镜像本身、外层 HTTPS 代理/证书、手工额外挂载文件不在备份内；公开镜像未发布前需另外保留对应本机镜像。异地副本、加密存储、定时调度和自动轮转仍由后续发行运维补齐。
+
+恢复**只允许新的安装目录和新 project/数据卷**：
+
+```bash
+python3 agentctl.py --directory /srv/restored-agent restore /srv/my-agent/backups/BACKUP_NAME --port 3334
+# 查看恢复配置后启动
+python3 agentctl.py --directory /srv/restored-agent recover
+```
+
+恢复先验证摘要、路径与条目类型，拒绝符号链接及活跃 runtime 记录。保留账号/密码/聊天/credits/预算，生成新的 Browser instance ID，避免接管原实例容器。默认改为新回环 origin、关闭注册和 Turnstile，旧邮件收据因 origin 改变而失效；先停在未运行状态供核对配置，不自动重放网页操作。切换回正式域名及验证 SMTP 后再开放访问。
+
+## 升级与中断处理
+
+```bash
+python3 agentctl.py --directory /srv/my-agent upgrade --release next-release.json
+```
+
+当前支持相同 Compose 拓扑的镜像升级。先检查并准备固定镜像，空闲时生成升级前备份，再启动新版本，健康通过后解除维护；保留账号、配置和密钥。升级失败保留维护状态与备份路径，不自动把旧程序连接到可能已迁移的新数据库。用升级前备份恢复到一个新实例，验收后再切换入口。
+
+普通备份被中断时，`state/operation.json` 保留恢复意图；执行 `recover` 恢复服务。未完成的 restore 或失败升级会拒绝直接解除维护。`SIGTERM` 尽力恢复普通备份；进程被强杀或宿主断电后需要手动 `recover`，当前没有安装宿主 watchdog。不要手工删除维护标记来绕过失败状态。
+
+诊断仅输出状态和汇总。必要时在安装目录运行 `docker compose ps` / `docker compose logs` 查看本机详情；日志和备份不应上传公共 issue。当前没有一键销毁或覆盖恢复命令。
