@@ -11,6 +11,7 @@
     "doctor:librechat": "node scripts/librechat-config.mjs check",
     "mail:test:librechat": "node scripts/librechat-mail.mjs test",
     "health:librechat": "tsx scripts/check-librechat-health.ts",
+    "backup:librechat": "python3 scripts/backup-librechat.py",
     "verify:librechat-backup": "tsx scripts/verify-librechat-backup.ts",
     "start:service": "tsx src/service.ts",
     "test:service": "tsx --test test/browser-service.test.ts test/librechat-config.test.ts",

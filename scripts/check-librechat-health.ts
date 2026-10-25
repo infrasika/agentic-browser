@@ -54,13 +54,14 @@ export async function httpHealth(url: string, expected: number, kind: 'json' | '
 export async function backupHealth(directory: string, verificationPath: string, now = Date.now()): Promise<Check[]> {
   const candidates: { createdAt: number; archive: string; private: boolean }[] = [];
   for (const entry of await readdir(directory, { withFileTypes: true })) {
-    if (!entry.isDirectory()) continue;
+    if (!entry.isDirectory() || entry.name.startsWith('.')) continue;
     const backup = join(directory, entry.name);
     try {
       // Agent-only dumps and frontend bundles are deliberately not data backups.
       const archive = join(backup, 'production-mongo.archive.gz');
       const info = await lstat(archive);
       const manifest = JSON.parse(await readFile(join(backup, 'manifest.json'), 'utf8'));
+      if (manifest.kind === 'librechat-scheduled-backup-v1' && manifest.complete !== true) continue;
       const createdAt = Date.parse(manifest.createdAt);
       if (!info.isFile() || info.isSymbolicLink() || !info.size || !Number.isFinite(createdAt) || createdAt > now) continue;
       candidates.push({ createdAt, archive, private: (info.mode & 0o077) === 0 && ((await lstat(backup)).mode & 0o077) === 0 });

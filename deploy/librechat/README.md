@@ -210,3 +210,25 @@ npm run verify:librechat-backup -- --run 20261022T204507Z
 - 自动隔离验收：先构建 LC data-provider、API、data-schemas、client 到独立制品目录，再运行 `node scripts/accept-librechat-controls.mjs`。当前脚本使用 `budget-20261024` 制品目录、回环 3093/18899/11025/18025、随机独立 Mongo 库；使用模拟模型和本地邮件捕获，不使用 Qwen 或 Cloudflare 密钥。`--hold` 留给 UI 验收，SIGTERM 后清理服务及数据库。不要对包含 node_modules 符号链接的制品目录执行清理构建；构建到新目录或显式 `--no-clean`。
 
 Cloudflare 官方参考：[SMTP](https://developers.cloudflare.com/email-service/api/smtp/)、[发信域名开通](https://developers.cloudflare.com/email-service/get-started/send-emails/)。
+
+
+## 自动备份（P9.1）
+
+`deploy/librechat/backup.json` 保存非敏感策略：北京时间 04:00 起尝试，忙时每小时重试至 23:00，每天最多完成一份，保留最近 7 份自动备份。定时器带最多 5 分钟随机延迟；错过调度后会补跑。已有手动发布备份不参与自动清理。当前副本存放在同一服务器，尚无异地副本。
+
+安装前先运行 `node scripts/render-librechat-backup.mjs`，校验生成的 systemd unit，将其安装为 `librechat-browser-backup.service` 和 `.timer`，并使用本目录 Nginx 配置中的维护入口。`systemctl enable --now librechat-browser-backup.timer` 启用自动执行；`systemctl start librechat-browser-backup.service` 立即执行同一流程。手工 `npm run backup:librechat -- --run` 仍遵守当天幂等、空闲和资源检查，需先安装 unit 创建的运行目录，并使用包含 Node 24 的 PATH。
+
+流程：
+
+1. 检查 Browser 占位/排队/待确认事件和 Redis 运行/人工等待任务，忙则延后；检查至少 4 GiB 可用内存与 5 GiB 可用磁盘。
+2. 在服务运行时压缩两个仓库的已提交源码和 LibreChat 构建制品。
+3. 创建 `/run/librechat-backup/maintenance`，Nginx 对新聊天/页面请求返回带 `Retry-After: 60`、`no-store` 的 503 维护页。再次检查任务，并等待已进入 LibreChat 的 HTTP 请求结束；无法排空则恢复入口并延后。
+4. 按 LibreChat → Browser 顺序停止写入，确认正常退出，再备份 Mongo、Redis RDB、SQLite、runtime ledger、私密配置、Nginx/systemd 配置和存在的上传资源。Redis 使用格式校验，SQLite 使用完整性校验；不把在线复制 WAL/AOF 当作一致备份。
+5. 按 Browser → LibreChat 顺序启动，两服务三个 HTTP 入口健康后恢复公网。`finally` 和 systemd `ExecStopPost` 都有恢复逻辑；进程被强杀时依据提前写入的停止意图恢复，恢复失败保留维护入口。
+6. 在恢复服务后计算 SHA-256，原子发布完整备份目录；用既有无网络 Mongo 恢复工具实际恢复并校验。恢复通过后执行保留策略；恢复失败保留备份，下一次调度重试验证。
+
+完整备份在 `.deployment/librechat/backups/auto-TIMESTAMP-ID/`，目录 0700、文件 0600。`manifest.json` 记录文件摘要、版本和范围；`.pending` 目录表示中断或未完成，健康巡检不将其视为可恢复副本。原始异常/邮件密钥/数据库内容不进入公开报告。报告为 `output/librechat/backup-job-latest.json`，恢复证据仍绑定 Mongo 归档 SHA-256。
+
+故障时先查看 `systemctl status librechat-browser-backup.service` 和脱敏报告。备份进程已停止后可执行 `npm run backup:librechat -- --recover`，它只恢复本次停止的应用服务，不恢复数据库。不要在服务不健康时手动移除维护文件。未完成目录仅供本机诊断，确认没有正在运行的备份后才清理对应目录。
+
+目前备份以无活跃任务、应用停止写入为边界；Mongo TTL 与 Redis 过期机制仍可能运行，不承诺跨服务同一时刻事务快照。已验证 Mongo 恢复、Redis RDB 格式和 SQLite 完整性；将所有组件恢复到新环境并启动应用的完整灾难恢复仍属 P9.2。

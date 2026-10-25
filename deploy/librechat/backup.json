@@ -1,0 +1,8 @@
+{
+  "timeZone": "Asia/Shanghai",
+  "startHour": 4,
+  "drainTimeoutSeconds": 10,
+  "keep": 7,
+  "minimumDiskMiB": 5120,
+  "minimumMemoryMiB": 4096
+}

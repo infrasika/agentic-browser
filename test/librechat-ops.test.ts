@@ -71,6 +71,13 @@ test('fresh asset backups cannot hide stale data; restore evidence binds to actu
     await mkdir(join(directory, 'new-assets'), { mode: 0o700 });
     await writeFile(join(directory, 'new-assets/manifest.json'), JSON.stringify({ createdAt: new Date(now) }), { mode: 0o600 });
     await writeFile(join(directory, 'new-assets/agent.archive.gz'), 'not a full DB', { mode: 0o600 });
+    for (const name of ['.pending', 'incomplete-automatic']) {
+      await mkdir(join(directory, name), { mode: 0o700 });
+      await writeFile(join(directory, name, 'production-mongo.archive.gz'), bytes, { mode: 0o600 });
+      await writeFile(join(directory, name, 'manifest.json'), JSON.stringify({
+        createdAt: new Date(now), kind: 'librechat-scheduled-backup-v1', complete: false,
+      }), { mode: 0o600 });
+    }
     let checks = await backupHealth(directory, report, now);
     assert.equal(checks[0].metrics?.ageHours, 48);
     assert.equal(checks[0].status, 'warning');
