@@ -46,7 +46,10 @@
     "test:upgrade": "tsx --test test/upgrade.integration.ts",
     "doctor": "tsx src/doctor.ts",
     "package:self-host": "python3 scripts/package-self-host.py",
-    "verify": "bash scripts/acceptance.sh"
+    "verify": "bash scripts/acceptance.sh",
+    "build:agent": "python3 scripts/build-agent-images.py --run",
+    "test:agent-config": "node --test test/agent-deployment.test.mjs",
+    "accept:agent": "node scripts/accept-agent-compose.mjs --run"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.32.1",

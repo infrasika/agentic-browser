@@ -1,5 +1,5 @@
 import { join } from 'node:path';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { z } from 'zod';
 import { DockerEngine } from './docker-runtime.js';
 import { SchedulerStore } from './scheduling/store.js';
@@ -10,6 +10,10 @@ import { createDataServer } from './streaming/server.js';
 
 const envPath = process.env.BROWSER_ENV_FILE ?? '.deployment/librechat/private.env';
 if (existsSync(envPath)) process.loadEnvFile(envPath);
+if (process.env.BROWSER_SERVICE_TOKEN_FILE) {
+  try { process.env.BROWSER_SERVICE_TOKEN = readFileSync(process.env.BROWSER_SERVICE_TOKEN_FILE, 'utf8').trim(); }
+  catch { console.error('Browser service credential file is not readable.'); process.exit(1); }
+}
 const parsed = z.object({
   BROWSER_SERVICE_TOKEN: z.string().min(32),
   BROWSER_CONTROL_HOST: z.string().default('127.0.0.1'),
@@ -18,6 +22,7 @@ const parsed = z.object({
   BROWSER_DATA_PORT: z.coerce.number().int().min(1).max(65535).default(8082),
   DOMAIN_CLIENT: z.string().url(),
   BROWSER_DATA_DIR: z.string().default('.data/librechat-browser'),
+  BROWSER_DATA_VOLUME: z.string().regex(/^[a-zA-Z0-9][a-zA-Z0-9_.-]+$/).optional(),
   BROWSER_RUNTIME_IMAGE: z.string().min(1),
   BROWSER_MAX_SESSIONS: z.coerce.number().int().min(1).max(10).default(10),
   BROWSER_MAX_QUEUED: z.coerce.number().int().min(1).max(1000).default(100),
@@ -28,6 +33,7 @@ const parsed = z.object({
 if (!parsed.success) { console.error('Invalid Browser Service configuration. Check required service token, runtime image, domain, limits and listener ports.'); process.exit(1); }
 const config = parsed.data;
 const engine = new DockerEngine({ dataDirectory: config.BROWSER_DATA_DIR, image: config.BROWSER_RUNTIME_IMAGE,
+  ...(config.BROWSER_DATA_VOLUME ? { volume: { name: config.BROWSER_DATA_VOLUME, root: config.BROWSER_DATA_DIR } } : {}),
   network: 'public', denyHosts: [new URL(config.DOMAIN_CLIENT).hostname] });
 try { await engine.initialize(); }
 catch { console.error('Runtime initialization failed; old resource records were retained.'); process.exit(1); }
