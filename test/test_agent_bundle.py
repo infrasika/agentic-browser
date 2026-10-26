@@ -70,7 +70,9 @@ class Bundle(unittest.TestCase):
             root = Path(folder); source = root / 'repo'; source.mkdir()
             def git(*args): return subprocess.check_output(['git', '-C', str(source), *args], stderr=subprocess.DEVNULL).decode().strip()
             git('init'); git('config', 'user.name', 'test'); git('config', 'user.email', 'test@example.test')
-            (source / 'tracked').write_text('committed'); git('add', 'tracked'); git('commit', '-m', 'fixture')
+            (source / 'tracked').write_text('committed')
+            (source / 'nested').mkdir(); (source / 'nested/child').write_text('nested module')
+            git('add', 'tracked', 'nested'); git('commit', '-m', 'fixture')
             revision = git('rev-parse', 'HEAD')
             (source / 'tracked').write_text('working change'); (source / 'private.env').write_text('secret')
             previous = os.umask(0o077)
@@ -79,6 +81,7 @@ class Bundle(unittest.TestCase):
             self.assertEqual((root / 'context/tracked').read_text(), 'committed')
             self.assertFalse((root / 'context/private.env').exists())
             self.assertEqual((root / 'context').stat().st_mode & 0o777, 0o755)
+            self.assertEqual((root / 'context/nested').stat().st_mode & 0o777, 0o755)
             self.assertEqual((root / 'context/tracked').stat().st_mode & 0o777, 0o644)
 
     def test_runtime_assets_require_locked_hashes(self):
