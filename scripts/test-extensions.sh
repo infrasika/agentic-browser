@@ -2,7 +2,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 task_root="$PWD"
-task_image="${AGENTIC_TEST_IMAGE:-agentic-browser:zkpass-prototype}"
+task_image="${BROWSER_RUNTIME_IMAGE:?Set BROWSER_RUNTIME_IMAGE to the runtime image being verified}"
 task_name="agentic-browser-extension-test-$$"
 mkdir -p output/runtime/screenshots
 task_screenshots="$(mktemp -d)"
@@ -26,5 +26,6 @@ docker run --rm --init --name "$task_name" \
   --cap-drop=ALL --security-opt no-new-privileges \
   --security-opt "seccomp=$task_root/runtime/chrome-seccomp.json" \
   --mount "type=bind,src=$task_screenshots,dst=/app/output/playwright" \
+  --mount "type=bind,src=$task_root/test,dst=/app/test,readonly" \
   "$task_image" node --import tsx --test test/extensions.integration.ts \
   2>&1 | tee output/runtime/extensions-test.log

@@ -8,7 +8,7 @@ const checks = [];
 for (const [path, status] of [
   ['/', 200], ['/mcp', 404], ['/mcp/', 404], ['/api/mcp/servers', 404],
   ['/internal/v1/leases', 404], ['/browser/internal', 404],
-  ['/connect', 410], ['/api/public/sessions', 410],
+  ['/connect', 404], ['/api/public/sessions', 404],
   ['/api/agentic-browser/11111111-1111-4111-8111-111111111111', 401],
 ]) {
   const r = await fetch(`${origin}${path}`, { redirect: 'manual', signal: AbortSignal.timeout(15000),

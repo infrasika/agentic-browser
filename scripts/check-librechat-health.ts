@@ -125,7 +125,7 @@ export async function main() {
     ['public_home', 'https://agentic-browser.zkpass.org/', 200, 'html'],
     ['public_mcp_closed', 'https://agentic-browser.zkpass.org/mcp', 404, 'status'],
     ['public_control_closed', 'https://agentic-browser.zkpass.org/internal/v1/leases', 404, 'status'],
-    ['public_anonymous_retired', 'https://agentic-browser.zkpass.org/connect', 410, 'status'],
+    ['public_anonymous_blocked', 'https://agentic-browser.zkpass.org/connect', 404, 'status'],
   ] as const) probes.push(probe(name, () => httpHealth(url, expected, kind)));
   probes.push(probe('mongo', async () => ({ status: await command('docker', ['exec', 'librechat-browser-demo-mongo-1', 'mongosh', '--quiet', '--eval', "print(db.adminCommand({ping:1}).ok)"]) === '1' ? 'ok' : 'error' })));
   probes.push(probe('redis', async () => ({ status: await command('docker', ['exec', 'librechat-browser-demo-redis-1', 'redis-cli', 'ping']) === 'PONG' ? 'ok' : 'error' })));

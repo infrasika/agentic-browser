@@ -2,12 +2,13 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import { readFile, mkdir } from 'node:fs/promises';
-import { networkInterfaces } from 'node:os';
+import { readFile, mkdir, mkdtemp } from 'node:fs/promises';
+import { networkInterfaces, tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { once } from 'node:events';
 import type { Browser, Page } from 'playwright';
-import { DesktopEngine, DesktopWorkspace } from '../src/desktop.js';
+import { DesktopWorkspace } from '../src/desktop.js';
 
 const exec = promisify(execFile);
 const lock = JSON.parse(await readFile('/app/runtime/assets.lock.json', 'utf8')) as {
@@ -17,6 +18,11 @@ const lock = JSON.parse(await readFile('/app/runtime/assets.lock.json', 'utf8'))
 const internals = (workspace: DesktopWorkspace) => workspace as unknown as {
   browser?: Browser; environment: NodeJS.ProcessEnv;
 };
+async function createWorkspace() {
+  const workspace = new DesktopWorkspace(await mkdtemp(join(tmpdir(), 'extension-test-')));
+  try { await workspace.start('/usr/bin/google-chrome-stable'); return workspace; }
+  catch (error) { await workspace.close(); throw error; }
+}
 async function extensionInfo(page: Page) {
   await page.goto('chrome://extensions');
   return page.evaluate(() => new Promise<any[]>((resolve) => {
@@ -37,7 +43,7 @@ async function waitForExtensions(page: Page) {
 
 test('image: both original extensions install without network and remain usable across native handoff', { timeout: 90000 }, async t => {
   assert.ok(Object.values(networkInterfaces()).flat().every(address => !address || address.internal), 'Run with docker --network none');
-  const workspace = await new DesktopEngine().create();
+  const workspace = await createWorkspace();
   t.after(() => workspace.close());
   const browser = internals(workspace).browser!;
   const context = browser.contexts()[0];
@@ -69,7 +75,7 @@ test('image: both original extensions install without network and remain usable 
   await page.goto(`chrome-extension://${transgate.id}/${transgate.popup}`);
   await page.evaluate(() => (globalThis as any).chrome.storage.local.set({ agenticIsolationFixture: 'private-session-A' }));
   await context.addCookies([{ name: 'agentic_fixture', value: 'private-session-A', url: 'https://example.test/' }]);
-  const second = await new DesktopEngine().create();
+  const second = await createWorkspace();
   t.after(() => second.close());
   const secondContext = internals(second).browser!.contexts()[0];
   const secondPage = secondContext.pages()[0];
@@ -151,7 +157,7 @@ test('Schema Validator: original extension captures a synthetic API while CDP is
   await once(fixture, 'listening');
   base = `http://127.0.0.1:${(fixture.address() as { port: number }).port}`;
   t.after(() => { fixture.closeAllConnections(); fixture.close(); });
-  const workspace = await new DesktopEngine().create();
+  const workspace = await createWorkspace();
   t.after(() => workspace.close());
   const context = internals(workspace).browser!.contexts()[0];
   const page = context.pages()[0];

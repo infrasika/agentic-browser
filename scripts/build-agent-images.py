@@ -73,7 +73,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--run', action='store_true')
     parser.add_argument('--librechat', type=Path, default=ROOT.parent / 'librechat-agent')
-    parser.add_argument('--tag', default='selfhost-preview')
+    parser.add_argument('--tag', default='development')
     parser.add_argument('--component', choices=['all', 'agent', 'browser', 'runtime'], default='all')
     parser.add_argument('--committed', action='store_true', help='Build only recorded Git commits (required for release candidates)')
     parser.add_argument('--browser-commit', help='Exact existing commit to rebuild; defaults to HEAD')
@@ -114,8 +114,8 @@ def main():
             dockerfile = sources['browser'] / ('runtime/Dockerfile' if component=='runtime' else f'deploy/agent/{component}.Dockerfile')
             shutil.copy2(dockerfile,context/'Dockerfile.agent')
             if component=='runtime': report['runtimeAssets'] = runtime_assets(ROOT, context)
-            # The git allowlist is already the boundary; do not inherit a legacy
-            # ignore file that excludes required new deployment files.
+            # The tracked allowlist defines the context; use one explicit
+            # exclusion policy for both source projects.
             (context/'.dockerignore').write_text('.git\nnode_modules\n.deployment\n.data\n.env\n' + ('' if component=='runtime' else 'output\n'))
             image='agentic-browser-'+('service' if component=='browser' else component)+':'+args.tag
             with (work/(component+'.log')).open('w') as log:

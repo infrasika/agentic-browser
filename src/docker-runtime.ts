@@ -8,16 +8,14 @@ import { promisify } from 'node:util';
 import { setTimeout as delay } from 'node:timers/promises';
 import { z } from 'zod';
 import { BrowserAllocationError, ServiceError, type Actor, type BrowserAction, type BrowserEngine, type BrowserWorkspace } from './contracts.js';
-import { ProfileStore, type ProfileLease } from './profiles.js';
 import { runtimeMount, type RuntimeVolume } from './runtime-mounts.js';
 
 const exec = promisify(execFile);
 const docker = (args: string[]) => exec('docker', args, { timeout: 60000, maxBuffer: 2 * 1024 * 1024 });
-const recordSchema = z.object({ id: z.string().uuid(), name: z.string(), hostname: z.string(), ownerId: z.string().regex(/^[A-Za-z0-9_:@.-]{1,128}$/).optional(), profileId: z.string().uuid().optional() }).strict();
+const recordSchema = z.object({ id: z.string().uuid(), name: z.string(), hostname: z.string(), ownerId: z.string().regex(/^[A-Za-z0-9_:@.-]{1,128}$/).optional() }).strict();
 type RuntimeRecord = z.infer<typeof recordSchema>;
 
 export class DockerEngine implements BrowserEngine {
-  readonly profiles: ProfileStore;
   private root: string;
   private initialized?: Promise<void>;
   private instance = '';
@@ -27,10 +25,9 @@ export class DockerEngine implements BrowserEngine {
   private workspaces = new Map<string, DockerWorkspace>();
   private stopping = false;
   private reaping?: Promise<void>;
-  constructor(private options: { dataDirectory: string; image?: string; platform?: 'linux/amd64' | 'linux/arm64'; seccompPath?: string; network?: 'none' | 'public'; denyHosts?: string[]; volume?: RuntimeVolume }) {
+  constructor(private options: { dataDirectory: string; image: string; platform?: 'linux/amd64' | 'linux/arm64'; seccompPath?: string; network?: 'none' | 'public'; denyHosts?: string[]; volume?: RuntimeVolume }) {
     this.platform = options.platform ?? (process.arch === 'arm64' ? 'linux/arm64' : 'linux/amd64');
     this.root = resolve(options.dataDirectory, 'runtimes');
-    this.profiles = new ProfileStore(options.dataDirectory);
   }
   async initialize() { return this.initialized ??= this.prepare(); }
   private async prepare() {
@@ -59,7 +56,7 @@ export class DockerEngine implements BrowserEngine {
       const inspectPlatform = this.platform === nativePlatform ? [] : ['--platform', this.platform];
       // Pin the top-level image ID first. With containerd, platform inspection
       // returns a child manifest digest that cannot be resolved as an image ID.
-      this.image = (await docker(['image', 'inspect', this.options.image ?? 'agentic-browser:zkpass-prototype', '--format', '{{.Id}}'])).stdout.trim();
+      this.image = (await docker(['image', 'inspect', this.options.image, '--format', '{{.Id}}'])).stdout.trim();
       if (!/^sha256:[a-f0-9]{64}$/.test(this.image)) throw new Error('Runtime image is not available locally');
       if ((await docker(['image', 'inspect', ...inspectPlatform, this.image, '--format', '{{.Os}}/{{.Architecture}}'])).stdout.trim() !== this.platform)
         throw new Error('Chrome runtime platform does not match the configured platform');
@@ -67,17 +64,12 @@ export class DockerEngine implements BrowserEngine {
     } catch (error) { await this.releaseLock(); this.releaseLock = undefined; throw error; }
   }
   private recordPath(id: string) { return join(this.root, `${z.string().uuid().parse(id)}.json`); }
-  async create(options?: { profileId?: string; ownerId?: string }) {
+  async create(options?: { ownerId?: string }) {
     await this.initialize();
     if (this.stopping) throw new ServiceError(503, 'shutting_down', 'Runtime controller is closing');
-    const lease = options?.profileId ? await this.profiles.acquire(options.profileId, options.ownerId) : undefined;
-    if (lease) {
-      const release = lease.release; let released = false;
-      lease.release = async () => { if (!released) { await release(); released = true; } };
-    }
     const id = randomUUID();
-    const record: RuntimeRecord = { id, name: `agentic-runtime-${id}`, hostname: `ab-${id}`, ownerId: options?.ownerId, profileId: options?.profileId };
-    const workspace = new DockerWorkspace(record, lease, () => this.cleanup(record, lease));
+    const record: RuntimeRecord = { id, name: `agentic-runtime-${id}`, hostname: `ab-${id}`, ownerId: options?.ownerId };
+    const workspace = new DockerWorkspace(record, () => this.cleanup(record));
     this.workspaces.set(id, workspace);
     try {
       await writeFile(this.recordPath(id), JSON.stringify(record), { flag: 'wx', mode: 0o600 });
@@ -104,7 +96,6 @@ export class DockerEngine implements BrowserEngine {
         '--network', 'none', '--read-only', '--user', `${process.getuid?.() ?? 1000}:${process.getgid?.() ?? 1000}`,
         '--tmpfs', '/tmp:rw,nosuid,nodev,size=768m', '--shm-size', '512m', '--memory', '2g', '--cpus', '2', '--pids-limit', '512',
         '--cap-drop', 'ALL', '--security-opt', 'no-new-privileges', '--security-opt', `seccomp=${resolve(this.options.seccompPath ?? 'runtime/chrome-seccomp.json')}`];
-      if (lease) args.push('--mount', await runtimeMount(lease.directory, '/profile', this.options.volume));
       if (this.options.network === 'public') args.push('--mount', await runtimeMount(proxyDirectory, '/egress', this.options.volume, true));
       args.push(this.image, 'node', '--import', 'tsx', 'src/runtime-worker.ts');
       await workspace.start(args, this.options.network === 'public');
@@ -138,11 +129,8 @@ export class DockerEngine implements BrowserEngine {
     if ((await docker(['ps', '-aq', '--filter', `name=^/${name}$`])).stdout.trim())
       throw new Error('Unrecognised container occupies runtime name; refusing cleanup');
   }
-  private async cleanup(record: RuntimeRecord, lease?: ProfileLease) {
+  private async cleanup(record: RuntimeRecord) {
     await this.removeContainer(record.name, record.id);
-    // Release only after the isolated processes are confirmed stopped.
-    await lease?.release();
-    if (record.profileId) await this.profiles.recoverRuntime(record.profileId, record.ownerId, record.hostname);
     await rm(join(this.root, `${record.id}-proxy`), { recursive: true, force: true });
     await rm(this.recordPath(record.id), { force: true });
     this.workspaces.delete(record.id);
@@ -179,8 +167,7 @@ export class DockerWorkspace implements BrowserWorkspace {
   private closing?: Promise<void>;
   closed = false;
   private runtimeState: NonNullable<BrowserWorkspace['runtime']>['state'] = 'allocating';
-  constructor(readonly record: RuntimeRecord, private lease: ProfileLease | undefined, private cleanup: () => Promise<void>) {}
-  get profile() { return this.lease?.info; }
+  constructor(readonly record: RuntimeRecord, private cleanup: () => Promise<void>) {}
   get runtime() { return { id: this.record.id, state: this.runtimeState }; }
   async start(args: string[], publicEgress = false) {
     this.child = spawn('docker', args, { stdio: ['pipe', 'pipe', 'pipe'] });
@@ -189,7 +176,7 @@ export class DockerWorkspace implements BrowserWorkspace {
     this.child.on('error', () => this.fail());
     this.child.on('exit', () => this.fail());
     createInterface({ input: this.child.stdout }).on('line', line => this.receive(line));
-    await this.rpc('start', { profile: this.lease?.info, publicEgress });
+    await this.rpc('start', { publicEgress });
     this.runtimeState = 'ready';
   }
   private fail() {

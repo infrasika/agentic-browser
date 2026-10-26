@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { EventEmitter } from 'node:events';
 import { BrowserAllocationError, ServiceError, type Actor, type BrowserAction, type BrowserEngine, type BrowserWorkspace } from '../contracts.js';
-import { BrowserSession } from '../sessions.js';
+import { BrowserSession } from './session.js';
 import { SchedulerStore, terminalStates, type Lease, type LeaseState, type Principal } from './store.js';
 
 type Runtime = { workspace: BrowserWorkspace; session?: BrowserSession };
@@ -51,7 +51,7 @@ export class BrowserService extends EventEmitter {
       if (this.stopping || this.store.get(lease.id).state !== 'starting') {
         await this.cleanup(lease.id); return;
       }
-      const session = new BrowserSession(lease.purpose, workspace, this.options.ttlMs, this.now, lease.userId, undefined, this.options.maxLifetimeMs);
+      const session = new BrowserSession(lease.purpose, workspace, this.options.ttlMs, this.now, this.options.maxLifetimeMs);
       runtime.session = session;
       await session.run('agent', workspace => workspace.perform({ type: 'navigate', url: lease.url }));
       if (this.stopping || this.store.get(lease.id).state !== 'starting') {

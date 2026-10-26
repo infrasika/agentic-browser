@@ -12,8 +12,8 @@
 
 ```bash
 sha256sum -c SHA256SUMS
-tar -xzf agentic-browser-agent-v0.2.0-rc.2.tar.gz
-cd agentic-browser-agent-v0.2.0-rc.2
+tar -xzf agentic-browser-agent-v0.2.0-rc.3.tar.gz
+cd agentic-browser-agent-v0.2.0-rc.3
 python3 bundle.py verify
 ```
 

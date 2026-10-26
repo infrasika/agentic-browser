@@ -52,7 +52,7 @@ http {
       return 503 'Agent maintenance in progress. Please try again shortly.\n';
     }
     location ~ ^/(?:mcp|api/mcp|internal|browser/(?:mcp|internal))(?:/|$) { return 404; }
-    location ~ ^/(?:connect|view|claim)(?:/|$) { return 410; }
+    location ~ ^/(?:connect|view|claim)(?:/|$) { return 404; }
     location = /browser/v1/observe { if (-f /maintenance/active) { return 503; } proxy_pass http://viewer; }
     location = /browser/v1/input { if (-f /maintenance/active) { return 503; } proxy_pass http://viewer; }
     location = /browser { return 404; }

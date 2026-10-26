@@ -53,7 +53,7 @@ def validate_report(report):
 
 def validate_image_sources(source_commit, package_commit):
     paths = ['deploy/agent/app', 'deploy/agent/agent.Dockerfile', 'deploy/agent/browser.Dockerfile',
-             'src', 'web', 'runtime', 'package-lock.json', 'tsconfig.json']
+             'src', 'runtime', 'package-lock.json', 'tsconfig.json']
     changed = subprocess.check_output(['git', 'diff', '--name-only', source_commit, package_commit, '--', *paths], cwd=ROOT)
     if changed.strip(): raise ValueError('application/image inputs changed since the recorded build; rebuild first')
     before = json.loads(git_bytes(ROOT, source_commit, 'package.json'))

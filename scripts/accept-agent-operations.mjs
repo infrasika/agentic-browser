@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { acceptanceRelease } from './agent/release-fixture.mjs';
 import { readFile, writeFile, mkdir, cp, rm } from 'node:fs/promises';
 import { execFile } from 'node:child_process';
 import { promisify, parseEnv } from 'node:util';
@@ -6,7 +7,7 @@ import { randomUUID } from 'node:crypto';
 import { resolve } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { DatabaseSync } from 'node:sqlite';
-if(!process.argv.includes('--run')) { console.log('Usage: node scripts/accept-agent-operations.mjs --run [--hold]');process.exit(0); }
+if(!process.argv.includes('--run')) { console.log('Usage: node scripts/accept-agent-operations.mjs --run --release release.json [--hold]');process.exit(0); }
 const root=resolve(import.meta.dirname,'..'), id=randomUUID(), work=resolve(root,'.deployment/agent-operations',id), directory=work+'/install', restored=work+'/restored';
 const report={id,passed:false,stage:'preflight',checks:[],callsPaidModel:false}, exec=promisify(execFile);
 const command=async(cmd,args,options={})=>(await exec(cmd,args,{cwd:root,timeout:300000,maxBuffer:6*1024*1024,...options})).stdout.trim();
@@ -29,9 +30,9 @@ try {
   const db=new DatabaseSync(resolve(root,'.data/librechat-browser/scheduler.sqlite'),{readOnly:true});
   assert.equal(db.prepare("SELECT COUNT(*) n FROM leases WHERE state IN ('queued','starting','active','closing','cleanup_pending')").get().n,0);db.close();
   const image=async(name)=>command('docker',['image','inspect',name,'--format','{{.Id}}']);
-  const images={agent:await image('agentic-browser-agent:selfhost-ops-preview'),browser:await image('agentic-browser-service:selfhost-preview'),runtime:await image('agentic-browser:node24.22.1-candidate-runtime'),gateway:'nginx@sha256:47928bf67eb62a1863cb08d9ecb52d3e704304ba614eaee17884204677702951'};
+  const releaseManifest=await acceptanceRelease(), images=releaseManifest.images;
   report.images=images;
-  const release=await inputFile('release.json',{version:'ops-preview',images});
+  const release=await inputFile('release.json',releaseManifest);
   report.stage='installer';await cli(['init','--release',release,'--port','3335','--development']);
   project=JSON.parse(await readFile(directory+'/installation.json')).project;
   const beforeSecrets=await readFile(directory+'/config/secrets.env','utf8');

@@ -72,10 +72,8 @@ def release_file(path, development=False):
     value = json.loads(path.read_text())
     if set(value) != {'version', 'images'} or not re.fullmatch(r'[a-zA-Z0-9_.-]{1,80}', value['version']):
         raise Failure('invalid_release_manifest')
-    required = {'agent', 'browser', 'runtime', 'gateway'}
-    # Early local previews pinned databases in Compose. New bundles include all
-    # six images, allowing an air-gapped image import without registry lookups.
-    if set(value['images']) not in [required, required | {'mongo', 'redis'}]: raise Failure('invalid_release_images')
+    required = {'agent', 'browser', 'runtime', 'gateway', 'mongo', 'redis'}
+    if set(value['images']) != required: raise Failure('invalid_release_images')
     for ref in value['images'].values():
         if not isinstance(ref, str) or not (re.fullmatch(r'[a-zA-Z0-9./:_-]+@sha256:[a-f0-9]{64}', ref) or development and re.fullmatch(r'sha256:[a-f0-9]{64}', ref)):
             raise Failure('immutable_release_images_required')

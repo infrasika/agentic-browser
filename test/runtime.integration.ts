@@ -11,7 +11,9 @@ import { randomUUID } from 'node:crypto';
 import { DockerEngine } from '../src/docker-runtime.js';
 
 const exec = promisify(execFile);
-test('Docker volume subpaths: only the authorised profile and proxy directory are mounted', { timeout: 90000 }, async t => {
+const image = process.env.BROWSER_RUNTIME_IMAGE;
+if (!image) throw new Error("Set BROWSER_RUNTIME_IMAGE to the installed runtime being verified");
+test('Docker volume subpaths: only the authorised proxy directory is mounted', { timeout: 90000 }, async t => {
   const root = await mkdtemp(join(tmpdir(), 'agentic-volume-acceptance-'));
   const volumeName = `agentic-test-${randomUUID()}`;
   await writeFile(join(root, 'controller-only-fixture'), 'must-not-be-mounted');
@@ -19,16 +21,12 @@ test('Docker volume subpaths: only the authorised profile and proxy directory ar
   // host controller verify real Docker volume subpaths without granting any
   // container access to the Docker daemon or unrelated host paths.
   await exec('docker', ['volume', 'create', '--driver', 'local', '--opt', 'type=none', '--opt', 'o=bind', '--opt', `device=${root}`, volumeName]);
-  const engine = new DockerEngine({ dataDirectory: root, volume: { name: volumeName, root }, network: 'public' });
+  const engine = new DockerEngine({ image, dataDirectory: root, volume: { name: volumeName, root }, network: 'public' });
   t.after(async () => { await engine.close(); await exec('docker', ['volume', 'rm', volumeName]); await rm(root, { recursive: true, force: true }); });
   const alice = randomUUID(), bob = randomUUID();
-  const profile = await engine.profiles.create('Volume fixture', alice);
-  const bProfile = await engine.profiles.create('Other member', bob);
-  const bLease = await engine.profiles.acquire(bProfile.id, bob);
-  await writeFile(join(bLease.directory, 'private-other-member'), 'fixture'); await bLease.release();
-  const workspace = await engine.create({ ownerId: alice, profileId: profile.id });
+  const workspace = await engine.create({ ownerId: alice });
   const details = JSON.parse((await exec('docker', ['inspect', workspace.record.name])).stdout)[0];
-  assert.deepEqual(details.Mounts.filter((mount: any) => mount.Type === 'volume').map((mount: any) => mount.Destination).sort(), ['/egress', '/profile']);
+  assert.deepEqual(details.Mounts.filter((mount: any) => mount.Type === 'volume').map((mount: any) => mount.Destination).sort(), ['/egress']);
   for (const mount of details.HostConfig.Mounts) {
     assert.equal(mount.Type, 'volume'); assert.equal(mount.Source, volumeName);
     assert.ok(mount.VolumeOptions.Subpath && mount.VolumeOptions.Subpath !== '.');
@@ -49,31 +47,23 @@ test('Docker volume subpaths: only the authorised profile and proxy directory ar
   assert.match(sandbox, /Seccomp-BPF[\s\S]*Yes/i);
   await workspace.perform({ type: 'navigate', url: 'http://169.254.169.254/' });
   assert.match((await workspace.perform({ type: 'snapshot' }) as { text: string }).text, /Network target is not allowed/);
-  await workspace.perform({ type: 'navigate', url: 'https://agentic-browser.invalid/demo' });
+  await workspace.perform({ type: 'navigate', url: 'https://example.com' });
   await workspace.setControl('human');
   const stream = workspace.openDesktop(); assert.match((await once(stream, 'data'))[0].toString(), /^RFB /);
   const closed = once(stream, 'close'); await workspace.setControl('agent'); await closed;
-  assert.match((await workspace.perform({ type: 'snapshot' }) as { text: string }).text, /Demo username/);
-  await inside("require('fs').writeFileSync('/profile/volume-fixture','saved')");
+  assert.match((await workspace.perform({ type: 'snapshot' }) as { text: string }).text, /Example Domain/);
   await workspace.close();
-  const reopened = await engine.create({ ownerId: alice, profileId: profile.id });
-  assert.equal((await exec('docker', ['exec', reopened.record.name, 'node', '-e', "console.log(require('fs').readFileSync('/profile/volume-fixture','utf8'))"])).stdout.trim(), 'saved');
-  await reopened.close();
   assert.equal((await readdir(join(root, 'runtimes'))).filter(file => file.endsWith('.json')).length, 0);
 });
 
-test('Docker Runtime: separate processes/files/network, scoped profile mount, handoff, reuse and cleanup', { timeout: 90000 }, async t => {
+test('Docker Runtime: separate processes/files/network, no persistent login state, handoff and cleanup', { timeout: 90000 }, async t => {
   const root = await mkdtemp(join(tmpdir(), 'agentic-runtime-acceptance-'));
-  const engine = new DockerEngine({ dataDirectory: root });
+  const engine = new DockerEngine({ image, dataDirectory: root });
   t.after(async () => { await engine.close(); await rm(root, { recursive: true, force: true }); });
   const alice = randomUUID(), bob = randomUUID();
-  const aProfile = await engine.profiles.create('Synthetic A profile', alice);
-  const bProfile = await engine.profiles.create('Synthetic B profile', bob);
-  const bLease = await engine.profiles.acquire(bProfile.id, bob);
-  await writeFile(join(bLease.directory, 'other-member-fixture'), 'must-not-be-mounted'); await bLease.release();
   process.env.AGENTIC_TEST_PARENT_SECRET = 'synthetic-parent-only';
   t.after(() => { delete process.env.AGENTIC_TEST_PARENT_SECRET; });
-  const a = await engine.create({ ownerId: alice, profileId: aProfile.id });
+  const a = await engine.create({ ownerId: alice });
   const b = await engine.create({ ownerId: bob });
   assert.notEqual(a.record.name, b.record.name);
   async function inside(name: string, script: string) {
@@ -99,14 +89,12 @@ test('Docker Runtime: separate processes/files/network, scoped profile mount, ha
   assert.equal(info.HostConfig.PidsLimit, 512);
   assert.equal(info.Config.User, `${process.getuid!()}:${process.getgid!()}`);
   assert.deepEqual(info.HostConfig.PortBindings, {});
-  assert.deepEqual(info.Mounts.filter((mount: any) => mount.Type === 'bind').map((mount: any) => mount.Destination), ['/profile']);
+  assert.deepEqual(info.Mounts.filter((mount: any) => mount.Type === 'bind').map((mount: any) => mount.Destination), []);
   assert.equal(await inside(a.record.name, "console.log(process.env.AGENTIC_TEST_PARENT_SECRET === undefined)"), 'true');
   assert.equal(await inside(a.record.name, `import fs from 'node:fs'; fs.writeFileSync('/tmp/private-A','fixture'); console.log(fs.existsSync(${JSON.stringify(root)}))`), 'false');
   assert.equal(await inside(b.record.name, "import fs from 'node:fs'; console.log(fs.existsSync('/tmp/private-A') || fs.existsSync('/profile'))"), 'false');
   assert.equal(await inside(a.record.name, "import fs from 'node:fs'; console.log(fs.existsSync('/profile/other-member-fixture') || fs.existsSync('/var/run/docker.sock'))"), 'false');
   assert.equal(await inside(a.record.name, "import os from 'node:os'; console.log(Object.values(os.networkInterfaces()).flat().every(i => i.internal))"), 'true');
-  await assert.rejects(engine.create({ ownerId: bob, profileId: aProfile.id }));
-  await assert.rejects(engine.create({ ownerId: alice, profileId: aProfile.id }));
   assert.equal((await a.perform({ type: 'snapshot' }) as { url: string }).url, 'about:blank');
   await a.setControl('human');
   await assert.rejects(a.perform({ type: 'snapshot' }));
@@ -116,20 +104,19 @@ test('Docker Runtime: separate processes/files/network, scoped profile mount, ha
   await a.setControl('agent'); await closed;
   assert.equal((await a.perform({ type: 'snapshot' }) as { url: string }).url, 'about:blank');
   await a.close();
-  const reopened = await engine.create({ ownerId: alice, profileId: aProfile.id });
-  assert.equal(await fixtureCookie(reopened.record.name), 'true', 'Synthetic login persists across complete container recreation');
+  const reopened = await engine.create({ ownerId: alice });
+  assert.equal(await fixtureCookie(reopened.record.name), 'false', 'A new session never inherits the previous login');
   await reopened.close(); await b.close();
   assert.equal((await readdir(join(root, 'runtimes'))).filter(file => file.endsWith('.json')).length, 0);
   const instance = await readFile(join(root, 'runtimes', 'instance-id'), 'utf8');
   const survivors = (await exec('docker', ['ps', '-aq', '--filter', `label=dev.agentic-browser.instance=${instance}`])).stdout.trim();
   assert.equal(survivors, '');
-  assert.equal((await engine.profiles.list(alice)).length, 1);
-  await engine.profiles.remove(aProfile.id, alice);
+
 });
 
 test('Docker Runtime: public HTTPS works through private proxy; private/metadata targets and direct egress are blocked', { timeout: 90000 }, async t => {
   const root = await mkdtemp(join(tmpdir(), 'agentic-runtime-egress-'));
-  const engine = new DockerEngine({ dataDirectory: root, network: 'public', denyHosts: ['localhost'] });
+  const engine = new DockerEngine({ image, dataDirectory: root, network: 'public', denyHosts: ['localhost'] });
   t.after(async () => { await engine.close(); await rm(root, { recursive: true, force: true }); });
   const workspace = await engine.create({ ownerId: randomUUID() });
   await workspace.perform({ type: 'navigate', url: 'https://httpbin.org/get?agentic_runtime_fixture=1' });
@@ -139,8 +126,8 @@ test('Docker Runtime: public HTTPS works through private proxy; private/metadata
     await workspace.perform({ type: 'navigate', url });
     assert.match((await workspace.perform({ type: 'snapshot' }) as { text: string }).text, /Network target is not allowed/, url);
   }
-  await workspace.perform({ type: 'navigate', url: 'https://agentic-browser.invalid/demo' });
-  assert.match((await workspace.perform({ type: 'snapshot' }) as { text: string }).text, /Demo username/);
+  await workspace.perform({ type: 'navigate', url: 'https://example.com' });
+  assert.match((await workspace.perform({ type: 'snapshot' }) as { text: string }).text, /Example Domain/);
   const direct = await exec('docker', ['exec', workspace.record.name, 'node', '-e', "fetch('http://1.1.1.1',{signal:AbortSignal.timeout(1500)}).then(()=>console.log('bypassed'),()=>console.log('blocked'))"]);
   assert.equal(direct.stdout.trim(), 'blocked');
   await workspace.close();
@@ -149,17 +136,16 @@ test('Docker Runtime: public HTTPS works through private proxy; private/metadata
   assert.equal((await readdir(join(root, 'runtimes'))).some(file => file.endsWith('-proxy')), false);
 });
 
-test('Docker Runtime: crashed Chrome/container cannot be reused until verified cleanup; saved profile remains recoverable', { timeout: 60000 }, async t => {
+test('Docker Runtime: crashed Chrome/container cannot be reused until verified cleanup; replacement starts with a fresh context', { timeout: 60000 }, async t => {
   const root = await mkdtemp(join(tmpdir(), 'agentic-runtime-crash-'));
-  const engine = new DockerEngine({ dataDirectory: root });
+  const engine = new DockerEngine({ image, dataDirectory: root });
   t.after(async () => { await engine.close(); await rm(root, { recursive: true, force: true }); });
   const ownerId = randomUUID();
-  const profile = await engine.profiles.create('Crash fixture', ownerId);
-  const workspace = await engine.create({ ownerId, profileId: profile.id });
+  const workspace = await engine.create({ ownerId });
   await exec('docker', ['kill', workspace.record.name]);
   await assert.rejects(workspace.perform({ type: 'snapshot' }));
   await workspace.close();
-  const reopened = await engine.create({ ownerId, profileId: profile.id });
+  const reopened = await engine.create({ ownerId });
   assert.equal((await reopened.perform({ type: 'snapshot' }) as { url: string }).url, 'about:blank');
   await reopened.close();
   assert.equal((await readdir(join(root, 'runtimes'))).filter(file => file.endsWith('.json')).length, 0);
@@ -168,25 +154,23 @@ test('Docker Runtime: crashed Chrome/container cannot be reused until verified c
 test('Docker Runtime: an abruptly killed controller leaves a recoverable ledger; restart cleans only its own runtimes', { timeout: 60000 }, async t => {
   const root = await mkdtemp(join(tmpdir(), 'agentic-controller-crash-'));
   const script = `import {DockerEngine} from ${JSON.stringify(new URL('../src/docker-runtime.ts', import.meta.url).href)};
-    const engine = new DockerEngine({dataDirectory:${JSON.stringify(root)}});
+    const engine = new DockerEngine({image:${JSON.stringify(image)},dataDirectory:${JSON.stringify(root)}});
     const ownerId=${JSON.stringify(randomUUID())};
-    const profile=await engine.profiles.create('Controller crash fixture',ownerId);
-    const runtime=await engine.create({ownerId,profileId:profile.id});
-    process.stdout.write(JSON.stringify({ownerId,profileId:profile.id,name:runtime.record.name})+'\\n');
+    const runtime=await engine.create({ownerId});
+    process.stdout.write(JSON.stringify({ownerId,name:runtime.record.name})+'\\n');
     setInterval(()=>{},10000);`;
   const child = spawn(process.execPath, ['--import', 'tsx', '--input-type=module', '-e', script], { stdio: ['ignore', 'pipe', 'pipe'] });
   child.stderr.resume();
   const lines = createInterface({ input: child.stdout });
-  const engine = new DockerEngine({ dataDirectory: root });
+  const engine = new DockerEngine({ image, dataDirectory: root });
   t.after(async () => { child.kill('SIGKILL'); await engine.close(); await rm(root, { recursive: true, force: true }); });
   const [line] = await once(lines, 'line');
   const record = JSON.parse(line);
-  const competitor = new DockerEngine({ dataDirectory: root });
+  const competitor = new DockerEngine({ image, dataDirectory: root });
   await assert.rejects(competitor.initialize(), /Another runtime controller/);
   const exited = once(child, 'exit'); child.kill('SIGKILL'); await exited;
   await engine.initialize();
   assert.equal((await readdir(join(root, 'runtimes'))).filter(file => file.endsWith('.json')).length, 0);
-  const restored = await engine.create({ ownerId: record.ownerId, profileId: record.profileId });
+  const restored = await engine.create({ ownerId: record.ownerId });
   await restored.close();
-  assert.equal((await engine.profiles.list(record.ownerId)).length, 1);
 });

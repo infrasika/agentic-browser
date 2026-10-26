@@ -105,7 +105,7 @@ services:
     mem_limit: 768m
     cpus: 1
   mongo:
-    image: ${MONGO_IMAGE:-mongo:8.0@sha256:4a4ab5d4834207389e0d7270fac988e21ffedccecba77991a552f755df229907}
+    image: ${MONGO_IMAGE:?Set the pinned MongoDB image}
     volumes: [mongo-data:/data/db]
     networks: [database]
     restart: unless-stopped
@@ -118,7 +118,7 @@ services:
       timeout: 5s
       retries: 12
   redis:
-    image: ${REDIS_IMAGE:-redis:7.4-alpine@sha256:57e4255cc971b1c8d6f8a6ca283ac01bc3ecdd914273ef6bfaede87aaecd6541}
+    image: ${REDIS_IMAGE:?Set the pinned Redis image}
     command: [redis-server, --appendonly, 'yes', --appendfsync, everysec, --maxmemory-policy, noeviction]
     volumes: [redis-data:/data]
     networks: [database]

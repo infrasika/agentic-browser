@@ -1,13 +1,13 @@
 # 完整 Agent 发行准备
 
-当前为 Linux amd64 候选版。公开 Agent 镜像和下载地址尚未发布，独立新服务器验收仍待完成。不能通过旧 `publish-images.yml` 发布完整 Agent：该 workflow 仍属于历史 MCP/controller 产品。
+当前为 Linux amd64 候选版。公开 Agent 镜像和下载地址尚未发布，独立新服务器验收仍待完成。构建和打包不自动公开发布。
 
 ## 源码与镜像
 
 两个仓库分别保留提交历史。Agent 镜像由 LibreChat 提交加 Browser 仓库的 `deploy/agent/app` 构建，Browser Service 和 runtime 来自 Browser 仓库。发行构建必须使用 `--committed`，读取 Git 对象，不使用工作区修改、未跟踪文件或先前编译产物：
 
 ```bash
-python3 scripts/build-agent-images.py --run --committed --tag agent-v0.2.0-rc.2
+python3 scripts/build-agent-images.py --run --committed --tag agent-v0.2.0-rc.3
 ```
 
 一次完整构建生成 Agent、Browser Service 和 runtime 三个镜像，使用独立 2 CPU/5 GiB buildx builder。Chrome/扩展资源从本地缓存复制前逐项核对已提交 lock 的 SHA-256；缓存缺失或变化时失败。基础镜像按 digest 固定；APT/npm 上游仍是构建网络依赖，完整重建不等于字节级可复现构建。
@@ -21,8 +21,8 @@ python3 scripts/build-agent-images.py --run --committed --tag agent-v0.2.0-rc.2
 ```bash
 python3 scripts/package-agent.py \
   --build-report .deployment/agent-build/BUILD_DIRECTORY/report.json \
-  --version v0.2.0-rc.2 \
-  --output output/agent/releases/v0.2.0-rc.2
+  --version v0.2.0-rc.3 \
+  --output output/agent/releases/v0.2.0-rc.3
 ```
 
 默认生成带六个镜像的离线候选包，以及外层/内层 SHA256SUMS、源码/工具提交清单、安装器、运维/安装手册、纯 Python 验收脚本和许可。镜像 archive 使用本机 image ID，导入后显式 `--development` 安装；不会将 ID 冒充 registry digest。包内 Mongo/Redis 也固定 ID，不依赖目标机已有仓库缓存。
@@ -39,6 +39,6 @@ python3 scripts/package-agent.py \
 4. 对实际前后两个发行版本做升级/恢复验收；同一镜像的版本号演练只能证明操作流程。
 5. 确定公开镜像仓库、固定版本标签及安装包的可下载位置后发布；匿名拉取/下载后重新校验。当前源码仓库私有，GitHub Release 附件不能被当作匿名下载入口。
 
-候选包可以先交给测试机验收。未完成门槛时保持 candidate 状态，不更新旧 MCP controller/runtime 的 stable/latest 别名，不把未发布的地址写成可用下载链接。
+候选包可以先交给测试机验收。未完成门槛时保持 candidate 状态，不把未发布的地址写成可用下载链接。
 
 可选 `.github/workflows/accept-agent-bundle.yml` 在 GitHub 的全新 Ubuntu runner 执行同一验收，输入可信 HTTPS 候选包地址与 SHA-256；不 checkout 源码、不 setup Node、不构建镜像。测试 PATH 只提供 Python/Docker，报告单独记录 runner 来源。该 workflow 已准备但尚未推送或执行；需先提供测试机可下载的候选包位置，不能把“已写 workflow”当作通过证据。

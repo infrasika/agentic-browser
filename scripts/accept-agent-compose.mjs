@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { acceptanceRelease } from './agent/release-fixture.mjs';
 import { randomUUID } from 'node:crypto';
 import { readFile, writeFile, mkdir, cp, rm, stat } from 'node:fs/promises';
 import { resolve } from 'node:path';
@@ -9,7 +10,7 @@ import { once } from 'node:events';
 import { WebSocket } from 'ws';
 import { DatabaseSync } from 'node:sqlite';
 
-if (!process.argv.includes('--run')) { console.log('Usage: node scripts/accept-agent-compose.mjs --run [--hold]'); process.exit(0); }
+if (!process.argv.includes('--run')) { console.log('Usage: node scripts/accept-agent-compose.mjs --run --release release.json [--hold]'); process.exit(0); }
 const root = resolve(import.meta.dirname, '..');
 const exec = promisify(execFile), runId = randomUUID(), project = 'agent-test-' + runId.slice(0, 8);
 const directory = resolve(root, '.deployment/agent-acceptance', runId);
@@ -69,13 +70,12 @@ try {
   const ledger=new DatabaseSync(resolve(root,'.data/librechat-browser/scheduler.sqlite'),{readOnly:true});
   try { assert.equal(ledger.prepare("SELECT COUNT(*) AS n FROM leases WHERE state IN ('queued','starting','active','closing','cleanup_pending')").get().n,0,'Production must be idle'); } finally { ledger.close(); }
   for(const [source,target] of [['deploy/agent/compose.yaml','compose.yaml'],['scripts/agent/model-fixture.mjs','model-fixture.mjs'],['scripts/agent/users-fixture.cjs','users-fixture.cjs']]) await cp(resolve(root,source),resolve(directory,target));
-  const image=async name=>command('docker',['image','inspect',name,'--format','{{.Id}}']);
-  const images={agent:await image('agentic-browser-agent:selfhost-preview'),browser:await image('agentic-browser-service:selfhost-preview'),runtime:await image('agentic-browser:node24.22.1-candidate-runtime')};
+  const {images}=await acceptanceRelease();
   report.images=images;
   const uid=process.getuid(),gid=process.getgid(),socketGroup=(await stat('/var/run/docker.sock')).gid;
   await writeFile(resolve(directory,'.env'),[
     `AGENT_PROJECT=${project}`,`AGENT_IMAGE=${images.agent}`,`BROWSER_IMAGE=${images.browser}`,`RUNTIME_IMAGE=${images.runtime}`,
-    'GATEWAY_IMAGE=nginx@sha256:47928bf67eb62a1863cb08d9ecb52d3e704304ba614eaee17884204677702951',
+    `GATEWAY_IMAGE=${images.gateway}`,`MONGO_IMAGE=${images.mongo}`,`REDIS_IMAGE=${images.redis}`,
     `AGENT_UID=${uid}`,`AGENT_GID=${gid}`,`DOCKER_GID=${socketGroup}`,'AGENT_PORT=3334',`AGENT_ORIGIN=${origin}`,'BROWSER_MAX_SESSIONS=1',''].join('\n'),{mode:0o600});
   await mkdir(resolve(directory,'config'),{mode:0o700});
   // Init and render run in the shipped image, without host Node dependencies.

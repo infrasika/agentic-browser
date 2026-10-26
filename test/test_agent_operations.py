@@ -35,10 +35,14 @@ class Operations(unittest.TestCase):
     def test_releases_reject_mutable_tags_and_development_requires_explicit_flag(self):
         with tempfile.TemporaryDirectory() as folder:
             file=Path(folder)/'release.json'
-            value={'version':'preview','images':dict.fromkeys(['agent','browser','runtime','gateway'],'sha256:'+'a'*64)}
+            value={'version':'preview','images':dict.fromkeys(['agent','browser','runtime','gateway','mongo','redis'],'sha256:'+'a'*64)}
             file.write_text(json.dumps(value))
             with self.assertRaises(cli.Failure): cli.release_file(file)
             self.assertEqual(cli.release_file(file,True),value)
+            for missing in ['mongo','redis']:
+                incomplete={**value,'images':{k:v for k,v in value['images'].items() if k!=missing}}
+                file.write_text(json.dumps(incomplete))
+                with self.assertRaisesRegex(cli.Failure,'invalid_release_images'):cli.release_file(file,True)
             value['images']['agent']='agent:latest';file.write_text(json.dumps(value))
             with self.assertRaises(cli.Failure): cli.release_file(file,True)
 

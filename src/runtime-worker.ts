@@ -7,17 +7,14 @@ import { join } from 'node:path';
 import { z } from 'zod';
 import { createConnection, createServer, type Socket, type Server, type AddressInfo } from 'node:net';
 import { once } from 'node:events';
-import { createServer as createHttpServer } from 'node:http';
 import { DesktopWorkspace } from './desktop.js';
 import { actionSchema, ServiceError } from './contracts.js';
-import type { ProfileLease } from './profiles.js';
 
 let workspace: DesktopWorkspace | undefined;
 let stopping = false;
 const streams = new Map<string, Socket>();
 const proxySockets = new Set<Socket>();
 let proxy: Server | undefined;
-let demo: ReturnType<typeof createHttpServer> | undefined;
 const send = (value: unknown) => process.stdout.write(JSON.stringify(value) + '\n');
 async function shutdown() {
   if (stopping) return;
@@ -26,7 +23,6 @@ async function shutdown() {
   await workspace?.close();
   for (const socket of proxySockets) socket.destroy();
   proxy?.close();
-  demo?.closeAllConnections(); demo?.close();
   process.exitCode = 0;
 }
 const input = createInterface({ input: process.stdin });
@@ -53,19 +49,7 @@ input.on('line', line => {
       let result: unknown = null;
       if (message.operation === 'start') {
         if (workspace) throw new Error('Already started');
-        const profile = message.profile ? z.object({ id: z.string().uuid(), name: z.string().max(80), createdAt: z.string(), ownerId: z.string().uuid().optional() }).strict().parse(message.profile) : undefined;
-        const lease: ProfileLease | undefined = profile ? { info: profile, directory: '/profile', async release() {} } : undefined;
-        workspace = new DesktopWorkspace(await mkdtemp(join(tmpdir(), 'browser-')), lease);
-        const assets = new Map([['/demo', ['demo.html', 'text/html']], ['/demo.js', ['demo.js', 'text/javascript']], ['/app.css', ['app.css', 'text/css']]]);
-        demo = createHttpServer(async (request, response) => {
-          const asset = assets.get(request.url ?? '');
-          if (request.method !== 'GET' || !asset) { response.writeHead(404); response.end(); return; }
-          try {
-            response.writeHead(200, { 'Content-Type': asset[1] + '; charset=utf-8', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' });
-            response.end(await readFile(`/app/web/${asset[0]}`));
-          } catch { response.destroy(); }
-        });
-        demo.listen(8080, '127.0.0.1'); await once(demo, 'listening');
+        workspace = new DesktopWorkspace(await mkdtemp(join(tmpdir(), 'browser-')));
         const chromeArgs: string[] = [];
         if (message.publicEgress === true) {
           proxy = createServer(client => {
@@ -78,7 +62,7 @@ input.on('line', line => {
           });
           proxy.maxConnections = 64;
           proxy.listen(0, '127.0.0.1'); await once(proxy, 'listening');
-          chromeArgs.push(`--proxy-server=http://127.0.0.1:${(proxy.address() as AddressInfo).port}`, '--proxy-bypass-list=<-loopback>;http://127.0.0.1:8080');
+          chromeArgs.push(`--proxy-server=http://127.0.0.1:${(proxy.address() as AddressInfo).port}`, '--proxy-bypass-list=<-loopback>');
         }
         await workspace.start('/usr/bin/google-chrome-stable', chromeArgs);
         const lock = JSON.parse(await readFile('/app/runtime/assets.lock.json', 'utf8'));
@@ -87,7 +71,6 @@ input.on('line', line => {
         if (!workspace) throw new Error('Runtime not started');
         if (message.operation === 'perform') {
           const action = actionSchema.parse(message.action);
-          if (action.type === 'navigate' && action.url === 'https://agentic-browser.invalid/demo') action.url = 'http://127.0.0.1:8080/demo';
           result = await workspace.perform(action);
         }
         else if (message.operation === 'screenshot') result = (await workspace.screenshot(message.mask !== false)).toString('base64');

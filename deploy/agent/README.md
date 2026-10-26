@@ -1,6 +1,6 @@
 # 完整 Agent 自部署（开发预览）
 
-本目录提供完整 LibreChat Agent 的配置、Compose 拓扑与 `agentctl.py` 安装运维入口。它使用原生浏览器工具，不需要 MCP 客户端。当前镜像在本地构建验收；已提供候选包构建/校验工具，公开镜像与面向最终用户的安装包尚未发布，不能使用旧 MCP 安装器来安装这套 Agent。完整命令见 [私有部署运维手册](OPERATIONS.md)。
+本目录提供完整 LibreChat Agent 的配置、Compose 拓扑与 `agentctl.py` 安装运维入口。它使用原生浏览器工具，不需要 MCP 客户端。当前镜像在本地构建验收；已提供候选包构建/校验工具，公开镜像与面向最终用户的安装包尚未发布。完整命令见 [私有部署运维手册](OPERATIONS.md)。
 
 2026-10-26（北京时间）：P10.1/P10.2 同机隔离验收通过，包含真实 Chrome、普通账号权限、排队/接管自动继续、重启保留、桌面和 390px 手机布局。使用模拟模型，没有调用付费模型；这不是干净新服务器的安装验收。
 
@@ -21,7 +21,7 @@
 Linux amd64、Docker Engine 26+、Compose v2、Python 3，以及相邻的 LibreChat 源码是构建工具的要求。最终用户目标为只运行镜像，无需源码或宿主 Node。
 
 ```bash
-python3 scripts/build-agent-images.py --run --committed --tag agent-v0.2.0-rc.1
+python3 scripts/build-agent-images.py --run --committed --tag agent-v0.2.0-rc.3
 ```
 
 构建器限制为 2 CPU / 5 GiB，从 Git 已跟踪源码和本目录受控文件创建上下文，不复制本机 `.env`、`node_modules`、`.deployment`、聊天或数据库。输出本地 Agent、Browser Service 和 runtime 三个固定源码镜像，不自动上传仓库或切换公网。报告和私有构建日志在 `.deployment/agent-build/`。
@@ -44,9 +44,9 @@ node /app/selfhost/init.mjs render /config
 
 ```bash
 node --test test/agent-deployment.test.mjs
-node scripts/accept-agent-compose.mjs --run
+node scripts/accept-agent-compose.mjs --run --release /path/to/release.json
 python3 -m unittest discover -s test -p test_agent_operations.py
-node scripts/accept-agent-operations.mjs --run
+node scripts/accept-agent-operations.mjs --run --release /path/to/release.json
 ```
 
 验收使用唯一 Compose project、新数据库/数据卷、回环 3334，以及不收费的模拟模型；真实 Chrome 访问 example.com。模型模拟不代替真实供应商兼容性验收。完整流程包括关闭注册、管理员和普通用户登录/权限、原生工具、跨账号隔离、满额排队、输入 WebSocket、归还自动继续、预算与重启保留。结束清理本次专用容器/卷，生产进程应保持不变。
@@ -55,9 +55,9 @@ node scripts/accept-agent-operations.mjs --run
 
 ## 尚未交付的范围
 
-P10.3 的安装、普通账号创建/密码恢复、通用 TLS/STARTTLS SMTP、Compose 停写备份/新实例恢复及同拓扑镜像升级由 `agentctl.py` 提供，验收状态以开发计划为准。独立新主机安装/恢复与公开镜像、发行包仍属 P10.4/P10.5。自动定时备份、轮转、异地副本和宿主中断 watchdog 尚未安装；当前公网 P9 的 systemd 备份不能直接用于 Compose。旧 MCP 账号/token 和持久浏览器 profile 不自动迁移。
+P10.3 的安装、普通账号创建/密码恢复、通用 TLS/STARTTLS SMTP、Compose 停写备份/新实例恢复及同拓扑镜像升级由 `agentctl.py` 提供，验收状态以开发计划为准。独立新主机安装/恢复与公开镜像、发行包仍属 P10.4/P10.5。自动定时备份、轮转、异地副本和宿主中断 watchdog 尚未安装；当前公网 P9 的 systemd 备份不能直接用于 Compose。会话登录状态不跨会话保留。
 
 候选包制作和独立测试机验收见 [发行准备](RELEASING.md)；包内用户入口为 [安装说明](INSTALL.md)。候选版尚未构成公开发行。
 
 
-2026-10-26 后续进展：`v0.2.0-rc.2` 六镜像候选包已生成，从压缩包解压且 PATH 无宿主 Node 的同机隔离验收通过。真实 Chrome/接管自动继续、备份/新实例恢复及同镜像升级程序演练通过，测试资源清理完成。首轮 rc.1 的嵌套源码目录权限错误已修复并留存拒收记录。候选包在 `output/agent/releases/v0.2.0-rc.2/`，正式发布及独立新机验收尚未完成。
+构建、验收和交付状态统一记录在 [进度](../../docs/plans/LIBRECHAT_PROGRESS.md)。每次源码变更后重新生成候选包并验收，不能直接沿用先前包的通过报告。
