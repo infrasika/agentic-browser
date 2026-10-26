@@ -3,6 +3,7 @@ import { constants, promises as fs } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseEnv } from 'node:util';
+import { mailSettings } from './librechat-mail.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const args = process.argv.slice(2);
@@ -92,7 +93,18 @@ async function check() {
   }
   if (values.DEMO_ADMIN_PASSWORD && values.DEMO_ADMIN_PASSWORD.length < 12) invalid.push('DEMO_ADMIN_PASSWORD');
   if (values.DEMO_ADMIN_EMAIL && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(values.DEMO_ADMIN_EMAIL)) invalid.push('DEMO_ADMIN_EMAIL');
-  const report = { ready: !missing.length && !invalid.length && !unknown.length, file: path, missing, invalid, unknown };
+  const mail = { configured: ['CLOUDFLARE_EMAIL_API_TOKEN', 'DEMO_EMAIL_FROM', 'DEMO_EMAIL_TEST_TO'].some(key => values[key]?.trim()), verified: false };
+  if (mail.configured) {
+    try {
+      const settings = mailSettings(values);
+      let receipt;
+      try { receipt = JSON.parse(await fs.readFile(resolve(directory, 'mail-verified.json'), 'utf8')); }
+      catch (error) { if (error.code !== 'ENOENT') throw error; }
+      mail.verified = settings.ready && receipt?.accepted === true && receipt.fingerprint === settings.fingerprint;
+      if (!mail.verified) invalid.push('MAIL_VERIFICATION');
+    } catch { invalid.push('MAIL_CONFIGURATION'); }
+  }
+  const report = { ready: !missing.length && !invalid.length && !unknown.length, file: path, missing, invalid, unknown, mail };
   console.log(JSON.stringify(report, null, 2));
   process.exitCode = report.ready ? 0 : 2;
 }

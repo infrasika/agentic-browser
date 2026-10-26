@@ -17,7 +17,7 @@
 
 ## private.env 的有效变量
 
-文件位于 `.deployment/librechat/private.env`。目录 0700、文件 0600，不进入 Git、镜像或发行包。`setup` 不覆盖现有值；`doctor` 只输出变量名，并拒绝未知键。
+文件位于 `.deployment/librechat/private.env`。目录 0700、文件 0600，不进入 Git、镜像或发行包。`setup` 不覆盖现有值；`doctor` 只输出变量名和状态，并拒绝未知键；已填写邮件配置却没有匹配的成功收据时报告 `MAIL_VERIFICATION`。
 
 | 变量 | 当前用途 |
 | --- | --- |

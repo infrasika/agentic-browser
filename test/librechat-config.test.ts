@@ -56,3 +56,21 @@ test('private configuration rejects obsolete keys, unsafe origins, and unverifie
     });
   } finally { await rm(directory, { recursive: true, force: true }); }
 });
+
+test('doctor flags a configured sender without matching mail verification before deployment', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'librechat-mail-audit-'));
+  try {
+    await exec(process.execPath, [script, 'setup', '--config-dir', directory]);
+    const path = join(directory, 'private.env');
+    const content = (await readFile(path, 'utf8')).replace('CLOUDFLARE_EMAIL_API_TOKEN=', 'CLOUDFLARE_EMAIL_API_TOKEN=private-mail-fixture')
+      .replace('DEMO_EMAIL_FROM=', 'DEMO_EMAIL_FROM=sender@example.test').replace('DEMO_EMAIL_TEST_TO=', 'DEMO_EMAIL_TEST_TO=recipient@example.test');
+    await writeFile(path, content);
+    await writeFile(join(directory, 'mail-verified.json'), JSON.stringify({ accepted: true, fingerprint: 'stale' }));
+    await assert.rejects(exec(process.execPath, [script, 'check', '--config-dir', directory]), (error: any) => {
+      const report = JSON.parse(error.stdout);
+      assert.deepEqual(report.mail, { configured: true, verified: false });
+      assert.ok(report.invalid.includes('MAIL_VERIFICATION'));
+      assert.ok(!error.stdout.includes('private-mail-fixture')); return true;
+    });
+  } finally { await rm(directory, { recursive: true, force: true }); }
+});
