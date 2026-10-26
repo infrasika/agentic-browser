@@ -30,12 +30,12 @@ async function active(id: string) {
 const startedAt = new Date().toISOString();
 let passed = false;
 try {
-  const lease = service.acquire(first, { acquisitionId: 'open-one', purpose: 'Real Docker acceptance', url: 'https://example.com' });
-  const queued = service.acquire(second, { acquisitionId: 'open-two', purpose: 'FIFO acceptance', url: 'https://example.com' });
+  const lease = service.acquire(first, { acquisitionId: 'open-one', purpose: 'Real Docker acceptance', url: 'https://httpbin.org/anything/agentic-browser-acceptance' });
+  const queued = service.acquire(second, { acquisitionId: 'open-two', purpose: 'FIFO acceptance', url: 'https://httpbin.org/anything/agentic-browser-acceptance' });
   assert.equal(store.get(queued.id).state, 'queued');
   await active(lease.id);
   const snapshot = await service.snapshot(lease.id, first, false);
-  assert.match(JSON.stringify(snapshot), /Example Domain/);
+  assert.match(JSON.stringify(snapshot), /agentic-browser-acceptance/);
   checks.push('real_chrome_navigation_and_snapshot');
   const frame = await service.frame(lease.id, first, 0);
   assert.ok(frame.length > 1000);
@@ -46,7 +46,7 @@ try {
   desktop.destroy();
   checks.push('human_desktop_and_agent_observation_denied');
   await service.control(lease.id, first, 'human', 'return-one', 1, 'agent', 'Done');
-  assert.match(JSON.stringify(await service.snapshot(lease.id, first, false)), /Example Domain/);
+  assert.match(JSON.stringify(await service.snapshot(lease.id, first, false)), /agentic-browser-acceptance/);
   checks.push('same_page_survives_control_return');
   await service.release(lease.id, first, 'completed');
   await active(queued.id);

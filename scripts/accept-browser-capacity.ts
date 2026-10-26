@@ -27,7 +27,7 @@ try {
       if (await available() < 3072) throw new Error('memory_reserve_3_gib');
       const n = leases.length;
       const lease = service.acquire({ userId: `capacity-user-${n}`, conversationId: `capacity-chat-${n}`, taskId: `capacity-task-${n}` },
-        { acquisitionId: `open-${n}`, purpose: 'Isolated capacity acceptance', url: 'https://example.com' });
+        { acquisitionId: `open-${n}`, purpose: 'Isolated capacity acceptance', url: 'https://httpbin.org/anything/agentic-browser-acceptance' });
       leases.push(lease);
       for (let attempts = 0; store.get(lease.id).state !== 'active'; attempts++) {
         if (attempts >= 120 || store.get(lease.id).state === 'failed') throw new Error('startup_deadline');
@@ -41,7 +41,7 @@ try {
       await Promise.all(leases.map(async lease => {
         const before = Date.now();
         const snapshot = await service.snapshot(lease.id, lease, false);
-        assert.match(JSON.stringify(snapshot), /Example Domain/);
+        assert.match(JSON.stringify(snapshot), /agentic-browser-acceptance/);
         assert.ok((await service.frame(lease.id, lease, 0)).length > 1000);
         latencies.push(Date.now() - before);
       }));
@@ -57,7 +57,7 @@ try {
     recommendedMax = count;
   }
   const waiting = service.acquire({ userId: 'capacity-user-11', conversationId: 'capacity-chat-11', taskId: 'capacity-task-11' },
-    { acquisitionId: 'open-11', purpose: 'Queue overflow acceptance', url: 'https://example.com' });
+    { acquisitionId: 'open-11', purpose: 'Queue overflow acceptance', url: 'https://httpbin.org/anything/agentic-browser-acceptance' });
   assert.equal(waiting.state, 'queued');
   await service.release(waiting.id, waiting);
   assert.equal(store.capacity().occupied, 10);
@@ -67,7 +67,7 @@ try {
   await service.close();
   await mkdir('output/librechat', { recursive: true });
   const report = { startedAt, completedAt: new Date().toISOString(), image, stages, recommendedMax, failure,
-    scope: 'Short synthetic example.com workload, real isolated Chrome containers; not sustained load or a guarantee for arbitrary sites.' };
+    scope: 'Short synthetic HTTP echo workload, real isolated Chrome containers; not sustained load or a guarantee for arbitrary sites.' };
   await writeFile('output/librechat/browser-capacity.json', JSON.stringify(report, null, 2) + '\n');
   console.log(JSON.stringify({ recommendedMax, failure, cleanup: 'complete' }));
 }

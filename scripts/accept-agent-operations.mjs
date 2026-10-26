@@ -90,7 +90,7 @@ try {
   report.checks.push('verified_tls_smtp_enables_native_reset_single_use_and_revokes_old_login');
   report.stage='busy_backup';
   const adminToken=await login(settings.adminEmail,secrets.DEMO_ADMIN_PASSWORD);
-  const messageId=randomUUID();const start=await call('/api/agents/chat',{token:adminToken,body:{text:'Open example.com and let me take control.',sender:'User',isCreatedByUser:true,parentMessageId:'00000000-0000-0000-0000-000000000000',conversationId:'new',messageId,responseMessageId:messageId+'_',endpoint:'agents',agent_id:'agent_browser_demo',spec:'browser-demo',isTemporary:false,isRegenerate:false}});
+  const messageId=randomUUID();const start=await call('/api/agents/chat',{token:adminToken,body:{text:'Open https://httpbin.org/anything/agentic-browser-acceptance and let me take control.',sender:'User',isCreatedByUser:true,parentMessageId:'00000000-0000-0000-0000-000000000000',conversationId:'new',messageId,responseMessageId:messageId+'_',endpoint:'agents',agent_id:'agent_browser_demo',spec:'browser-demo',isTemporary:false,isRegenerate:false}});
   let lease;for(let i=0;i<100;i++){lease=(await call('/api/agentic-browser/'+start.conversationId,{token:adminToken})).lease;if(lease?.control==='human')break;await delay(700);}
   assert.equal(lease.control,'human');await assert.rejects(cli(['backup']));assert.equal((await req('/api/config')).status,200);
   await call('/api/agentic-browser/'+start.conversationId+'/control',{token:adminToken,body:{revision:lease.revision,target:'agent',operationId:randomUUID()}});

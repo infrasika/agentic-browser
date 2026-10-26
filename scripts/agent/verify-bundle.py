@@ -89,7 +89,7 @@ def main():
 
     def browser_task(token, port):
         mid = str(uuid.uuid4())
-        start = request('/api/agents/chat', token, {'text': 'Open example.com, let me take control, then read the page and close the browser.', 'sender': 'User', 'isCreatedByUser': True, 'parentMessageId': '00000000-0000-0000-0000-000000000000', 'conversationId': 'new', 'messageId': mid, 'responseMessageId': mid + '_', 'endpoint': 'agents', 'agent_id': 'agent_browser_demo', 'spec': 'browser-demo', 'isTemporary': False, 'isRegenerate': False}, port)
+        start = request('/api/agents/chat', token, {'text': 'Open https://httpbin.org/anything/agentic-browser-acceptance, let me take control, then read the page and close the browser.', 'sender': 'User', 'isCreatedByUser': True, 'parentMessageId': '00000000-0000-0000-0000-000000000000', 'conversationId': 'new', 'messageId': mid, 'responseMessageId': mid + '_', 'endpoint': 'agents', 'agent_id': 'agent_browser_demo', 'spec': 'browser-demo', 'isTemporary': False, 'isRegenerate': False}, port)
         cid = start['conversationId']; path = '/api/agentic-browser/' + cid
         for _ in range(120):
             lease = request(path, token, port=port).get('lease')
@@ -106,7 +106,7 @@ def main():
                 result = request('/api/messages/' + cid, token, port=port)
                 messages = result if isinstance(result, list) else result['messages']
                 calls = [part['tool_call'] for msg in messages for part in msg.get('content', []) if part.get('type') == 'tool_call']
-                snapshots = [call for call in calls if call.get('name') == 'browser_snapshot' and 'Example Domain' in str(call.get('output', ''))]
+                snapshots = [call for call in calls if call.get('name') == 'browser_snapshot' and 'agentic-browser-acceptance' in str(call.get('output', ''))]
                 closed = [json.loads(call['output']) for call in calls if call.get('name') == 'browser_close' and call.get('output')]
                 if snapshots and any(c.get('ok') and c['value']['state'] == 'completed' for c in closed):
                     return

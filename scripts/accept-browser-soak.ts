@@ -111,7 +111,7 @@ async function sample() {
     const current = store.get(lease.id);
     await service.action(lease.id, lease, `scroll-${cycles}`, current.revision, { type: 'scroll', x: 0, y: cycles % 2 ? 500 : -500 });
     const snapshot = JSON.stringify(await service.snapshot(lease.id, lease, false));
-    assert.match(snapshot, lease.url.includes('github.com') ? /GitHub/i : /Example Domain/);
+    assert.match(snapshot, lease.url.includes('github.com') ? /GitHub/i : /agentic-browser-acceptance/);
     operationMs.push(Date.now() - before);
   }));
   const before = Date.now();
@@ -135,7 +135,7 @@ try {
   for (let i = 0; i < capacity; i++) {
     await guard();
     const lease = service.acquire({ userId: `soak-${i}`, conversationId: `soak-chat-${i}`, taskId: `soak-task-${i}` },
-      { acquisitionId: `open-${i}`, purpose: 'Isolated sustained capacity acceptance', url: i % 2 ? 'https://github.com/' : 'https://example.com' });
+      { acquisitionId: `open-${i}`, purpose: 'Isolated sustained capacity acceptance', url: i % 2 ? 'https://github.com/' : 'https://httpbin.org/anything/agentic-browser-acceptance' });
     leases.push(lease);
     await observe(await active(lease));
     console.log(JSON.stringify({ stage, activeBrowsers: leases.length, targetCapacity: capacity }));
@@ -167,7 +167,7 @@ try {
   stage = 'queue_and_handoff';
   const owner = leases[0];
   const waiting = service.acquire({ userId: `soak-${capacity}`, conversationId: `soak-chat-${capacity}`, taskId: `soak-task-${capacity}` },
-    { acquisitionId: `open-${capacity}`, purpose: 'Queue after sustained load', url: 'https://example.com' });
+    { acquisitionId: `open-${capacity}`, purpose: 'Queue after sustained load', url: 'https://httpbin.org/anything/agentic-browser-acceptance' });
   assert.equal(waiting.position, 1);
   assert.equal(waiting.state, 'queued');
   viewers[0].expectedClose = true;
@@ -182,7 +182,7 @@ try {
   desktop.destroy();
   await service.control(admitted.id, admitted, 'human', 'return', 1, 'agent', 'Done');
   assert.equal(store.get(admitted.id).sessionId, admitted.sessionId);
-  assert.match(JSON.stringify(await service.snapshot(admitted.id, admitted, false)), /Example Domain/);
+  assert.match(JSON.stringify(await service.snapshot(admitted.id, admitted, false)), /agentic-browser-acceptance/);
   checks.push('overflow_task_queues_and_resumes_after_cleanup', 'revocation_and_same_session_handoff_after_load');
   await guard();
 } catch (error) {

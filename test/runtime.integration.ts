@@ -47,11 +47,11 @@ test('Docker volume subpaths: only the authorised proxy directory is mounted', {
   assert.match(sandbox, /Seccomp-BPF[\s\S]*Yes/i);
   await workspace.perform({ type: 'navigate', url: 'http://169.254.169.254/' });
   assert.match((await workspace.perform({ type: 'snapshot' }) as { text: string }).text, /Network target is not allowed/);
-  await workspace.perform({ type: 'navigate', url: 'https://example.com' });
+  await workspace.perform({ type: 'navigate', url: 'https://httpbin.org/anything/agentic-browser-acceptance' });
   await workspace.setControl('human');
   const stream = workspace.openDesktop(); assert.match((await once(stream, 'data'))[0].toString(), /^RFB /);
   const closed = once(stream, 'close'); await workspace.setControl('agent'); await closed;
-  assert.match((await workspace.perform({ type: 'snapshot' }) as { text: string }).text, /Example Domain/);
+  assert.match((await workspace.perform({ type: 'snapshot' }) as { text: string }).text, /agentic-browser-acceptance/);
   await workspace.close();
   assert.equal((await readdir(join(root, 'runtimes'))).filter(file => file.endsWith('.json')).length, 0);
 });
@@ -126,8 +126,8 @@ test('Docker Runtime: public HTTPS works through private proxy; private/metadata
     await workspace.perform({ type: 'navigate', url });
     assert.match((await workspace.perform({ type: 'snapshot' }) as { text: string }).text, /Network target is not allowed/, url);
   }
-  await workspace.perform({ type: 'navigate', url: 'https://example.com' });
-  assert.match((await workspace.perform({ type: 'snapshot' }) as { text: string }).text, /Example Domain/);
+  await workspace.perform({ type: 'navigate', url: 'https://httpbin.org/anything/agentic-browser-acceptance' });
+  assert.match((await workspace.perform({ type: 'snapshot' }) as { text: string }).text, /agentic-browser-acceptance/);
   const direct = await exec('docker', ['exec', workspace.record.name, 'node', '-e', "fetch('http://1.1.1.1',{signal:AbortSignal.timeout(1500)}).then(()=>console.log('bypassed'),()=>console.log('blocked'))"]);
   assert.equal(direct.stdout.trim(), 'blocked');
   await workspace.close();

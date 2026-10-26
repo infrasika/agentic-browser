@@ -62,7 +62,7 @@ async function waitCompleted(account, leaseId) {
 }
 async function start(account) {
   const messageId=randomUUID();
-  const result=await call(account.token,'/api/agents/chat',{text:'Open example.com, let me take control, then read the page and close the browser.', sender:'User',isCreatedByUser:true,parentMessageId:'00000000-0000-0000-0000-000000000000',conversationId:'new',messageId,responseMessageId:messageId+'_',endpoint:'agents',agent_id:'agent_browser_demo',spec:'browser-demo',isTemporary:false,isRegenerate:false});
+  const result=await call(account.token,'/api/agents/chat',{text:'Open https://httpbin.org/anything/agentic-browser-acceptance, let me take control, then read the page and close the browser.', sender:'User',isCreatedByUser:true,parentMessageId:'00000000-0000-0000-0000-000000000000',conversationId:'new',messageId,responseMessageId:messageId+'_',endpoint:'agents',agent_id:'agent_browser_demo',spec:'browser-demo',isTemporary:false,isRegenerate:false});
   assert.ok(result.conversationId); account.conversationId=result.conversationId;
 }
 try {
@@ -136,7 +136,7 @@ try {
     for(let i=0;i<30;i++) { status=await call(account.token,'/api/agents/chat/status/'+account.conversationId); if(!status.active) break; await delay(500); }
     assert.equal(status.active,false);
     const messages=JSON.stringify(await call(account.token,'/api/messages/'+account.conversationId));
-    assert.ok(messages.includes('Example Domain')&&messages.includes('browser_snapshot'));
+    assert.ok(messages.includes('agentic-browser-acceptance')&&messages.includes('browser_snapshot'));
   }
   const budgetAfter=await call(owner.token,'/api/demo-admin');
   assert.ok(budgetAfter.spentCredits>0); assert.equal(budgetAfter.reservedCredits,0);

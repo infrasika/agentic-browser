@@ -62,7 +62,7 @@ python3 agentctl.py --directory "$HOME/my-agent" backup
 
 ## 4. 在空闲测试机验收
 
-包内验收仅依赖 Python 和 Docker。它新建两个临时安装实例，使用模拟模型，不调用真实 LLM 或发送邮件；真实 Chrome 访问 example.com。它短时占用两个回环端口（默认 3340/3341）及约 4–6 GiB 内存，结束后清理本次容器、卷和网络，成功时只保留报告。请在空闲测试机执行：
+包内验收仅依赖 Python 和 Docker。它新建两个临时安装实例，使用模拟模型，不调用真实 LLM 或发送邮件；真实 Chrome 访问带固定标记的 httpbin.org HTTP 测试页。它短时占用两个回环端口（默认 3340/3341）及约 4–6 GiB 内存，结束后清理本次容器、卷和网络，成功时只保留报告。请在空闲测试机执行：
 
 ```bash
 python3 acceptance/verify.py --work "$HOME/agent-bundle-acceptance"

@@ -49,7 +49,7 @@ python3 -m unittest discover -s test -p test_agent_operations.py
 node scripts/accept-agent-operations.mjs --run --release /path/to/release.json
 ```
 
-验收使用唯一 Compose project、新数据库/数据卷、回环 3334，以及不收费的模拟模型；真实 Chrome 访问 example.com。模型模拟不代替真实供应商兼容性验收。完整流程包括关闭注册、管理员和普通用户登录/权限、原生工具、跨账号隔离、满额排队、输入 WebSocket、归还自动继续、预算与重启保留。结束清理本次专用容器/卷，生产进程应保持不变。
+验收使用唯一 Compose project、新数据库/数据卷、回环 3334，以及不收费的模拟模型；真实 Chrome 访问带固定标记的 httpbin.org HTTP 测试页。模型模拟不代替真实供应商兼容性验收。完整流程包括关闭注册、管理员和普通用户登录/权限、原生工具、跨账号隔离、满额排队、输入 WebSocket、归还自动继续、预算与重启保留。结束清理本次专用容器/卷，生产进程应保持不变。
 
 `--hold` 在流程通过后保留实例供界面检查；SIGTERM 后执行清理。失败诊断保存在本次 `.deployment/agent-acceptance/UUID/`，公开报告只有检查结果。不要把测试配置复制到公网站点。
 

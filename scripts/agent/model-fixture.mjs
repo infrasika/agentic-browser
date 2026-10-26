@@ -9,9 +9,9 @@ createServer(async (req, res) => {
   const last = messages.findLast(m => m.role === 'tool');
   const prior = messages.flatMap(m => m.tool_calls ?? []).find(t => t.id === last?.tool_call_id);
   const text = value => typeof value === 'string' ? value : (value ?? []).map(part => part.text ?? '').join('');
-  let command, content = 'Example Domain — browser handoff completed.';
+  let command, content = 'agentic-browser-acceptance — browser handoff completed.';
   if (body.tools?.some(t => t.function?.name === 'browser_open')) {
-    if (!last) command = { name: 'browser_open', arguments: { url: 'https://example.com', purpose: 'Self-hosted browser acceptance' } };
+    if (!last) command = { name: 'browser_open', arguments: { url: 'https://httpbin.org/anything/agentic-browser-acceptance', purpose: 'Self-hosted browser acceptance' } };
     else {
       let result; try { result = JSON.parse(text(last.content)); } catch { result = {}; }
       if (result.ok !== true) content = 'Browser fixture failed: ' + JSON.stringify(result);
@@ -22,7 +22,7 @@ createServer(async (req, res) => {
         command = { name: 'browser_close', arguments: { leaseId: JSON.parse(handoff.function.arguments).leaseId } };
       }
     }
-  } else content = 'Read Example Domain';
+  } else content = 'Read agentic-browser-acceptance';
   const toolCalls = command ? [{ id: 'call_' + calls, type: 'function', function: { name: command.name, arguments: JSON.stringify(command.arguments) } }] : undefined;
   console.log(JSON.stringify({ call: calls, previousTool: prior?.function?.name, outputTool: command?.name, tools: body.tools?.map(t => t.function?.name), result: last ? text(last.content).slice(0,600) : undefined }));
   const usage = { prompt_tokens: 100, completion_tokens: 10, total_tokens: 110 };
