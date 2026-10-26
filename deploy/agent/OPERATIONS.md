@@ -1,10 +1,10 @@
 # 私有 Agent 运维（开发预览）
 
-使用 `agentctl.py` 管理一个完整 Agent 实例，应用只在镜像里运行；宿主需要 Linux amd64、Python 3、Docker Engine 26+ 和 Compose v2。当前使用本地预览镜像，公开镜像和安装发行包仍在 P10.5。命令不会接入已有公网的 systemd、账号或数据库。
+使用 `agentctl.py` 管理一个完整 Agent 实例，应用只在镜像里运行；宿主需要 Linux amd64、Python 3、Docker Engine 26+ 和 Compose v2。当前使用本地预览镜像，候选包工具已提供，公开镜像和正式安装发行包仍在 P10.5。命令不会接入已有公网的 systemd、账号或数据库。
 
 ## 初始化与启动
 
-发行包将包含 `agentctl.py`、`compose.yaml` 和 `release.json`。版本清单固定 Agent、Browser Service、Chrome runtime 和 gateway 的镜像 digest；普通模式拒绝 `latest` 等可变标签。开发者可用 `--development` 显式允许本机 `sha256:` image ID。
+发行包将包含 `agentctl.py`、`compose.yaml` 和 `release.json`。新版包的版本清单固定 Agent、Browser Service、Chrome runtime、gateway、Mongo 和 Redis 六个镜像；正式 registry 清单使用 digest；普通模式拒绝 `latest` 等可变标签。开发者可用 `--development` 显式允许本机 `sha256:` image ID。
 
 ```bash
 python3 agentctl.py --directory /srv/my-agent init --release release.json
@@ -73,7 +73,7 @@ python3 agentctl.py --directory /srv/my-agent verify-backup /srv/my-agent/backup
 
 有运行、排队、人工接管、未确认事件或未清理 runtime 时会延后，不终止用户任务。空闲时入口进入维护状态并排空已进入应用的请求，再停止 Agent、Browser、Redis 和 Mongo 写入。归档包括六个数据卷、配置/密钥、Compose 和固定镜像清单；每个文件有 SHA-256，完整验证后才去掉 `.pending` 标记。备份结束先恢复健康，再解除维护。
 
-这是停写后的完整数据卷快照，恢复要求相同数值 UID/GID、匹配的固定镜像及 Compose v1 拓扑；不支持跨 Mongo 大版本转换。归档包含密钥、账号和聊天，目录/文件权限为 0700/0600，应使用受控存储。镜像本身、外层 HTTPS 代理/证书、手工额外挂载文件不在备份内；公开镜像未发布前需另外保留对应本机镜像。异地副本、加密存储、定时调度和自动轮转仍由后续发行运维补齐。
+这是停写后的完整数据卷快照，恢复要求相同数值 UID/GID、匹配的固定镜像及 Compose v1 拓扑；不支持跨 Mongo 大版本转换。归档包含密钥、账号和聊天，目录/文件权限为 0700/0600，应使用受控存储。镜像本身、外层 HTTPS 代理/证书、手工额外挂载文件不在备份内；公开镜像未发布前需另外保留对应本机镜像（候选包的 images.tar.gz 包含六个安装镜像）。异地副本、加密存储、定时调度和自动轮转仍由后续发行运维补齐。
 
 恢复**只允许新的安装目录和新 project/数据卷**：
 

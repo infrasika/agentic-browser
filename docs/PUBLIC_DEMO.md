@@ -1,3 +1,5 @@
+> **Archived MCP v0.1.x documentation.** These instructions describe the older external-agent product. The current public site is a LibreChat Agent and its public MCP endpoint is closed. For the complete Agent, see [installation](../deploy/agent/INSTALL.md), [current demo](AGENT_DEMO.md), and [release preparation](../deploy/agent/RELEASING.md).
+
 # Use the public demo
 
 Try Agentic Browser with your own Agent, then use a self-hosted workspace for regular work.

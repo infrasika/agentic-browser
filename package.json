@@ -52,7 +52,9 @@
     "accept:agent": "node scripts/accept-agent-compose.mjs --run",
     "agent": "python3 deploy/agent/agentctl.py",
     "test:agent-ops": "python3 -m unittest discover -s test -p test_agent_operations.py",
-    "accept:agent-ops": "node scripts/accept-agent-operations.mjs --run"
+    "accept:agent-ops": "node scripts/accept-agent-operations.mjs --run",
+    "package:agent": "python3 scripts/package-agent.py",
+    "test:agent-bundle": "python3 -m unittest discover -s test -p test_agent_bundle.py"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.32.1",

@@ -1,6 +1,6 @@
 # 完整 Agent 自部署（开发预览）
 
-本目录提供完整 LibreChat Agent 的配置、Compose 拓扑与 `agentctl.py` 安装运维入口。它使用原生浏览器工具，不需要 MCP 客户端。当前镜像在本地构建验收；公开镜像与面向最终用户的安装包尚未发布，不能使用旧 MCP 安装器来安装这套 Agent。完整命令见 [私有部署运维手册](OPERATIONS.md)。
+本目录提供完整 LibreChat Agent 的配置、Compose 拓扑与 `agentctl.py` 安装运维入口。它使用原生浏览器工具，不需要 MCP 客户端。当前镜像在本地构建验收；已提供候选包构建/校验工具，公开镜像与面向最终用户的安装包尚未发布，不能使用旧 MCP 安装器来安装这套 Agent。完整命令见 [私有部署运维手册](OPERATIONS.md)。
 
 2026-10-26（北京时间）：P10.1/P10.2 同机隔离验收通过，包含真实 Chrome、普通账号权限、排队/接管自动继续、重启保留、桌面和 390px 手机布局。使用模拟模型，没有调用付费模型；这不是干净新服务器的安装验收。
 
@@ -21,10 +21,10 @@
 Linux amd64、Docker Engine 26+、Compose v2、Python 3，以及相邻的 LibreChat 源码是构建工具的要求。最终用户目标为只运行镜像，无需源码或宿主 Node。
 
 ```bash
-python3 scripts/build-agent-images.py --run
+python3 scripts/build-agent-images.py --run --committed --tag agent-v0.2.0-rc.1
 ```
 
-构建器限制为 2 CPU / 5 GiB，从 Git 已跟踪源码和本目录受控文件创建上下文，不复制本机 `.env`、`node_modules`、`.deployment`、聊天或数据库。输出本地 `agentic-browser-agent:selfhost-preview` 和 `agentic-browser-service:selfhost-preview`，不自动上传仓库或切换公网。报告和私有构建日志在 `.deployment/agent-build/`。
+构建器限制为 2 CPU / 5 GiB，从 Git 已跟踪源码和本目录受控文件创建上下文，不复制本机 `.env`、`node_modules`、`.deployment`、聊天或数据库。输出本地 Agent、Browser Service 和 runtime 三个固定源码镜像，不自动上传仓库或切换公网。报告和私有构建日志在 `.deployment/agent-build/`。
 
 Compose 的 Agent 镜像包含以下配置命令，可通过临时容器运行，无需宿主 Node：
 
@@ -56,3 +56,5 @@ node scripts/accept-agent-operations.mjs --run
 ## 尚未交付的范围
 
 P10.3 的安装、普通账号创建/密码恢复、通用 TLS/STARTTLS SMTP、Compose 停写备份/新实例恢复及同拓扑镜像升级由 `agentctl.py` 提供，验收状态以开发计划为准。独立新主机安装/恢复与公开镜像、发行包仍属 P10.4/P10.5。自动定时备份、轮转、异地副本和宿主中断 watchdog 尚未安装；当前公网 P9 的 systemd 备份不能直接用于 Compose。旧 MCP 账号/token 和持久浏览器 profile 不自动迁移。
+
+候选包制作和独立测试机验收见 [发行准备](RELEASING.md)；包内用户入口为 [安装说明](INSTALL.md)。候选版尚未构成公开发行。

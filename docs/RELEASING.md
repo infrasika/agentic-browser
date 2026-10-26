@@ -1,3 +1,5 @@
+> **Archived MCP v0.1.x documentation.** These instructions describe the older external-agent product. The current public site is a LibreChat Agent and its public MCP endpoint is closed. For the complete Agent, see [installation](../deploy/agent/INSTALL.md), [current demo](AGENT_DEMO.md), and [release preparation](../deploy/agent/RELEASING.md).
+
 # Release maintenance
 
 This guide covers browser assets, GitHub Actions, image publication and the official deployment. For source structure and local development, see [Technical architecture](ARCHITECTURE.md). For installation and operator backup procedures, see [Self-hosting](SELF_HOST.md).

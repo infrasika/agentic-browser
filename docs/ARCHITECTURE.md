@@ -1,3 +1,5 @@
+> **Archived MCP v0.1.x documentation.** These instructions describe the older external-agent product. The current public site is a LibreChat Agent and its public MCP endpoint is closed. For the complete Agent, see [installation](../deploy/agent/INSTALL.md), [current demo](AGENT_DEMO.md), and [release preparation](../deploy/agent/RELEASING.md).
+
 # Technical architecture and contributor guide
 
 Agentic Browser gives an external Agent an isolated browser and lets a person take control when a task needs login, verification or judgment. The Agent supplies the reasoning; this service supplies browser tools, lifecycle management and a remote desktop. There is no embedded LLM, payment service or cloud-provider dependency.
