@@ -315,7 +315,7 @@ try {
     const result = await call(queued, `/api/messages/${queued.conversationId}`);
     const completedMessages = Array.isArray(result) ? result : result.messages;
     const completedSnapshots = completedMessages.flatMap(m => m.content ?? []).filter(p => p.type === 'tool_call' && p.tool_call?.name === 'browser_snapshot' && p.tool_call.output).map(p => JSON.parse(p.tool_call.output));
-    assert.ok(completedSnapshots.some(output => output.ok && output.value?.text?.includes('agentic-browser-acceptance')));
+    assert.ok(completedSnapshots.some(output => output.ok && output.value?.result?.text?.includes('agentic-browser-acceptance')));
     checks.push('public_done_continues_real_qwen_task_and_completes');
     const usage = await db.collection('transactions').aggregate([
       { $match: { user: { $in: fixtures.map(f => new mongoose.Types.ObjectId(f.id)) } } },
