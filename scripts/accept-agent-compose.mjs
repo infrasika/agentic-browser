@@ -78,6 +78,8 @@ try {
     `GATEWAY_IMAGE=${images.gateway}`,`MONGO_IMAGE=${images.mongo}`,`REDIS_IMAGE=${images.redis}`,
     `AGENT_UID=${uid}`,`AGENT_GID=${gid}`,`DOCKER_GID=${socketGroup}`,'AGENT_PORT=3334',`AGENT_ORIGIN=${origin}`,'BROWSER_MAX_SESSIONS=1',''].join('\n'),{mode:0o600});
   await mkdir(resolve(directory,'config'),{mode:0o700});
+  // Create bind sources ourselves; Docker-created parents are owned by root.
+  await mkdir(resolve(directory,'state/maintenance'),{recursive:true,mode:0o700});
   // Init and render run in the shipped image, without host Node dependencies.
   const configCommand=mode=>command('docker',['run','--rm','--network=none','--user',`${uid}:${gid}`,'--volume',`${directory}/config:/config`,'--entrypoint','node',images.agent,'/app/selfhost/init.mjs',mode,'/config']);
   await configCommand('init');
@@ -167,11 +169,14 @@ try {
   } catch { report.cleanup={passed:false}; }
   report.productionServicesUnchanged=(await pids())===originalPids;
   report.passed=report.passed&&report.cleanup.passed&&report.productionServicesUnchanged;
+  if(report.passed) {
+    try { await rm(directory,{recursive:true,force:true}); report.cleanup.localFiles=true; }
+    catch { report.cleanup.localFiles=false; report.cleanup.passed=false; report.passed=false; report.failure='fixture_directory_cleanup_failed'; }
+  }
   report.completedAt=new Date().toISOString();
   await mkdir(resolve(root,'output/agent'),{recursive:true});
   await writeFile(resolve(root,'output/agent/compose-'+runId+'.json'),JSON.stringify(report,null,2)+'\n');
   await writeFile(resolve(root,'output/agent/compose-latest.json'),JSON.stringify(report,null,2)+'\n');
   console.log(JSON.stringify(report));
-  if(report.passed) await rm(directory,{recursive:true,force:true});
 }
 process.exit(report.passed?0:1);
