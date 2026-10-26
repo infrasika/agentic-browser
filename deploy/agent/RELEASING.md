@@ -7,7 +7,7 @@
 两个仓库分别保留提交历史。Agent 镜像由 LibreChat 提交加 Browser 仓库的 `deploy/agent/app` 构建，Browser Service 和 runtime 来自 Browser 仓库。发行构建必须使用 `--committed`，读取 Git 对象，不使用工作区修改、未跟踪文件或先前编译产物：
 
 ```bash
-python3 scripts/build-agent-images.py --run --committed --tag agent-v0.2.0-rc.1
+python3 scripts/build-agent-images.py --run --committed --tag agent-v0.2.0-rc.2
 ```
 
 一次完整构建生成 Agent、Browser Service 和 runtime 三个镜像，使用独立 2 CPU/5 GiB buildx builder。Chrome/扩展资源从本地缓存复制前逐项核对已提交 lock 的 SHA-256；缓存缺失或变化时失败。基础镜像按 digest 固定；APT/npm 上游仍是构建网络依赖，完整重建不等于字节级可复现构建。
@@ -21,8 +21,8 @@ python3 scripts/build-agent-images.py --run --committed --tag agent-v0.2.0-rc.1
 ```bash
 python3 scripts/package-agent.py \
   --build-report .deployment/agent-build/BUILD_DIRECTORY/report.json \
-  --version v0.2.0-rc.1 \
-  --output output/agent/releases/v0.2.0-rc.1
+  --version v0.2.0-rc.2 \
+  --output output/agent/releases/v0.2.0-rc.2
 ```
 
 默认生成带六个镜像的离线候选包，以及外层/内层 SHA256SUMS、源码/工具提交清单、安装器、运维/安装手册、纯 Python 验收脚本和许可。镜像 archive 使用本机 image ID，导入后显式 `--development` 安装；不会将 ID 冒充 registry digest。包内 Mongo/Redis 也固定 ID，不依赖目标机已有仓库缓存。

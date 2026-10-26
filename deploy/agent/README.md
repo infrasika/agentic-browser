@@ -58,3 +58,6 @@ node scripts/accept-agent-operations.mjs --run
 P10.3 的安装、普通账号创建/密码恢复、通用 TLS/STARTTLS SMTP、Compose 停写备份/新实例恢复及同拓扑镜像升级由 `agentctl.py` 提供，验收状态以开发计划为准。独立新主机安装/恢复与公开镜像、发行包仍属 P10.4/P10.5。自动定时备份、轮转、异地副本和宿主中断 watchdog 尚未安装；当前公网 P9 的 systemd 备份不能直接用于 Compose。旧 MCP 账号/token 和持久浏览器 profile 不自动迁移。
 
 候选包制作和独立测试机验收见 [发行准备](RELEASING.md)；包内用户入口为 [安装说明](INSTALL.md)。候选版尚未构成公开发行。
+
+
+2026-10-26 后续进展：`v0.2.0-rc.2` 六镜像候选包已生成，从压缩包解压且 PATH 无宿主 Node 的同机隔离验收通过。真实 Chrome/接管自动继续、备份/新实例恢复及同镜像升级程序演练通过，测试资源清理完成。首轮 rc.1 的嵌套源码目录权限错误已修复并留存拒收记录。候选包在 `output/agent/releases/v0.2.0-rc.2/`，正式发布及独立新机验收尚未完成。

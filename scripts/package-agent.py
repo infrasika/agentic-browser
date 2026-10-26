@@ -97,7 +97,7 @@ def main():
         for name, source in FILES.items():
             file = bundle / name; file.parent.mkdir(parents=True, exist_ok=True)
             data = git_bytes(ROOT, package_commit, source)
-            if name == 'README.md': data = data.replace(b'v0.2.0-rc.1', args.version.encode())
+            if name == 'README.md': data = re.sub(rb'v[0-9]+\.[0-9]+\.[0-9]+(?:-[a-z0-9.-]+)?', args.version.encode(), data)
             file.write_bytes(data); file.chmod(0o644)
         (bundle / 'LICENSES/LibreChat.txt').write_bytes(git_bytes(args.librechat, report['sourceCommits']['librechat'], 'LICENSE'))
         (bundle / 'release.json').write_text(json.dumps({'version': args.version, 'images': refs}, indent=2) + '\n')

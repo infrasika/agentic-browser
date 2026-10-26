@@ -22,7 +22,7 @@ The self-hosting target is a versioned bundle and prebuilt images, with only Pyt
 
 Configure your own Qwen model and rates once in private files. Registration is closed by default; creating local users does not require Cloudflare or OAuth. Public registration requires HTTPS and Turnstile. SMTP password recovery is optional; a server-side recovery command is available without email.
 
-**Current status: Linux amd64 installation candidate.** Same-host Compose installation and recovery have passed; independent new-server acceptance and public Agent image publication are pending. Candidate bundles can include all six fixed images for transfer to a test server. Do not use the old MCP `install.sh` to install the complete Agent.
+**Current status: Linux amd64 installation candidate.** The rc.2 bundle has passed same-host installation, real-browser and recovery checks with no host Node on PATH; independent new-server acceptance and public Agent image publication are pending. Candidate bundles can include all six fixed images for transfer to a test server. Do not use the old MCP `install.sh` to install the complete Agent.
 
 See [installation](deploy/agent/INSTALL.md), [operations](deploy/agent/OPERATIONS.md), and [release preparation](deploy/agent/RELEASING.md). Start with one browser and validate capacity on your own host. ARM64/macOS support from the older MCP product is not an acceptance claim for this Agent.
 
