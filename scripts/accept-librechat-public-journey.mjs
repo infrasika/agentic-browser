@@ -90,7 +90,7 @@ async function startTask(fixture) {
   await capacityGuard();
   const messageId = randomUUID();
   const task = await call(fixture, '/api/agents/chat', {
-    text: 'Open https://example.com and call browser_request_handoff so I can use it. Wait until I return control; then call browser_snapshot, report the page title, and close the browser.',
+    text: 'Open https://httpbin.org/anything/agentic-browser-acceptance and call browser_request_handoff so I can use it. Wait until I return control; then call browser_snapshot, report the page title, and close the browser.',
     sender: 'User', isCreatedByUser: true, parentMessageId: '00000000-0000-0000-0000-000000000000',
     conversationId: 'new', messageId, responseMessageId: `${messageId}_`, endpoint: 'agents',
     agent_id: 'agent_browser_demo', spec: 'browser-demo', isTemporary: false, isRegenerate: false,
@@ -313,8 +313,9 @@ try {
     } while (Date.now() < end);
     assert.equal(job.active, false);
     const result = await call(queued, `/api/messages/${queued.conversationId}`);
-    const serialized = JSON.stringify(result);
-    assert.ok(serialized.includes('browser_snapshot') && serialized.includes('Example Domain'));
+    const completedMessages = Array.isArray(result) ? result : result.messages;
+    const completedSnapshots = completedMessages.flatMap(m => m.content ?? []).filter(p => p.type === 'tool_call' && p.tool_call?.name === 'browser_snapshot' && p.tool_call.output).map(p => JSON.parse(p.tool_call.output));
+    assert.ok(completedSnapshots.some(output => output.ok && output.value?.text?.includes('agentic-browser-acceptance')));
     checks.push('public_done_continues_real_qwen_task_and_completes');
     const usage = await db.collection('transactions').aggregate([
       { $match: { user: { $in: fixtures.map(f => new mongoose.Types.ObjectId(f.id)) } } },

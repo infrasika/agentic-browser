@@ -106,7 +106,7 @@ def main():
                 result = request('/api/messages/' + cid, token, port=port)
                 messages = result if isinstance(result, list) else result['messages']
                 calls = [part['tool_call'] for msg in messages for part in msg.get('content', []) if part.get('type') == 'tool_call']
-                snapshots = [call for call in calls if call.get('name') == 'browser_snapshot' and 'agentic-browser-acceptance' in str(call.get('output', ''))]
+                snapshots = [call for call in calls if call.get('name') == 'browser_snapshot' and call.get('output') and 'agentic-browser-acceptance' in json.loads(call['output']).get('value', {}).get('text', '')]
                 closed = [json.loads(call['output']) for call in calls if call.get('name') == 'browser_close' and call.get('output')]
                 if snapshots and any(c.get('ok') and c['value']['state'] == 'completed' for c in closed):
                     return

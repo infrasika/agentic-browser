@@ -38,7 +38,7 @@ try {
   headers.authorization = `Bearer ${(await freshLogin.json()).token}`;
   const messageId = randomUUID();
   const task = await call('/api/agents/chat', {
-    text: 'Open https://example.com and hand the browser to me. Wait for me to return control before doing anything else.',
+    text: 'Open https://httpbin.org/anything/agentic-browser-acceptance and hand the browser to me. Wait for me to return control before doing anything else.',
     sender: 'User', isCreatedByUser: true, parentMessageId: '00000000-0000-0000-0000-000000000000',
     conversationId: 'new', messageId, responseMessageId: `${messageId}_`, endpoint: 'agents',
     agent_id: 'agent_browser_demo', spec: 'browser-demo', isTemporary: false, isRegenerate: false,

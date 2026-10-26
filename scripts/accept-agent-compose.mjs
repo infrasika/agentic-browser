@@ -135,8 +135,10 @@ try {
     let status;
     for(let i=0;i<30;i++) { status=await call(account.token,'/api/agents/chat/status/'+account.conversationId); if(!status.active) break; await delay(500); }
     assert.equal(status.active,false);
-    const messages=JSON.stringify(await call(account.token,'/api/messages/'+account.conversationId));
-    assert.ok(messages.includes('agentic-browser-acceptance')&&messages.includes('browser_snapshot'));
+    const result=await call(account.token,'/api/messages/'+account.conversationId);
+    const messages=Array.isArray(result)?result:result.messages;
+    const snapshots=messages.flatMap(m=>m.content??[]).filter(p=>p.type==='tool_call'&&p.tool_call?.name==='browser_snapshot'&&p.tool_call.output).map(p=>JSON.parse(p.tool_call.output));
+    assert.ok(snapshots.some(output=>output.ok&&output.value?.text?.includes('agentic-browser-acceptance')));
   }
   const budgetAfter=await call(owner.token,'/api/demo-admin');
   assert.ok(budgetAfter.spentCredits>0); assert.equal(budgetAfter.reservedCredits,0);

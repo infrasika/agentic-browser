@@ -25,7 +25,7 @@ try {
   const headers = { authorization: `Bearer ${token}`, origin, 'content-type': 'application/json',
     'user-agent': 'Mozilla/5.0 Chrome/130.0.0.0 Safari/537.36', 'x-librechat-generation-protocol': '2' };
   const response = await fetch(`${origin}/api/agents/chat`, { method: 'POST', headers, body: JSON.stringify({
-    text: 'Open example.com and summarize the page.', sender: 'User', isCreatedByUser: true,
+    text: 'Open https://httpbin.org/anything/agentic-browser-acceptance and summarize the page.', sender: 'User', isCreatedByUser: true,
     parentMessageId: '00000000-0000-0000-0000-000000000000', conversationId: 'new', messageId,
     responseMessageId: `${messageId}_`, endpoint: 'agents', agent_id: 'agent_browser_demo',
     spec: 'browser-demo', isTemporary: false, isRegenerate: false, error: false,

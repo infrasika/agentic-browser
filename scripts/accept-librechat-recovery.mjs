@@ -32,7 +32,7 @@ async function call(headers, path, body) {
 async function start(headers) {
   const messageId = randomUUID();
   const task = await call(headers, '/api/agents/chat', {
-    text: 'Open https://example.com and call browser_request_handoff so I can use the browser. Wait until I return control, then inspect the page and close it.',
+    text: 'Open https://httpbin.org/anything/agentic-browser-acceptance and call browser_request_handoff so I can use the browser. Wait until I return control, then inspect the page and close it.',
     sender: 'User', isCreatedByUser: true, parentMessageId: '00000000-0000-0000-0000-000000000000',
     conversationId: 'new', messageId, responseMessageId: `${messageId}_`, endpoint: 'agents',
     agent_id: 'agent_browser_demo', spec: 'browser-demo', isTemporary: false, isRegenerate: false,
