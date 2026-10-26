@@ -1,0 +1,83 @@
+name: Verify complete Agent candidate on a fresh runner
+on:
+  workflow_dispatch:
+    inputs:
+      bundle_url:
+        description: 'Trusted HTTPS URL for a complete offline Agent candidate archive'
+        required: true
+      sha256:
+        description: 'SHA-256 from the trusted release channel (64 lowercase hex characters)'
+        required: true
+permissions: {}
+concurrency:
+  group: complete-agent-candidate-acceptance
+  cancel-in-progress: false
+jobs:
+  install:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    env:
+      CANDIDATE_URL: ${{ inputs.bundle_url }}
+      CANDIDATE_SHA256: ${{ inputs.sha256 }}
+    steps:
+      # No source checkout, setup-node, application dependency install or image build.
+      - name: Download and verify the exact candidate
+        run: |
+          python3 - <<'PY'
+          import os,re
+          from urllib.parse import urlsplit
+          url=urlsplit(os.environ['CANDIDATE_URL'])
+          assert url.scheme=='https' and url.hostname and not url.username and not url.password
+          assert re.fullmatch('[a-f0-9]{64}',os.environ['CANDIDATE_SHA256'])
+          PY
+          curl --fail --silent --show-error --location --proto '=https' --proto-redir '=https' --retry 2 "$CANDIDATE_URL" -o candidate.tar.gz
+          python3 - <<'PY'
+          import hashlib,os,tarfile
+          from pathlib import Path,PurePosixPath
+          h=hashlib.sha256()
+          with open('candidate.tar.gz','rb') as stream:
+            for chunk in iter(lambda:stream.read(1024*1024),b''):h.update(chunk)
+          assert h.hexdigest()==os.environ['CANDIDATE_SHA256'],'archive checksum mismatch'
+          with tarfile.open('candidate.tar.gz','r:gz') as archive:
+            members=archive.getmembers()
+            assert members and sum(m.size for m in members)<12*1024**3
+            roots=set()
+            for member in members:
+              p=PurePosixPath(member.name)
+              assert not p.is_absolute() and '..' not in p.parts and (member.isfile() or member.isdir())
+              roots.add(p.parts[0])
+            assert len(roots)==1
+            archive.extractall('extracted',filter='data')
+          root=Path('extracted')/roots.pop()
+          root.rename('candidate')
+          PY
+          python3 candidate/bundle.py verify
+      - name: Import fixed images and run the bundle without host Node
+        run: |
+          python3 candidate/bundle.py load-images
+          mkdir host-tools
+          ln -s "$(command -v python3)" host-tools/python3
+          ln -s "$(command -v docker)" host-tools/docker
+          python3 - <<'PY'
+          import json,os,platform,subprocess
+          from pathlib import Path
+          evidence={'host':'GitHub-hosted ubuntu-24.04 fresh job','runId':os.environ['GITHUB_RUN_ID'],
+                    'runAttempt':os.environ['GITHUB_RUN_ATTEMPT'],'machine':platform.machine(),
+                    'sourceCheckout':False,'hostApplicationNode':False,
+                    'archiveSha256':os.environ['CANDIDATE_SHA256']}
+          Path('host-evidence.json').write_text(json.dumps(evidence,indent=2)+'\n')
+          env=dict(os.environ,PATH=str(Path('host-tools').resolve()))
+          subprocess.run(['python3','candidate/acceptance/verify.py','--work',str(Path('acceptance').resolve())],env=env,check=True)
+          PY
+      - name: Preserve only non-secret acceptance evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: complete-agent-candidate-acceptance
+          path: |
+            host-evidence.json
+            acceptance/report.json
+            candidate/BUILD.json
+            candidate/release.json
+          if-no-files-found: warn
+          retention-days: 30

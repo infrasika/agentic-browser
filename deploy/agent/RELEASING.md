@@ -40,3 +40,5 @@ python3 scripts/package-agent.py \
 5. 确定公开镜像仓库、固定版本标签及安装包的可下载位置后发布；匿名拉取/下载后重新校验。当前源码仓库私有，GitHub Release 附件不能被当作匿名下载入口。
 
 候选包可以先交给测试机验收。未完成门槛时保持 candidate 状态，不更新旧 MCP controller/runtime 的 stable/latest 别名，不把未发布的地址写成可用下载链接。
+
+可选 `.github/workflows/accept-agent-bundle.yml` 在 GitHub 的全新 Ubuntu runner 执行同一验收，输入可信 HTTPS 候选包地址与 SHA-256；不 checkout 源码、不 setup Node、不构建镜像。测试 PATH 只提供 Python/Docker，报告单独记录 runner 来源。该 workflow 已准备但尚未推送或执行；需先提供测试机可下载的候选包位置，不能把“已写 workflow”当作通过证据。
