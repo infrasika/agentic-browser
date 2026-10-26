@@ -1,5 +1,6 @@
 import importlib.util
 import json
+import os
 from pathlib import Path
 import subprocess
 import tempfile
@@ -72,9 +73,13 @@ class Bundle(unittest.TestCase):
             (source / 'tracked').write_text('committed'); git('add', 'tracked'); git('commit', '-m', 'fixture')
             revision = git('rev-parse', 'HEAD')
             (source / 'tracked').write_text('working change'); (source / 'private.env').write_text('secret')
-            builder.committed_checkout(source, root / 'context', revision)
+            previous = os.umask(0o077)
+            try: builder.committed_checkout(source, root / 'context', revision)
+            finally: os.umask(previous)
             self.assertEqual((root / 'context/tracked').read_text(), 'committed')
             self.assertFalse((root / 'context/private.env').exists())
+            self.assertEqual((root / 'context').stat().st_mode & 0o777, 0o755)
+            self.assertEqual((root / 'context/tracked').stat().st_mode & 0o777, 0o644)
 
     def test_runtime_assets_require_locked_hashes(self):
         with tempfile.TemporaryDirectory() as folder:

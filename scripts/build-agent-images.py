@@ -48,6 +48,11 @@ def committed_checkout(source, target, revision):
     data = subprocess.check_output(['git', 'archive', revision], cwd=source)
     with tarfile.open(fileobj=io.BytesIO(data)) as archive:
         archive.extractall(target, filter='data')
+    # The data filter intentionally drops directory modes. Under our private
+    # umask that creates 0700 directories, unreadable by a container's runtime
+    # UID after Docker COPY. Keep only the enclosing work directory private.
+    for parent, _, _ in os.walk(target):
+        Path(parent).chmod(0o755)
 
 def runtime_assets(source, context):
     lock = json.loads((context / 'runtime/assets.lock.json').read_text())
@@ -71,12 +76,17 @@ def main():
     parser.add_argument('--tag', default='selfhost-preview')
     parser.add_argument('--component', choices=['all', 'agent', 'browser', 'runtime'], default='all')
     parser.add_argument('--committed', action='store_true', help='Build only recorded Git commits (required for release candidates)')
+    parser.add_argument('--browser-commit', help='Exact existing commit to rebuild; defaults to HEAD')
+    parser.add_argument('--librechat-commit', help='Exact existing commit to rebuild; defaults to HEAD')
     args = parser.parse_args()
     if not args.run:
         parser.print_help(); return
     import re
     if not re.fullmatch(r'[a-z0-9][a-z0-9_.-]{0,60}', args.tag):
         raise ValueError('Invalid local image tag')
+    for revision in [args.browser_commit, args.librechat_commit]:
+        if revision and (not args.committed or not re.fullmatch(r'[a-f0-9]{40}', revision)):
+            raise ValueError('Commit overrides require --committed and an exact SHA')
     os.umask(0o077)
     parent = ROOT / '.deployment/agent-build'
     parent.mkdir(parents=True, exist_ok=True)
@@ -84,8 +94,8 @@ def main():
     builder = 'agent-build-' + uuid.uuid4().hex[:10]
     report = {'published': False, 'images': {}, 'sourceCommits': {}, 'sourceMode': 'committed' if args.committed else 'working-tree'}
     try:
-        for name, repo in [('browser', ROOT), ('librechat', args.librechat)]:
-            report['sourceCommits'][name] = subprocess.check_output(['git','rev-parse','HEAD'],cwd=repo,text=True).strip()
+        for name, repo, revision in [('browser', ROOT, args.browser_commit), ('librechat', args.librechat, args.librechat_commit)]:
+            report['sourceCommits'][name] = subprocess.check_output(['git','rev-parse','--verify',(revision or 'HEAD')+'^{commit}'],cwd=repo,text=True).strip()
         run(['docker','buildx','create','--name',builder,'--driver','docker-container',
              '--driver-opt','memory=5g,cpu-period=100000,cpu-quota=200000'])
         # Snapshot each repository once, so helper files and Dockerfiles are also
