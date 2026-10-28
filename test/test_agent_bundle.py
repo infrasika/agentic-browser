@@ -61,6 +61,12 @@ class Bundle(unittest.TestCase):
             (root / 'release.json').write_text(json.dumps(data)); self.sums(root)
             with self.assertRaisesRegex(ValueError, 'exact image'): bundle.verify(root)
 
+    def test_maintenance_module_is_required_even_with_valid_checksums(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder); self.fixture(root)
+            (root / 'maintenance.py').unlink(); self.sums(root)
+            with self.assertRaisesRegex(ValueError, 'incomplete bundle'): bundle.verify(root)
+
     def test_preview_overlay_and_partial_builds_cannot_be_packaged(self):
         for value in [{}, {'passed': True, 'sourceMode': 'working-tree'}, {'passed': True, 'sourceMode': 'committed', 'images': {'agent': {}}}]:
             with self.assertRaises(ValueError): package.validate_report(value)

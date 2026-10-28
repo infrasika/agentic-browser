@@ -103,7 +103,7 @@ with (root/'state/lock').open('a') as lock:
     print('writers_stopped',flush=True)
     time.sleep(600)
 '''
-        process = subprocess.Popen(['python3', '-c', script, str(bundle), str(directory)], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        process = subprocess.Popen(['python3', '-B', '-c', script, str(bundle), str(directory)], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
         try:
             with selectors.DefaultSelector() as selector:
                 selector.register(process.stdout, selectors.EVENT_READ)
@@ -262,6 +262,8 @@ with (root/'state/lock').open('a') as lock:
         for instance in instances:
             if run(DOCKER + ['ps', '-aq', '--filter', 'label=dev.agentic-browser.instance=' + instance]): cleanup_errors.append('runtime')
         if fixture and run(DOCKER + ['ps', '-aq', '--filter', 'name=^/' + fixture + '$']): cleanup_errors.append('fixture')
+        try: run(['python3', str(bundle / 'bundle.py'), 'verify'])
+        except subprocess.SubprocessError: cleanup_errors.append('bundle_integrity_after_acceptance')
         report['cleanup'] = {'passed': not cleanup_errors, 'remaining': len(cleanup_errors)}
         report['passed'] = report['passed'] and not cleanup_errors
         write(work / 'report.json', report)
