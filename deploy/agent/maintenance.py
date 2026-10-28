@@ -58,13 +58,15 @@ def configure(install, args):
     name = 'agentic-backup-' + install.meta['project']
     command = ' '.join(unit_quote(v) for v in [sys.executable, install.root / 'agentctl.py', '--directory', install.root, 'maintain'])
     ctl.atomic(units / (name + '.service'), '[Unit]\nDescription=Private Agent idle backup and recovery\n'
-               '[Service]\nType=oneshot\nUMask=0077\nExecStart=' + command + '\n'
+               'Wants=docker.service\nAfter=docker.service\nRequiresMountsFor=' + unit_quote(install.root) + '\n'
+               '[Service]\nType=oneshot\nUser=' + str(os.getuid()) + '\nGroup=' + str(os.getgid()) + '\n'
+               'UMask=0077\nExecStart=' + command + '\n'
                'TimeoutStartSec=60min\nTimeoutStopSec=5min\nKillMode=control-group\n')
     ctl.atomic(units / (name + '.timer'), '[Unit]\nDescription=Check private Agent backup and recovery each minute\n'
                '[Timer]\nOnCalendar=*-*-* *:*:00 UTC\nPersistent=true\nRandomizedDelaySec=10\n'
                '[Install]\nWantedBy=timers.target\n')
     return {'configured': True, 'unitDirectory': str(units), 'timer': name + '.timer',
-            'next': 'Link both units with systemctl --user link, then enable --now the timer. Enable user lingering for boot recovery.'}
+            'next': 'As a host administrator, link both units with systemctl link and enable --now the timer. The service runs as the installation owner, not root.'}
 
 
 def mirror(install, policy, backup):

@@ -83,7 +83,7 @@ python3 agentctl.py --directory /srv/my-agent verify-backup /srv/my-agent/backup
 python3 /srv/my-agent/agentctl.py --directory /srv/my-agent schedule --timezone Asia/Shanghai --hour 4 --keep 7 --retry-minutes 60
 ```
 
-命令生成私密的 `config/backup.json` 和 `state/systemd/` 下的两个用户级 systemd unit，不修改其他实例。将输出目录内的 `.service` 和 `.timer` 用 `systemctl --user link` 链接，再 `systemctl --user enable --now TIMER_NAME` 启用。需要开机后及退出 SSH 后继续执行时，由服务器管理员启用 `loginctl enable-linger USER`；不支持 systemd 的宿主可由自己的调度器每分钟调用 `maintain`。
+命令生成私密的 `config/backup.json` 和 `state/systemd/` 下的两个 systemd unit，不修改其他实例。由服务器管理员将输出目录内的 `.service` 和 `.timer` 用 `sudo systemctl link` 链接，再 `sudo systemctl enable --now TIMER_NAME` 启用。服务显式以安装目录所属 UID/GID 运行，备份进程不使用 root，且该用户本身须有 Docker 访问权限。系统定时器不依赖 SSH 登录或用户服务管理器缓存的组列表，开机后会继续检查；不支持 systemd 的宿主可由自己的调度器每分钟调用 `maintain`。
 
 ```bash
 python3 /srv/my-agent/agentctl.py --directory /srv/my-agent maintain

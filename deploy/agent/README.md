@@ -55,7 +55,9 @@ node scripts/accept-agent-operations.mjs --run --release /path/to/release.json
 
 ## 尚未交付的范围
 
-P10.3 的安装、普通账号创建/密码恢复、通用 TLS/STARTTLS SMTP、Compose 停写备份/新实例恢复及同拓扑镜像升级由 `agentctl.py` 提供，验收状态以开发计划为准。独立新主机安装/恢复与公开镜像、发行包仍属 P10.4/P10.5。自动定时备份、轮转、异地副本和宿主中断 watchdog 尚未安装；当前公网 P9 的 systemd 备份不能直接用于 Compose。会话登录状态不跨会话保留。
+安装、普通账号创建/密码恢复、通用 TLS/STARTTLS SMTP、Compose 停写备份/新实例恢复及同拓扑镜像升级由 `agentctl.py` 提供。`schedule` / `maintain` 提供私有实例专属定时备份、轮转、受控目录副本和普通备份中断恢复，独立于公网 P9 备份。验收状态以开发计划为准。
+
+独立新主机安装/恢复、实际跨版本数据库升级和公开发行仍未完成。目录副本支持受控远程挂载，但尚未配置和验证真实异地存储；也未对整台宿主执行重启/断电测试。会话登录状态不跨会话保留。
 
 候选包制作和独立测试机验收见 [发行准备](RELEASING.md)；包内用户入口为 [安装说明](INSTALL.md)。候选版尚未构成公开发行。
 

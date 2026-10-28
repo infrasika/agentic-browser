@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta, timezone
 import importlib.util
 import io
+import os
 from pathlib import Path
 import sys
 import tarfile
@@ -103,6 +104,9 @@ class Maintenance(unittest.TestCase):
         self.assertIn('Persistent=true', unit.read_text())
         self.assertEqual(unit.stat().st_mode & 0o777, 0o600)
         self.assertTrue((self.root / 'maintenance.py').is_file())
+        service = unit.with_suffix('.service').read_text()
+        self.assertIn('User=' + str(os.getuid()), service)
+        self.assertIn('After=docker.service', service)
         self.assertNotIn('sudo', unit.read_text())
 
     def test_invalid_policy_and_nested_copy_destinations_are_rejected(self):
