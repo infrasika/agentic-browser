@@ -39,9 +39,13 @@
 
 按维护者要求，构建改为 Mac / Ubuntu 共用同一份 Git 源码，不再使用移交包或要求相邻 LibreChat 仓库。`integrations/librechat/` 保存公开上游 `6189220`、定制补丁 SHA-256、最终源码树与许可证；已经从公网重新获取上游、应用补丁，完整源码树与原定制版一致。构建和部署配置分离，不读取 `.deployment/` 或根目录 `.env`。
 
-基础镜像和三个官方服务的固定 digest 均已确认包含 amd64 / arm64。Chrome 改用版本化的官方 URL；两种 Chrome 与扩展均已从空缓存实际下载并通过锁定摘要校验。Browser Service 已在 Ubuntu 上分别构建 amd64 / arm64 镜像，证据在 `output/build/build-y8onpr8i/`；完整三组件构建仍在验收中。
+基础镜像和三个官方服务的固定 digest 均已确认包含 amd64 / arm64。Chrome 改用版本化的官方 URL；两种 Chrome 与扩展均已从空缓存实际下载并通过锁定摘要校验。在 Ubuntu amd64 上，基于源码 `53fb6fa` 完整构建了两种架构的 Agent、Browser Service、Chrome runtime，共六个镜像，ARM64 使用 Buildx 自带 QEMU。构建报告在 `output/build/build-6cbaz1s4/{amd64,arm64}/report.json`；两份报告的合并发布预检通过，未读取发布凭据。总验收记录：`output/build/portability-verification.json`。
 
-构建输出每个架构独立报告，发布工具将六个自有镜像合并为三个多平台 GHCR 标签，检查来源一致、平台完整、版本冲突和拉回身份。打包按目标架构选择官方依赖与发布 index 的子镜像；Linux 安装器匹配主机架构。45 项 Python 测试已通过。真实 GHCR 上传、匿名拉取、Mac 实机与原生 ARM64 全流程尚未执行；Ubuntu 不上传、不 push、不升级站点。
+构建输出每个架构独立报告，发布工具将六个自有镜像合并为三个多平台 GHCR 标签，检查来源一致、平台完整、版本冲突和拉回身份。临时本地 Registry 已实际完成双架构夹具上传、三个 index、拉回校验及幂等重试；未访问 GHCR。证据：`output/build/local-publication-verification.json`。
+
+新 amd64 六镜像离线包校验、导入与 9 项完整验收通过，安装工具来自 `a1c5e25`，包含真实 Chrome、接管继续、普通账号、备份/恢复、强杀备份和错误升级回退。测试 PATH 只有 Python/Docker，未调用付费模型，临时实例及数据已清理。修复了 containerd 按平台 inspect 得到的子镜像 ID 尚不可独立导出的问题，打包前显式拉取子 manifest。证据：`output/build/packaging-verification.json`、`output/build/native-amd64-acceptance.json`。
+
+TypeScript、24 项 Node、47 项 Python 测试和 45 个文档链接已通过。真实 GHCR 上传、匿名拉取、Mac 实机与原生 ARM64 全流程尚未执行。本轮只有本地 Git 提交，尚未 push；Mac clone 之前需要将当前分支同步到远端。已删除失去用途的 Mac 移交包、专用准备材料、临时源码副本、重复下载和一次性验收驱动。当前站点仍为 rc.6，容器持续健康，入口 HTTP 200，未升级或重启。
 
 ## 尚未完成
 

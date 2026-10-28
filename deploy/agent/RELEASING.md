@@ -36,7 +36,7 @@ python3 scripts/build/build-agent-images.py --run --committed \
 3. 分别构建两种架构的 Agent、Browser Service、Chrome runtime，共六个镜像。每个目标平台独立安装原生 npm 依赖，逐个 `--load`，兼容 classic/containerd 镜像存储。
 4. 输出 `output/build/build-…/amd64/report.json`、`arm64/report.json` 和构建日志。报告记录平台、源码提交、定制 LibreChat tree、资源摘要及本机镜像 ID。
 
-只构建一种架构时传 `--platforms linux/amd64` 或 `linux/arm64`。Buildx 支持 QEMU 或多个原生构建节点；Mac Docker Desktop 默认提供模拟，Ubuntu 的官方 BuildKit 也包含模拟器。模拟原生模块/前端编译通常较慢，可用 `--builder NAME` 指向已配置的原生多节点构建器；工具不会删除传入的 builder。[Docker 多平台构建说明](https://docs.docker.com/build/building/multi-platform/)
+只构建一种架构时传 `--platforms linux/amd64` 或 `linux/arm64`。Buildx 支持 QEMU 或多个原生构建节点；Mac Docker Desktop 默认提供模拟，Ubuntu 的官方 BuildKit 也包含模拟器。模拟原生模块/前端编译通常较慢，可用 `--builder NAME` 指向已配置的原生多节点构建器；工具不会删除传入的 builder，也可以借此保留缓存供后续构建使用。默认临时 builder 在结束后移除。[Docker 多平台构建说明](https://docs.docker.com/build/building/multi-platform/)
 
 基础镜像均锁定包含两种架构的 manifest index。Chrome 使用带版本号的官方 URL；扩展下载仍依赖商店提供锁定版本。若任何下载与锁定摘要不符，构建会停止，不能自动退回最新版本。资源升级需审核并更新 lock；APT/npm 等网络依赖仍存在，不承诺字节级可复现。
 
