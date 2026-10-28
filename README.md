@@ -20,7 +20,9 @@ The self-hosting target is a versioned bundle and prebuilt images, with only Pyt
 - Browser Service: per-user sessions, queueing, live display, control handoff and Chrome lifecycle.
 - Private MongoDB and Redis, plus one HTTP gateway. Only the gateway publishes a loopback port.
 
-Configure your own Qwen model and rates once in private files. Registration is closed by default; creating local users does not require Cloudflare or OAuth. Public registration requires HTTPS and Turnstile. SMTP password recovery is optional; a server-side recovery command is available without email.
+The [self-hosting guide](deploy/agent/INSTALL.md) walks through server prerequisites, package verification, every required setting and secret, HTTPS, first login, email and acceptance. The official public deployment path uses Cloudflare DNS/proxy, Full (strict) TLS and Turnstile. Configure your own Qwen model and rates once in private files; no deployment secrets are needed to build an image.
+
+Registration stays closed until you enable it. Local users, credits and browser isolation use the same application in both modes; there is no second deployment stack. SMTP password recovery is optional, with Cloudflare Email Sending documented as one provider. Closed registration and local SSH testing remain available without Cloudflare or OAuth.
 
 **Current status: Linux amd64 installation candidate.** Same-host installation, real-browser and recovery checks have been established with no host Node on PATH; source changes must pass those checks again before a new candidate is accepted. Independent new-server acceptance and public Agent image publication are pending. Candidate bundles can include all six fixed images for transfer to a test server.
 

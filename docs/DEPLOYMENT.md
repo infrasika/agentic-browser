@@ -39,7 +39,9 @@
 
 这些目录通过 Docker local bind volumes 挂载。重建容器不会删除数据；删除安装目录会删除数据。Mongo/Redis 子目录由数据库容器用户持有，不要递归 chmod/chown。控制接口和数据库没有发布宿主端口，只有 gateway 发布回环端口。
 
-外层 Nginx 文件为 `/etc/nginx/conf.d/agentic-browser.conf`，仓库版本见 `deploy/agent/nginx.host.conf`。内层只信任当前宿主 Docker 网桥 `172.28.0.1` 转发的客户端 IP；用户身份仍由登录验证。若执行 Compose down 后重建网络，要重新确认 Gateway IP 并更新 `trustedProxyIPs`。
+外层 Nginx 文件为 `/etc/nginx/conf.d/agentic-browser.conf`。当前站点沿用 Cloudflare 到宿主 HTTP 的原入口；仓库 `deploy/agent/nginx.host.conf` 已改为面向新部署的通用 Full (strict) HTTPS 模板，不再是该文件的副本，不能原样覆盖。当前站点切换需先准备覆盖本域名的源站证书及私钥，再配置宿主 443 并调整 Cloudflare 模式，本轮未执行切换。
+
+内层只信任当前宿主 Docker 网桥 `172.28.0.1` 转发的客户端 IP；用户身份仍由登录验证。若执行 Compose down 后重建网络，要重新确认 Gateway IP 并更新 `trustedProxyIPs`。
 
 ## 健康、配置应用与备份
 

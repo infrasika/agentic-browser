@@ -4,7 +4,7 @@
 
 源码仓库根目录不需要 `.env`。管理工具只读取所选安装目录中的 `.env`；本机 `.deployment/` 不进入 Git 或镜像，Mac 构建也不依赖它。
 
-构建时只需要版本、目标架构和公共依赖；发布时使用独立的 Docker/GHCR 登录。Qwen key、模型名称、域名和邮件设置在目标机器执行 `init` 后填写。同一组镜像可以供多个部署者使用各自的配置，无需为每个 key 重新 build。Mac 与 Ubuntu 的统一命令见 [构建与发布](RELEASING.md)。
+构建时只需要版本、目标架构和公共依赖；发布时使用独立的 Docker/GHCR 登录。Qwen key、模型名称、域名和邮件设置在目标机器执行 `init` 后填写。同一组镜像可以供多个部署者使用各自的配置，无需为每个 key 重新 build。Mac 与 Ubuntu 的统一命令见源码仓库的 `deploy/agent/RELEASING.md`；部署发行包不包含维护者构建工具。
 
 例如安装到 `/srv/my-agent`，文件位置如下：
 
@@ -82,3 +82,17 @@ python3 /srv/my-agent/agentctl.py --directory /srv/my-agent doctor
 `apply` 先备份，再重建容器加载配置。不要手改生成的 `.env`、`nginx.conf` 或容器内 `/tmp/agent/librechat.yaml`；它们会重新生成。SMTP 配置需通过 `mail-test` 后启用找回密码，见 [运维](OPERATIONS.md)。
 
 Git/GHCR 的发布授权独立于以上文件。构建无需业务密钥，发布使用 Docker 已有登录；CI 可用 `GITHUB_TOKEN` 登录 Docker。不要把发布 Token 加入 `secrets.env` 或安装包。
+
+## Cloudflare 配置边界
+
+官方公网安装流程统一使用 Cloudflare DNS/代理、Full (strict) 和 Turnstile，逐步设置见安装指南（源码中为 `INSTALL.md`，发行包中为 `README.md`）。这是受支持的公网入口路径，不新增另一套应用或 Compose。
+
+| Cloudflare 配置 | 保存在哪里 |
+| --- | --- |
+| DNS、代理、缓存、WebSockets、SSL 模式 | Cloudflare 控制台，不传入应用 |
+| Origin CA 证书与私钥 | 宿主 Nginx 的证书目录，不放入应用配置或镜像 |
+| Turnstile Site key | `settings.json` 的 `turnstileSiteKey` |
+| Turnstile Secret key | `secrets.env` 的 `TURNSTILE_SECRET_KEY` |
+| 可选 Email Sending token | `secrets.env` 的 `SMTP_PASSWORD`；发信参数放 `settings.smtp` |
+
+应用不需要 Cloudflare Global API Key、DNS 编辑 token 或账号 ID。公开注册必须有 Turnstile，但 `registration: closed` 仍然是同一套账号系统的配置开关。邮件只维护现有 SMTP 实现，不增加 Cloudflare 专用 HTTP 发信实现。

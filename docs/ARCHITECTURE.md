@@ -42,6 +42,10 @@ MongoDB 保存 LibreChat 账号、密码摘要、聊天、个人 credits、全�
 
 原域名站点与用户私有部署统一使用完整 Agent Compose，见 [安装](../deploy/agent/INSTALL.md)。宿主 Nginx 将域名转到 gateway 的回环端口；Mongo、Redis、浏览器状态与应用文件绑定安装目录的 `data/`，重建容器保留数据。配置和密钥只保存在安装目录的 `config/`，运维统一由 `agentctl.py` 执行。当前测试服务器路径与备份策略见 [DEPLOYMENT.md](DEPLOYMENT.md)。
 
+官方公网安装路径统一为 Cloudflare DNS/代理 → 宿主 HTTPS Nginx（Full strict）→ Compose gateway，公开注册使用 Turnstile。这样统一入口模板和验收，不给应用增加 Cloudflare DNS/证书管理 SDK、Tunnel 服务或另一套 Compose。关闭注册只是本地账号系统的策略开关，保留自用和隔离验收能力。
+
+密码找回仍共用一套 TLS SMTP 实现，官方指南提供 Cloudflare Email Sending 配置；发信服务不是核心启动的硬依赖。Email Sending 的开通及费用门槛与 Turnstile 不同，故不通过强制 Cloudflare 发信来删除通用 SMTP。源站证书归宿主，模型与应用密钥归安装目录，构建和发布均不依赖这些部署参数。
+
 `deploy/` 是版本控制中的部署源码，`.deployment/` 是不提交的本地安装状态。构建日志和报告在 `output/build/`，临时验收安装在 `output/tests/`；测试不再把临时目录写进 `.deployment/`。历史恢复资料归到 `.deployment/archive/`，当前站点仍使用 `.deployment/agent-site/`。
 
 发行清单必须明确包含 Agent、Browser Service、Chrome runtime、gateway、MongoDB、Redis 六个不可变镜像。当前仅验收 Linux amd64；公开发行和独立新服务器验证的状态见 [进度](plans/PROGRESS.md)。

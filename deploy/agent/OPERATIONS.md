@@ -2,31 +2,15 @@
 
 使用 `agentctl.py` 管理一个完整 Agent 实例，应用只在镜像里运行；宿主需要与镜像架构匹配的 Linux、Python 3、Docker Engine 26+ 和 Compose v2/v5。当前 rc.6 已在测试服务器部署，完整 Agent 镜像尚未发布到 GHCR。每个安装目录对应独立的 Compose project；迁移已有站点需停写、导入数据、核对后再切换域名。
 
-## 初始化与启动
+## 安装后的配置与数据
 
-发行包包含 `agentctl.py`、`compose.yaml` 和 `release.json`。版本清单固定 Agent、Browser Service、Chrome runtime、gateway、Mongo 和 Redis 六个镜像；registry 清单使用 digest；普通模式拒绝 `latest` 等可变标签。开发者可用 `--development` 显式允许本机 `sha256:` image ID。配置字段及挂载关系见 [CONFIGURATION.md](CONFIGURATION.md)。
+首次部署按安装指南执行（源码中为 `INSTALL.md`，发行包中为 `README.md`），其中集中维护软件准备、Cloudflare、初始化、密钥填写和公网验收步骤。本手册以 `/srv/my-agent` 为示例安装目录，使用时换成自己选择的路径，例如 `$HOME/my-agent`。
 
-```bash
-python3 agentctl.py --directory /srv/my-agent init --release release.json
-```
-
-该命令创建私密目录、随机服务/JWT/加密密钥及初始管理员密码。已有目录会拒绝初始化，避免覆盖数据。按输出位置一次编辑 `config/settings.json` 与 `config/secrets.env`：
-
-- 管理员邮箱；密码已随机生成，可以在首次启动前修改。
-- Qwen 模型、区域对应的 base URL、API key、输入/输出费率；不自动采用示例价格。
-- 外部 origin、名称、初始 credits、每日预算、账期时区和浏览器并发。默认并发 1，每账号 1，最大允许 10；实际容量由服务器资源决定。
-- 默认关闭注册，无需 Cloudflare。公开注册必须使用 HTTPS 并设置完整 Turnstile 配置。
-
-```bash
-python3 agentctl.py --directory /srv/my-agent up
-python3 agentctl.py --directory /srv/my-agent doctor
-```
-
-默认入口只监听 `127.0.0.1:3333`，可通过 SSH 隧道体验。远程 HTTPS 由部署者现有代理终结，外层代理需支持 WebSocket、长连接、不缓存，并保留配置的 Host。数据库、Browser 控制 API 和 MCP 均不发布公网。
+版本清单固定六个镜像，普通模式只接受 registry digest。默认入口仅监听 `127.0.0.1:3333`，数据库、Browser 控制 API 和 MCP 不发布公网。配置字段及挂载关系见 [CONFIGURATION.md](CONFIGURATION.md)。
 
 数据明确保存在安装目录的 `data/`：`mongo-data`、`redis-data`、`browser-data`、`uploads`、`images`、`logs`。Compose 使用绑定这些目录的本地数据卷，浏览器仍能按会话子目录隔离挂载。容器删除或重建不会删除这些文件；删除安装目录则会丢失数据。Mongo/Redis 子目录由容器内数据库用户持有，不要递归修改权限。启动会拒绝缺失或符号链接数据目录，不会偷偷创建空库。
 
-外层代理示例见 `nginx.host.conf`（本仓库测试站的域名和 3351 端口，其他部署需修改）。外层代理覆盖 `X-Real-IP`，内层 gateway 仅信任 `settings.json` 的 `trustedProxyIPs` 中明确列出的代理源 IP，默认不信任任何转发 IP。宿主 Nginx 经 Docker 回环端口进入时，该源 IP 通常是 `front` 网络的 Gateway，必须实际检查；若删除重建网络导致地址变化，应重新配置。不要填写网段或公网访客地址。该设置只信任客户端地址，用户身份仍由 LibreChat 登录验证。
+外层代理模板 `nginx.host.conf` 使用 `agent.example.com`、回环端口 3333 和源站 TLS，需填写自己的域名和证书，配合 Cloudflare Full (strict)。它不是当前测试服务器配置的副本。外层代理覆盖 `X-Real-IP`，内层 gateway 仅信任 `settings.json` 的 `trustedProxyIPs` 中明确列出的代理源 IP，默认不信任任何转发 IP。宿主 Nginx 经 Docker 回环端口进入时，该源 IP 通常是 `front` 网络的 Gateway，必须实际检查；若删除重建网络导致地址变化，应重新配置。不要填写网段或公网访客地址。该设置只信任客户端地址，用户身份仍由 LibreChat 登录验证。
 
 `.env` 由工具从 settings 自动生成，不需要手动同步 origin/容量。修改运行中的 settings 或 secrets 后，等待任务空闲并运行 `apply`：先备份、停止写入，再加载新配置；不会重置已有密码或发放 credits。管理面板内保存的日预算优先于首次 YAML 默认值。
 
@@ -47,7 +31,7 @@ python3 agentctl.py --directory /srv/my-agent user-reset
 
 ## 可选通用 SMTP
 
-不依赖特定邮件供应商。`settings.json` 增加：
+所有供应商共用一套 SMTP 实现。Cloudflare Email Sending 的开通、固定 SMTP 参数和 token 权限见安装指南；无需另装 Worker 或增加 REST 发信后端。使用已有其他供应商时，`settings.json` 增加：
 
 ```json
 "smtp": {

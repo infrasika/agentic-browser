@@ -47,6 +47,14 @@
 
 TypeScript、24 项 Node、47 项 Python 测试和 45 个文档链接已通过。真实 GHCR 上传、匿名拉取、Mac 实机与原生 ARM64 全流程尚未执行。本轮只有本地 Git 提交，尚未 push；Mac clone 之前需要将当前分支同步到远端。已删除失去用途的 Mac 移交包、专用准备材料、临时源码副本、重复下载和一次性验收驱动。当前站点仍为 rc.6，容器持续健康，入口 HTTP 200，未升级或重启。
 
+## 开源用户部署指南
+
+`deploy/agent/INSTALL.md` 已整理为从空白 Linux 服务器开始的完整指南：依赖与发行包校验、Cloudflare DNS/代理与 Turnstile、初始化、每个必填参数和密钥的位置、首次启动、代理信任、Full (strict) 源站 TLS、可选 Cloudflare SMTP、管理员/普通用户和浏览器验收、备份及故障排查。该文件继续作为发行包的 `README.md`，没有新增另一份重复安装手册；运维手册移除重复初始化步骤。修正配置文档指向未随包分发的构建文档的失效链接。
+
+官方公网流程统一使用 Cloudflare，关闭注册仍是同一套账号系统的开关。邮件继续共用 TLS SMTP，不增加 Cloudflare REST 发信代码；Cloudflare Email Sending 对任意收件人的发信有独立开通及 Workers Paid 要求，故保留可选。构建和发布不依赖 Cloudflare 或模型密钥。
+
+通用 `nginx.host.conf` 改为示例域名、3333 端口、HTTP 跳转和 HTTPS 源站，保留身份头隔离、流式聊天和 WebSocket。临时 Nginx/证书/模拟上游的 8 项检查、现有 7 项部署配置测试通过；文档 Bash 语法、实际 CLI 选项及发行包内部链接核对通过，记录在 `output/build/public-install-guide-verification.json`。测试进程已清理，没有调用模型、发送邮件、发布镜像或更改现网配置。当前站点仍是原 HTTP 源站入口；Full (strict) 切换和外部 Cloudflare 全链路验收尚未执行。
+
 ## 尚未完成
 
 独立新主机验证、数据库实际跨大版本迁移、真实异地备份、整机断电/重启演练及公开分发。CI 工作流已提供，尚未运行；本机隔离实例和目录副本不代替独立主机或异地证据。
