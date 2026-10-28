@@ -59,7 +59,7 @@ try {
   passed = true;
 } finally {
   await service.close();
-  const output = resolve('output/librechat');
+  const output = resolve('output/agent');
   await mkdir(output, { recursive: true });
   const report = { startedAt, completedAt: new Date().toISOString(), passed, runtimeImage, checks,
     scope: 'Two real Docker browsers, sequentially admitted at capacity 1. Not a 10-browser load test.' };

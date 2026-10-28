@@ -1,6 +1,6 @@
 # 私有 Agent 运维（开发预览）
 
-使用 `agentctl.py` 管理一个完整 Agent 实例，应用只在镜像里运行；宿主需要 Linux amd64、Python 3、Docker Engine 26+ 和 Compose v2。当前使用本地预览镜像，候选包工具已提供，公开镜像和正式安装发行包仍在 P10.5。每个安装目录对应独立的 Compose project；迁移已有站点需停写、导入数据、核对后再切换域名。
+使用 `agentctl.py` 管理一个完整 Agent 实例，应用只在镜像里运行；宿主需要 Linux amd64、Python 3、Docker Engine 26+ 和 Compose v2。当前使用本地预览镜像，候选包工具已提供，公开分发渠道尚未发布。每个安装目录对应独立的 Compose project；迁移已有站点需停写、导入数据、核对后再切换域名。
 
 ## 初始化与启动
 

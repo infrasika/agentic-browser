@@ -14,7 +14,6 @@
 | `src/runtime-worker.ts`、`src/desktop.ts`、`src/browser.ts` | 容器内 Chrome、扩展、CDP 和 VNC 生命周期 |
 | `src/egress-*` | 公网出口代理与目标地址限制 |
 | `deploy/agent/` | 完整 Agent 的 Compose 安装、配置、备份、恢复和升级 |
-| `deploy/librechat/` | 当前公网站点的 systemd、Nginx、Mongo/Redis 与运维配置 |
 | `scripts/agent/` | 独立安装包的模拟模型、测试账号及验收工具 |
 
 ## 请求与身份
@@ -39,6 +38,6 @@ MongoDB 保存 LibreChat 账号、密码摘要、聊天、个人 credits、全�
 
 ## 部署
 
-公网继续使用宿主 systemd 应用和 loopback IP:port，见 [站点运维](../deploy/librechat/README.md)。私有部署统一使用完整 Agent Compose，见 [安装](../deploy/agent/INSTALL.md)。两者共用 Agent 配置工厂及浏览器协议，运维数据分别管理。
+原域名站点与用户私有部署统一使用完整 Agent Compose，见 [安装](../deploy/agent/INSTALL.md)。宿主 Nginx 将域名转到 gateway 的回环端口；Mongo、Redis、浏览器状态与应用文件绑定安装目录的 `data/`，重建容器保留数据。配置和密钥只保存在安装目录的 `config/`，运维统一由 `agentctl.py` 执行。当前测试服务器路径与备份策略见 [DEPLOYMENT.md](DEPLOYMENT.md)。
 
-发行清单必须明确包含 Agent、Browser Service、Chrome runtime、gateway、MongoDB、Redis 六个不可变镜像。当前仅验收 Linux amd64；公开发行和独立新服务器验证的状态见 [进度](plans/LIBRECHAT_PROGRESS.md)。
+发行清单必须明确包含 Agent、Browser Service、Chrome runtime、gateway、MongoDB、Redis 六个不可变镜像。当前仅验收 Linux amd64；公开发行和独立新服务器验证的状态见 [进度](plans/PROGRESS.md)。

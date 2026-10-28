@@ -2,7 +2,7 @@
 
 A chat Agent with a private remote browser beside the conversation. The Agent opens a website, hands control to you for sign-in or confirmation, then continues in the same browser when you click Done.
 
-**[Public demo](https://agentic-browser.zkpass.org/) · [Demo guide](docs/AGENT_DEMO.md) · [Complete Agent installation](deploy/agent/INSTALL.md) · [Development progress](docs/plans/LIBRECHAT_PROGRESS.md)**
+**[Public demo](https://agentic-browser.zkpass.org/) · [Demo guide](docs/AGENT_DEMO.md) · [Complete Agent installation](deploy/agent/INSTALL.md) · [Development progress](docs/plans/PROGRESS.md)**
 
 ## Try the demo
 
@@ -24,7 +24,7 @@ Configure your own Qwen model and rates once in private files. Registration is c
 
 **Current status: Linux amd64 installation candidate.** Same-host installation, real-browser and recovery checks have been established with no host Node on PATH; source changes must pass those checks again before a new candidate is accepted. Independent new-server acceptance and public Agent image publication are pending. Candidate bundles can include all six fixed images for transfer to a test server.
 
-Data lives in the installation’s `data/` directories, mounted into the database and application containers. The current test domain runs this complete Compose layout; its operator runbook is [here](docs/plans/TEST_SERVER.md).
+Data lives in the installation’s `data/` directories, mounted into the database and application containers. The current test domain runs this complete Compose layout; its operator runbook is [here](docs/DEPLOYMENT.md).
 
 See [installation](deploy/agent/INSTALL.md), [operations](deploy/agent/OPERATIONS.md), and [release preparation](deploy/agent/RELEASING.md). Start with one browser and validate capacity on your own host. Linux amd64 is the supported target.
 
@@ -41,7 +41,7 @@ The Agent calls Browser Service over a private authenticated interface. Browser 
 
 The deployment administrator controls the host and stored data. The configured cloud model receives prompts and tool results. During human control, Agent browser actions and observation are suspended; after you return control the Agent can read the signed-in page.
 
-[Architecture](docs/ARCHITECTURE.md) and [self-hosting scope](docs/plans/AGENT_SELF_HOSTING.md) describe the implementation and acceptance boundaries. Build and test commands are in [deploy/agent/README.md](deploy/agent/README.md). End users do not need the source checkouts or host Node.js.
+[Architecture](docs/ARCHITECTURE.md) and [development plan](docs/plans/DEVELOPMENT.md) describe the implementation and acceptance boundaries. Build and test commands are in [deploy/agent/README.md](deploy/agent/README.md). End users do not need the source checkouts or host Node.js.
 
 ## Distribution notices
 

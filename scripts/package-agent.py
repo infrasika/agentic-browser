@@ -22,6 +22,7 @@ INFRA = {
 FILES = {
     'agentctl.py': 'deploy/agent/agentctl.py', 'compose.yaml': 'deploy/agent/compose.yaml',
     'maintenance.py': 'deploy/agent/maintenance.py',
+    'nginx.host.conf': 'deploy/agent/nginx.host.conf',
     'bundle.py': 'deploy/agent/bundle.py', 'README.md': 'deploy/agent/INSTALL.md',
     'OPERATIONS.md': 'deploy/agent/OPERATIONS.md', 'acceptance/verify.py': 'scripts/agent/verify-bundle.py',
     'acceptance/model-fixture.mjs': 'scripts/agent/model-fixture.mjs',

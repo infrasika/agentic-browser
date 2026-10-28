@@ -39,7 +39,7 @@ def verify(directory):
     if any(p.is_symlink() for p in paths): raise ValueError('bundle symlinks are not allowed')
     actual = {p.relative_to(directory).as_posix() for p in paths if not p.is_dir()}
     if actual != set(entries) | {'SHA256SUMS'}: raise ValueError('unexpected or missing bundle files')
-    required = {'agentctl.py', 'maintenance.py', 'compose.yaml', 'bundle.py', 'release.json', 'BUILD.json', 'README.md', 'OPERATIONS.md',
+    required = {'agentctl.py', 'maintenance.py', 'nginx.host.conf', 'compose.yaml', 'bundle.py', 'release.json', 'BUILD.json', 'README.md', 'OPERATIONS.md',
                 'acceptance/verify.py', 'acceptance/model-fixture.mjs', 'LICENSES/LibreChat.txt',
                 'LICENSES/DISTRIBUTION-NOTICES.md', 'LICENSES/PLAYWRIGHT-LICENSE'}
     if not required <= set(entries): raise ValueError('incomplete bundle')

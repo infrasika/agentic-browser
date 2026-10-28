@@ -15,27 +15,24 @@ import { SchedulerStore, type Lease } from '../src/scheduling/store.js';
 import { ViewerGrants } from '../src/streaming/grants.js';
 import { createDataServer } from '../src/streaming/server.js';
 
-// Explicit isolated load test. Production is observed read-only and never used
-// for test accounts, browser leases, model calls or user page contents.
+// Isolated load test with its own service, ledger, listener and runtime identity.
+// Run only on a host with spare capacity; no deployed installation is required.
 if (!process.argv.includes('--run')) {
-  console.log('Usage: BROWSER_RUNTIME_IMAGE=sha256:... node --import tsx scripts/accept-browser-soak.ts --run [--capacity=10] [--hold-seconds=300]');
+  console.log('Usage: BROWSER_RUNTIME_IMAGE=sha256:... node --import tsx scripts/accept-browser-soak.ts --run [--capacity=1] [--hold-seconds=300]');
   process.exit(0);
 }
 const holdSeconds = Number(process.argv.find(arg => arg.startsWith('--hold-seconds='))?.split('=')[1] ?? 300);
 assert.ok(Number.isInteger(holdSeconds) && holdSeconds >= 30 && holdSeconds <= 300, 'Hold must be 30–300 seconds');
-const capacity = Number(process.argv.find(arg => arg.startsWith('--capacity='))?.split('=')[1] ?? 10);
-assert.ok(capacity === 5 || capacity === 10, 'Capacity must be 5 or 10');
+const capacity = Number(process.argv.find(arg => arg.startsWith('--capacity='))?.split('=')[1] ?? 1);
+assert.ok(Number.isInteger(capacity) && capacity >= 1 && capacity <= 10, 'Capacity must be 1–10');
 const image = process.env.BROWSER_RUNTIME_IMAGE;
 assert.match(image ?? '', /^sha256:[a-f0-9]{64}$/, 'Use a verified local runtime image ID');
 const exec = promisify(execFile);
 const root = resolve(import.meta.dirname, '..');
-const production = new DatabaseSync(join(root, '.data/librechat-browser/scheduler.sqlite'), { readOnly: true });
 const available = async () => Number(/MemAvailable:\s+(\d+)/.exec(await readFile('/proc/meminfo', 'utf8'))?.[1] ?? 0) / 1024;
-const productionIdle = () => Number(production.prepare("SELECT COUNT(*) AS n FROM leases WHERE state IN ('queued','starting','active','closing','cleanup_pending')").get()!.n) === 0;
-assert.ok(productionIdle(), 'Production has active users; wait until idle');
 assert.ok(await available() >= 8192, 'At least 8 GiB available memory is required before starting');
 const directory = await mkdtemp(join(tmpdir(), 'browser-soak-'));
-const engine = new DockerEngine({ dataDirectory: directory, image, network: 'public', denyHosts: ['agentic-browser.zkpass.org'] });
+const engine = new DockerEngine({ dataDirectory: directory, image, network: 'public' });
 const store = new SchedulerStore(join(directory, 'scheduler.sqlite'), capacity);
 const service = new BrowserService(store, engine, { ttlMs: 600000, maxLifetimeMs: 600000, queueTtlMs: 600000, maxQueued: 10 });
 const grants = new ViewerGrants();
@@ -63,7 +60,6 @@ let cleanup: { passed: boolean; remainingContainers?: number; liveLeases?: numbe
 const guard = async () => {
   minimumAvailableMiB = Math.min(minimumAvailableMiB, await available());
   if (minimumAvailableMiB < 3072) stopped ??= 'memory_reserve_3_gib';
-  if (!productionIdle()) stopped ??= 'production_user_arrived';
   if (Date.now() >= deadline) stopped ??= 'run_deadline';
   if (stopped) throw new Error(stopped);
 };
@@ -115,8 +111,8 @@ async function sample() {
     operationMs.push(Date.now() - before);
   }));
   const before = Date.now();
-  const health = await fetch('http://127.0.0.1:3080/api/config', { signal: AbortSignal.timeout(5000) });
-  assert.equal(health.status, 200, 'Production LibreChat config probe failed');
+  const health = await fetch(`http://127.0.0.1:${(server.address() as AddressInfo).port}/health`, { signal: AbortSignal.timeout(5000) });
+  assert.equal(health.status, 200, 'Isolated data server health probe failed');
   await health.arrayBuffer();
   healthMs.push(Date.now() - before);
   for (const viewer of viewers) assert.ok(Date.now() - viewer.lastFrameAt < 10000, 'Viewer has stopped receiving frames');
@@ -157,12 +153,12 @@ try {
   }
   heldMs = Date.now() - holdStart;
   assert.ok(p95(operationMs) < 3000, 'Scroll/snapshot p95 exceeds 3 seconds');
-  assert.ok(p95(healthMs) < 1000, 'Production config latency p95 exceeds 1 second');
+  assert.ok(p95(healthMs) < 1000, 'Data server health latency p95 exceeds 1 second');
   for (const viewer of viewers) {
     assert.ok(viewer.frames >= Math.floor(heldMs / 3000), 'Insufficient sustained frames');
     assert.ok(p95(viewer.gaps) < 3000, 'Frame interval p95 exceeds 3 seconds');
   }
-  checks.push('sustained_jpeg_scroll_snapshot_and_production_health_budgets');
+  checks.push('sustained_jpeg_scroll_snapshot_and_health_budgets');
 
   stage = 'queue_and_handoff';
   const owner = leases[0];
@@ -203,16 +199,15 @@ try {
     cleanup = { passed: remaining === 0 && live === 0, remainingContainers: remaining, liveLeases: live };
   } catch { cleanup = { passed: false }; }
   if (!cleanup.passed) process.exitCode = 1;
-  production.close();
   const report = { passed: !failure && cleanup.passed, startedAt, completedAt: new Date().toISOString(), image, directory,
     holdSecondsRequested: holdSeconds, heldSeconds: Math.round(heldMs / 1000), capacity,
     eligibleForTenSlots: capacity === 10 && !failure && cleanup.passed && heldMs >= 300000,
     workload: { exampleBrowsers: Math.ceil(capacity / 2), githubPublicBrowsers: Math.floor(capacity / 2), authenticatedJpegViewers: capacity, cycles },
-    operationP95Ms: operationMs.length ? p95(operationMs) : null, configP95Ms: healthMs.length ? p95(healthMs) : null,
+    operationP95Ms: operationMs.length ? p95(operationMs) : null, healthP95Ms: healthMs.length ? p95(healthMs) : null,
     minimumAvailableMiB: Number.isFinite(minimumAvailableMiB) ? Math.round(minimumAvailableMiB) : null,
     viewers: viewers.map(viewer => ({ frames: viewer.frames, intervalP95Ms: viewer.gaps.length ? p95(viewer.gaps) : null })),
-    checks, failure, cleanup, scope: 'Isolated Chrome with public pages and production read-only health/idle checks. No LLM, real accounts or private repositories; not a guarantee for arbitrary sites or day-long traffic.' };
-  await mkdir(join(root, 'output/librechat'), { recursive: true });
-  await writeFile(join(root, `output/librechat/browser-soak-${capacity}.json`), JSON.stringify(report, null, 2) + '\n');
+    checks, failure, cleanup, scope: 'Isolated Chrome and data server with public pages. No LLM, real accounts or private repositories; not a guarantee for arbitrary sites or day-long traffic.' };
+  await mkdir(join(root, 'output/agent'), { recursive: true });
+  await writeFile(join(root, `output/agent/browser-soak-${capacity}.json`), JSON.stringify(report, null, 2) + '\n');
   console.log(JSON.stringify(report));
 }

@@ -7,13 +7,6 @@
     "node": ">=24"
   },
   "scripts": {
-    "setup:librechat": "node scripts/librechat-config.mjs setup",
-    "doctor:librechat": "node scripts/librechat-config.mjs check",
-    "mail:test:librechat": "node scripts/librechat-mail.mjs test",
-    "health:librechat": "tsx scripts/check-librechat-health.ts",
-    "backup:librechat": "python3 scripts/backup-librechat.py",
-    "verify:librechat-backup": "tsx scripts/verify-librechat-backup.ts",
-    "verify:librechat-recovery": "python3 scripts/verify-librechat-recovery.py",
     "test:service": "tsx --test test/browser-session.test.ts test/browser-service.test.ts",
     "dev": "tsx watch src/service.ts",
     "start": "tsx src/service.ts",

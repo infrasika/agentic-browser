@@ -39,11 +39,11 @@ python3 /home/ubuntu/Yu/agentic-browser/.deployment/agent-site/agentctl.py --dir
 systemctl list-timers agentic-backup-agent-75a6bb6859e4.timer
 ```
 
-修改配置后，在没有运行或排队任务时执行同一命令前缀下的 `apply`，先备份再更新。不要使用旧 `health:librechat` 或旧宿主 systemd 服务管理新站点。
+修改配置后，在没有运行或排队任务时执行同一命令前缀下的 `apply`，先备份再更新。代码库已移除旧宿主运维入口。
 
 新系统定时器以 ubuntu（UID/GID 1000）运行，每天北京时间 04:00 起空闲备份，忙时每 60 分钟重试，保留 7 份自动备份，并每分钟检查普通备份中断恢复。首份完整备份 `20261028T122321Z-8858256c` 已验证，位于 `agent-site/backups/`。已用这份实际备份恢复到独立目录核对账号、聊天、余额和预算；恢复副本只绑定自己的数据目录，代理信任列表重新置空。原管理员密码登录成功，真实 Qwen 完成读取网页并关闭浏览器，约消耗 3,663 credits；临时恢复实例及其容器、卷、网络已清理。
 
-备份包含密钥和用户数据，仅保存在私密目录。当前没有异地备份，磁盘损坏恢复仍需外部存储。完整操作说明见 [私有部署运维](../../deploy/agent/OPERATIONS.md)。
+备份包含密钥和用户数据，仅保存在私密目录。当前没有异地备份，磁盘损坏恢复仍需外部存储。完整操作说明见 [私有部署运维](../deploy/agent/OPERATIONS.md)。
 
 ## 迁移与退役记录
 
@@ -53,4 +53,4 @@ systemctl list-timers agentic-backup-agent-75a6bb6859e4.timer
 
 这些旧快照只代表切换时的数据。网站产生新记录后，应从新实例最新备份恢复，不能直接切回旧库而丢弃后续写入。恢复演练不重启整机；其他项目的 PostgreSQL、Bifrost 和预览服务未改动。
 
-当前安装使用本机构建的 `v0.2.0-rc.5` 镜像清单：Agent 来自 Browser 仓库 `49f48b1` / LibreChat `0d7ee88`，Browser Service 与 Chrome runtime 复用已验证的固定镜像，运维工具来自 `185e4a2`。现有可分发离线包仍是 rc.4，未将这次运行部署声称为已发布的 rc.5 完整发行包。验收报告见 `output/agent/in-place-deployment.json`。
+当前安装使用本机构建的 `v0.2.0-rc.5` 镜像清单：Agent 来自 Browser 仓库 `49f48b1` / LibreChat `0d7ee88`，Browser Service 与 Chrome runtime 复用已验证的固定镜像，运维工具来自 `185e4a2`。清理后的 rc.6 完整候选包正在构建验收。验收报告见 `output/agent/in-place-deployment.json`。
