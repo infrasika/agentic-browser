@@ -51,9 +51,9 @@ async function waitCompleted(account, leaseId) {
       const closed=messages?.flatMap(m=>m.content??[]).find(part=>part.type==='tool_call'&&part.tool_call?.name==='browser_close');
       if (closed?.tool_call.output) {
         const value=JSON.parse(closed.tool_call.output);
-        assert.equal(value.ok,true); assert.equal(value.value.id,leaseId); assert.equal(value.value.state,'completed');
+        assert.equal(value.ok,true); assert.equal(value.value.id,leaseId); assert.ok(['completed','closing','cleanup_pending'].includes(value.value.state));
         const row=JSON.parse(await compose(['exec','-T','browser','node','-e',"const db=new(require('node:sqlite').DatabaseSync)('/data/scheduler.sqlite',{readOnly:true});console.log(JSON.stringify(db.prepare('SELECT id,state FROM leases WHERE id=?').get("+JSON.stringify(leaseId)+")));db.close();"]));
-        assert.equal(row.state,'completed'); return;
+        if (row.state === 'completed') return;
       }
     }
     await delay(750);

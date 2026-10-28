@@ -139,8 +139,11 @@ with (root/'state/lock').open('a') as lock:
                 calls = [part['tool_call'] for msg in messages for part in msg.get('content', []) if part.get('type') == 'tool_call']
                 snapshots = [call for call in calls if call.get('name') == 'browser_snapshot' and call.get('output') and 'agentic-browser-acceptance' in json.loads(call['output']).get('value', {}).get('result', {}).get('text', '')]
                 closed = [json.loads(call['output']) for call in calls if call.get('name') == 'browser_close' and call.get('output')]
-                if snapshots and any(c.get('ok') and c['value']['state'] == 'completed' for c in closed):
-                    return
+                if snapshots and any(c.get('ok') and c['value']['state'] in ['completed', 'closing', 'cleanup_pending'] for c in closed):
+                    directory = source if port == args.port else restored if port == args.port + 1 else rollback
+                    script = "const d=new(require('node:sqlite').DatabaseSync)('/data/scheduler.sqlite',{readOnly:true});const row=d.prepare('SELECT state FROM leases WHERE id=?').get(" + json.dumps(lease['id']) + ");d.close();console.log(JSON.stringify({state:row?.state,records:require('fs').readdirSync('/data/runtimes').filter(n=>n.endsWith('.json')).length}))"
+                    final = json.loads(compose(directory, 'exec', '-T', 'browser', 'node', '-e', script))
+                    if final['state'] == 'completed' and final['records'] == 0: return
             time.sleep(1)
         raise AssertionError('real snapshot and automatic completion timeout')
 
