@@ -125,7 +125,10 @@ try {
 finally {
   for(const [dir,p] of [[restored,cloneProject],[directory,project]]) if(p){try{await writeFile(work+'/'+p+'-logs.txt',await compose(['logs','--no-color','--tail','60'],dir),{mode:0o600});}catch{}}
   if(project)await command('docker',['rm','-f',project+'-fixture']).catch(()=>{});
-  for(const [dir,p] of [[restored,cloneProject],[directory,project]])if(p)await compose(['down','--volumes','--remove-orphans'],dir).catch(()=>{});
+  for(const [dir,p] of [[restored,cloneProject],[directory,project]])if(p) {
+    await compose(['down','--volumes','--remove-orphans'],dir).catch(()=>{});
+    await command('docker',['run','--rm','--network=none','--read-only','--user=0:0','--cap-drop=ALL','--cap-add=CHOWN','--cap-add=DAC_OVERRIDE','--security-opt=no-new-privileges','--volume',dir+'/data:/data','--entrypoint=chown',report.images.agent,'-R',`${process.getuid()}:${process.getgid()}`,'/data']);
+  }
   const remaining=[];for(const p of [project,cloneProject].filter(Boolean)){
     const ids=await command('docker',['ps','-aq','--filter','label=com.docker.compose.project='+p]);if(ids)remaining.push(p);
     const volumes=await command('docker',['volume','ls','-q','--filter','label=com.docker.compose.project='+p]);if(volumes)remaining.push(p+'-volumes');

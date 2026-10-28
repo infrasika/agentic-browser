@@ -254,6 +254,11 @@ with (root/'state/lock').open('a') as lock:
                 if (directory / '.env').is_file():
                     write(work / (project + '-logs.txt'), compose(directory, 'logs', '--no-color', '--tail', '80'))
                     compose(directory, 'down', '--volumes', '--remove-orphans')
+                    # These are fresh fixtures under work, never operator installations.
+                    run(DOCKER + ['run', '--rm', '--network=none', '--read-only', '--user=0:0', '--cap-drop=ALL',
+                        '--cap-add=CHOWN', '--cap-add=DAC_OVERRIDE', '--security-opt=no-new-privileges',
+                        '--volume', str(directory / 'data') + ':/data', '--entrypoint=chown', build['images']['agent']['id'],
+                        '-R', str(os.getuid()) + ':' + str(os.getgid()), '/data'])
                 for command, label in [('ps', 'com.docker.compose.project='), ('volume', 'com.docker.compose.project='), ('network', 'com.docker.compose.project=')]:
                     check = DOCKER + ([command, '-aq'] if command == 'ps' else [command, 'ls', '-q']) + ['--filter', 'label=' + label + project]
                     if run(check): cleanup_errors.append(project + ':' + command)

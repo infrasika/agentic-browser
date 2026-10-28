@@ -1,6 +1,6 @@
 # 私有 Agent 运维（开发预览）
 
-使用 `agentctl.py` 管理一个完整 Agent 实例，应用只在镜像里运行；宿主需要 Linux amd64、Python 3、Docker Engine 26+ 和 Compose v2。当前使用本地预览镜像，候选包工具已提供，公开镜像和正式安装发行包仍在 P10.5。命令不会接入已有公网的 systemd、账号或数据库。
+使用 `agentctl.py` 管理一个完整 Agent 实例，应用只在镜像里运行；宿主需要 Linux amd64、Python 3、Docker Engine 26+ 和 Compose v2。当前使用本地预览镜像，候选包工具已提供，公开镜像和正式安装发行包仍在 P10.5。每个安装目录对应独立的 Compose project；迁移已有站点需停写、导入数据、核对后再切换域名。
 
 ## 初始化与启动
 
@@ -23,6 +23,10 @@ python3 agentctl.py --directory /srv/my-agent doctor
 ```
 
 默认入口只监听 `127.0.0.1:3333`，可通过 SSH 隧道体验。远程 HTTPS 由部署者现有代理终结，外层代理需支持 WebSocket、长连接、不缓存，并保留配置的 Host。数据库、Browser 控制 API 和 MCP 均不发布公网。
+
+数据明确保存在安装目录的 `data/`：`mongo-data`、`redis-data`、`browser-data`、`uploads`、`images`、`logs`。Compose 使用绑定这些目录的本地数据卷，浏览器仍能按会话子目录隔离挂载。容器删除或重建不会删除这些文件；删除安装目录则会丢失数据。Mongo/Redis 子目录由容器内数据库用户持有，不要递归修改权限。启动会拒绝缺失或符号链接数据目录，不会偷偷创建空库。
+
+外层代理示例见 `nginx.host.conf`（本仓库测试站的域名和 3351 端口，其他部署需修改）。外层代理覆盖 `X-Real-IP`，内层 gateway 仅信任 `settings.json` 的 `trustedProxyIPs` 中明确列出的代理源 IP，默认不信任任何转发 IP。宿主 Nginx 经 Docker 回环端口进入时，该源 IP 通常是 `front` 网络的 Gateway，必须实际检查；若删除重建网络导致地址变化，应重新配置。不要填写网段或公网访客地址。该设置只信任客户端地址，用户身份仍由 LibreChat 登录验证。
 
 `.env` 由工具从 settings 自动生成，不需要手动同步 origin/容量。修改运行中的 settings 或 secrets 后，等待任务空闲并运行 `apply`：先备份、停止写入，再加载新配置；不会重置已有密码或发放 credits。管理面板内保存的日预算优先于首次 YAML 默认值。
 
@@ -106,7 +110,7 @@ python3 agentctl.py --directory /srv/restored-agent restore /srv/my-agent/backup
 python3 agentctl.py --directory /srv/restored-agent recover
 ```
 
-恢复先验证摘要、路径与条目类型，拒绝符号链接及活跃 runtime 记录。保留账号/密码/聊天/credits/预算，生成新的 Browser instance ID，避免接管原实例容器。默认改为新回环 origin、关闭注册和 Turnstile，旧邮件收据因 origin 改变而失效；先停在未运行状态供核对配置，不自动重放网页操作。切换回正式域名及验证 SMTP 后再开放访问。
+恢复采用当前安装器的目录挂载模板，目标数据只落在新目录；不会复用源目录或源代理信任地址。恢复先验证摘要、路径与条目类型，拒绝符号链接及活跃 runtime 记录。保留账号/密码/聊天/credits/预算，生成新的 Browser instance ID，避免接管原实例容器。默认改为新回环 origin、关闭注册和 Turnstile，旧邮件收据因 origin 改变而失效；先停在未运行状态供核对配置，不自动重放网页操作。切换回正式域名及验证 SMTP 后再开放访问。
 
 ## 升级与中断处理
 

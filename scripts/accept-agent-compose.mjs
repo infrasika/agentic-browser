@@ -76,7 +76,9 @@ try {
   await writeFile(resolve(directory,'.env'),[
     `AGENT_PROJECT=${project}`,`AGENT_IMAGE=${images.agent}`,`BROWSER_IMAGE=${images.browser}`,`RUNTIME_IMAGE=${images.runtime}`,
     `GATEWAY_IMAGE=${images.gateway}`,`MONGO_IMAGE=${images.mongo}`,`REDIS_IMAGE=${images.redis}`,
-    `AGENT_UID=${uid}`,`AGENT_GID=${gid}`,`DOCKER_GID=${socketGroup}`,'AGENT_PORT=3334',`AGENT_ORIGIN=${origin}`,'BROWSER_MAX_SESSIONS=1',''].join('\n'),{mode:0o600});
+    `AGENT_UID=${uid}`,`AGENT_GID=${gid}`,`DOCKER_GID=${socketGroup}`,'AGENT_PORT=3334',`AGENT_DATA_DIR=${directory}/data`,`AGENT_ORIGIN=${origin}`,'BROWSER_MAX_SESSIONS=1',''].join('\n'),{mode:0o600});
+  await mkdir(resolve(directory,'data'),{mode:0o700});
+  for(const name of ['browser-data','mongo-data','redis-data','uploads','images','logs']) await mkdir(resolve(directory,'data',name),{mode:0o700});
   await mkdir(resolve(directory,'config'),{mode:0o700});
   // Create bind sources ourselves; Docker-created parents are owned by root.
   await mkdir(resolve(directory,'state/maintenance'),{recursive:true,mode:0o700});
@@ -163,6 +165,8 @@ try {
   try { await writeFile(resolve(directory,'private-compose.log'),await compose(['logs','--no-color','--tail','200']),{mode:0o600}); } catch {}
   try {
     await compose(['down','--volumes','--remove-orphans'],150000);
+    // Reclaim only this disposable fixture's stopped database files.
+    await command('docker',['run','--rm','--network=none','--read-only','--user=0:0','--cap-drop=ALL','--cap-add=CHOWN','--cap-add=DAC_OVERRIDE','--security-opt=no-new-privileges','--volume',directory+'/data:/data','--entrypoint=chown',report.images.agent,'-R',`${process.getuid()}:${process.getgid()}`,'/data']);
     const remaining=await command('docker',['ps','-aq','--filter','label=com.docker.compose.project='+project]);
     const runtimes=instance?await command('docker',['ps','-aq','--filter','label=dev.agentic-browser.instance='+instance]):'';
     report.cleanup={passed:!remaining&&!runtimes,remainingContainers:remaining.split('\n').filter(Boolean).length,runtimeContainers:runtimes.split('\n').filter(Boolean).length};

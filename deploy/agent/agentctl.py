@@ -369,12 +369,14 @@ def restore(source, directory, port, development):
     if (manifest['uid'], manifest['gid']) != (os.getuid(), os.getgid()): raise Failure('restore_requires_same_numeric_uid_gid')
     initialize(directory, source / 'release.json', port, development)
     install = Installation(directory)
-    atomic(directory / 'compose.yaml', (source / 'compose.yaml').read_text())
+    # Use this installer's topology: its storage paths resolve inside the new
+    # installation, never the source host's mounts. The archived file is audit evidence.
     for name in ['settings.json', 'secrets.env', 'browser-token', 'smtp-verified.json']:
         if (source / name).exists(): atomic(directory / 'config' / name, (source / name).read_text())
     # A clone starts on a new loopback origin. Reconfigure HTTPS/mail after verification.
     settings = read_json(directory / 'config/settings.json')
     settings['origin'] = f'http://127.0.0.1:{port}'; settings['registration'] = 'closed'; settings['turnstileSiteKey'] = ''
+    settings.pop('trustedProxyIPs', None)
     atomic(directory / 'config/settings.json', settings)
     secrets = (directory / 'config/secrets.env').read_text()
     secrets = re.sub(r'^TURNSTILE_SECRET_KEY=.*$', 'TURNSTILE_SECRET_KEY=', secrets, flags=re.M)
