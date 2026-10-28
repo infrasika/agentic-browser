@@ -19,7 +19,9 @@ http {
   resolver 127.0.0.11 valid=10s ipv6=off;
   upstream chat { zone chat 64k; server agent:3080 resolve; }
   upstream viewer { zone viewer 64k; server browser:8082 resolve; }
-  map $http_upgrade $connection_upgrade { default upgrade; '' close; }
+  # HTTP/1.1 upstreams reuse connections. SSE explicitly keeps them alive;
+  # sending Connection: close here leaves the next reused request invalid.
+  map $http_upgrade $connection_upgrade { default upgrade; '' ''; }
   server {
     listen 8080;
     server_name _;

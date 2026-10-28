@@ -31,10 +31,13 @@ async function request(token, path, body) {
   return fetch(origin + path, { method: body === undefined ? 'GET' : 'POST', headers: { ...headers, ...(token ? { authorization: 'Bearer ' + token } : {}) }, ...(body === undefined ? {} : { body: JSON.stringify(body) }), signal: AbortSignal.timeout(15000) });
 }
 async function call(token, path, body) {
-  const response = await request(token, path, body); assert.equal(response.status, 200, `HTTP ${response.status} in ${report.stage}`); return response.json();
+  const response = await request(token, path, body);
+  if(response.status!==200) await writeFile(resolve(directory,'private-http-failure.json'),JSON.stringify({path,status:response.status,headers:Object.fromEntries(response.headers),body:await response.text()}),{mode:0o600});
+  assert.equal(response.status, 200, `HTTP ${response.status} in ${report.stage}`); return response.json();
 }
 async function login(email, password) { return (await call(undefined, '/api/auth/login', { email, password })).token; }
 const browserPath = account => '/api/agentic-browser/' + account.conversationId;
+const modelCalls = async () => JSON.parse(await compose(['exec','-T','agent','node','-e',"fetch('http://fixture:9000/stats').then(r=>r.text()).then(console.log)"])).calls;
 async function waitLease(account, condition) {
   for (let i=0;i<80;i++) { const {lease}=await call(account.token,browserPath(account)); if(condition(lease)) return lease; await delay(750); }
   throw new Error('Lease deadline in ' + report.stage);
@@ -109,10 +112,34 @@ try {
   const budgetBefore=await call(owner.token,'/api/demo-admin'); assert.equal(budgetBefore.limitCredits,20000000);
   for(const path of ['/mcp','/internal/v1/leases','/browser/internal/v1/leases']) assert.equal((await request(undefined,path)).status,404);
   report.checks.push('closed_registration_local_login_roles_and_public_api_boundary');
+  report.stage='credits_and_budget';
+  const userId=await compose(['exec','-T','mongo','mongosh','--quiet','--eval',"db.getSiblingDB('AgenticBrowser').users.findOne({email:'private-user@example.test'})._id.toString()"]);
+  assert.match(userId,/^[a-f0-9]{24}$/);
+  const balanceBefore=await call(other.token,'/api/balance');
+  const credit={credits:1000,id:randomUUID()};
+  for(let i=0;i<2;i++) await call(owner.token,'/api/demo-admin/users/'+userId+'/credits',credit);
+  const credited=await call(other.token,'/api/balance');
+  assert.equal(credited.tokenCredits,balanceBefore.tokenCredits+1000);
+  report.checks.push('admin_credit_retry_is_idempotent');
+  await call(owner.token,'/api/demo-admin/budget',{credits:0,revision:budgetBefore.revision});
+  const callsBefore=await modelCalls();
+  await start(other);
+  const events=await fetch(origin+'/api/agents/chat/stream/'+other.conversationId+'?resume=true',{headers:{...headers,authorization:'Bearer '+other.token},signal:AbortSignal.timeout(60000)});
+  assert.equal(events.status,200);
+  const deniedEvents=await events.text();
+  assert.match(deniedEvents,/site_budget_exceeded/);
+  assert.equal(await modelCalls(),callsBefore);
+  assert.deepEqual(await call(other.token,'/api/balance'),credited);
+  const blockedBudget=await call(owner.token,'/api/demo-admin');
+  await call(owner.token,'/api/demo-admin/budget',{credits:budgetBefore.limitCredits,revision:blockedBudget.revision});
+  report.checks.push('zero_daily_budget_prevents_provider_calls_and_personal_spend');
   report.stage='human_handoff'; await start(owner);
   const lease=await waitLease(owner,l=>l?.state==='active'&&l.control==='human');
   assert.deepEqual(await call(other.token,browserPath(owner)),{lease:null});
   assert.equal((await request(other.token,browserPath(owner)+'/viewer',{revision:lease.revision,role:'input'})).status,404);
+  assert.equal((await request(other.token,browserPath(owner)+'/control',{revision:lease.revision,target:'agent',operationId:randomUUID()})).status,404);
+  assert.equal((await request(other.token,browserPath(owner)+'/cancel',{})).status,404);
+  assert.ok([403,404].includes((await request(other.token,'/api/messages/'+owner.conversationId)).status));
   report.checks.push('native_model_tools_open_real_chrome_and_isolate_accounts');
   report.stage='queue'; await start(other);
   const waiting=await waitLease(other,l=>l?.state==='queued'); assert.equal(waiting.position,1);
@@ -144,11 +171,38 @@ try {
   report.checks.push('done_revokes_old_viewer_and_resumes_without_new_chat','queued_task_automatically_admitted','chat_title_and_tool_resume_share_budget');
   report.stage='restart_persistence';
   await compose(['restart','agent'],120000);
-  for(let i=0;i<60;i++){ try { if((await fetch(origin+'/api/config')).ok) break; } catch {} await delay(1000); }
+  await compose(['up','-d','--wait','--wait-timeout','120','agent'],150000);
   const loginAgain=await login(settings.adminEmail,secrets.DEMO_ADMIN_PASSWORD);
   const restored=await call(loginAgain,'/api/demo-admin');
   assert.equal(restored.spentCredits,budgetAfter.spentCredits); assert.equal(restored.limitCredits,budgetAfter.limitCredits);
   report.checks.push('container_restart_preserves_accounts_passwords_and_budget');
+  report.stage='logout_cleanup'; owner.token=loginAgain;
+  await start(owner);
+  const logoutLease=await waitLease(owner,l=>l?.state==='active'&&l.control==='human');
+  const logoutGrant=await call(owner.token,browserPath(owner)+'/viewer',{revision:logoutLease.revision,role:'input'});
+  socket=new WebSocket(origin.replace('http:','ws:')+logoutGrant.path,{origin}); socket.on('error',()=>{});
+  await once(socket,'open',{signal:AbortSignal.timeout(15000)});
+  const logoutFrame=once(socket,'message',{signal:AbortSignal.timeout(15000)});
+  socket.send(JSON.stringify({grant:logoutGrant.grant}));
+  assert.ok(Buffer.from((await logoutFrame)[0]).toString('ascii').startsWith('RFB '));
+  const logoutClosed=once(socket,'close',{signal:AbortSignal.timeout(30000)});
+  assert.equal((await request(owner.token,'/api/auth/logout',{})).status,200);
+  await logoutClosed;
+  owner.token=await login(settings.adminEmail,secrets.DEMO_ADMIN_PASSWORD);
+  let stopped=false;
+  for(let i=0;i<60;i++) {
+    const status=await call(owner.token,'/api/agents/chat/status/'+owner.conversationId);
+    const current=await call(owner.token,browserPath(owner));
+    if(!status.active&&!current.lease) { stopped=true; break; }
+    await delay(500);
+  }
+  assert.equal(stopped,true,'Logout terminates generation and releases browser');
+  const logoutCalls=await modelCalls();
+  await delay(5000);
+  assert.equal(await modelCalls(),logoutCalls,'Background worker must not resume a logged-out task');
+  assert.deepEqual(await call(owner.token,browserPath(owner)),{lease:null});
+  assert.equal((await command('docker',['ps','-q','--filter','label=dev.agentic-browser.instance='+instance])), '');
+  report.checks.push('logout_revokes_viewer_releases_browser_and_prevents_worker_resume');
   report.passed=true;
   if(process.argv.includes('--hold')) { await writeFile(resolve(directory,'ui-ready.json'),JSON.stringify({origin,adminEmail:settings.adminEmail}),{mode:0o600}); console.log(JSON.stringify({uiReady:true,directory})); while(!interrupted) await delay(1000); }
 } catch(error) {

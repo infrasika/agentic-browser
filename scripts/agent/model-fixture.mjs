@@ -3,6 +3,7 @@ import { createServer } from 'node:http';
 let calls = 0;
 createServer(async (req, res) => {
   if (req.url === '/health') { res.end('ok'); return; }
+  if (req.url === '/stats') { res.setHeader('content-type', 'application/json'); res.end(JSON.stringify({ calls })); return; }
   const chunks = []; for await (const chunk of req) chunks.push(chunk);
   const body = JSON.parse(Buffer.concat(chunks).toString()); calls++;
   const messages = body.messages ?? [];
