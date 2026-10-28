@@ -21,7 +21,7 @@
 Linux amd64、Docker Engine 26+、Compose v2、Python 3，以及相邻的 LibreChat 源码是构建工具的要求。最终用户目标为只运行镜像，无需源码或宿主 Node。
 
 ```bash
-python3 scripts/build-agent-images.py --run --committed --tag agent-v0.2.0-rc.3
+python3 scripts/build-agent-images.py --run --committed --tag agent-v0.2.0-rc.4
 ```
 
 构建器限制为 2 CPU / 5 GiB，从 Git 已跟踪源码和本目录受控文件创建上下文，不复制本机 `.env`、`node_modules`、`.deployment`、聊天或数据库。输出本地 Agent、Browser Service 和 runtime 三个固定源码镜像，不自动上传仓库或切换公网。报告和私有构建日志在 `.deployment/agent-build/`。
