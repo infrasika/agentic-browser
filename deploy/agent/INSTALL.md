@@ -43,7 +43,7 @@ python3 agentctl.py --directory "$HOME/my-agent" init --release release.json
 
 编辑 `~/my-agent/config/settings.json` 与 `~/my-agent/config/secrets.env`，填写管理员邮箱、Qwen 模型/base URL/API key 和供应商实际费率。管理员密码、JWT、加密和内部服务密钥只生成一次，文件权限 0600。默认日预算 20,000,000 credits，初始用户额度 200,000；费用换算取决于所配置费率。不要把 API key 填入聊天或命令行。
 
-字段和传递方式见 [CONFIGURATION.md](CONFIGURATION.md)：普通设置通过只读配置文件和生成的 Compose `.env` 传递，密钥通过 `/run/secrets/agent` 挂载。旧 `private.env` 不再使用，不需要编辑 Compose YAML 填密钥。
+字段和传递方式见 [CONFIGURATION.md](CONFIGURATION.md)：普通设置通过只读配置文件和生成的 Compose `.env` 传递，密钥通过 `/run/secrets/agent` 挂载。日常只编辑安装目录中的 `config/settings.json` 和 `config/secrets.env`。
 
 ```bash
 python3 agentctl.py --directory "$HOME/my-agent" up

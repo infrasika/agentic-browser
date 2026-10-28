@@ -1,4 +1,4 @@
-// Shared by the existing hosted renderer and the portable Agent image.
+// LibreChat configuration generated at Agent startup.
 // Secrets remain placeholders resolved only inside LibreChat.
 export function createAgentConfiguration({ origin, model, promptRate, completionRate,
   startCredits, dailyCredits = 20000000, timeZone = 'Asia/Shanghai',

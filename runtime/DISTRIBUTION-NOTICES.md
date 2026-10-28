@@ -34,9 +34,9 @@ SOFTWARE.
 
 ## Runtime dependencies
 
-npm packages and their transitive dependencies retain their own licenses. Versions are locked in `package-lock.json`; principal dependencies include Playwright, the Model Context Protocol TypeScript SDK, Zod, and tsx.
+npm packages and their transitive dependencies retain their own licenses. Versions are locked in `package-lock.json`; principal dependencies include Playwright, Zod, tsx, and ws.
 
-The remote desktop client uses unmodified [noVNC](https://github.com/novnc/noVNC) 1.7.0, primarily under MPL-2.0 with some modules under other licenses. Its source is served under `/vendor/novnc/`; original file headers remain intact, and full license files are in `node_modules/@novnc/novnc/docs/LICENSE*`. The WebSocket service uses [ws](https://github.com/websockets/ws) under MIT. Retain dependency license files in distributions.
+The separate LibreChat client includes [noVNC](https://github.com/novnc/noVNC) 1.7.0 in its frontend bundle, primarily under MPL-2.0 with some modules under other licenses. Its dependency license files are in the LibreChat checkout's `node_modules/@novnc/novnc/docs/LICENSE*`. The WebSocket service uses [ws](https://github.com/websockets/ws) under MIT. Retain dependency source and license notices as required when distributing the Agent and Browser images.
 
 Desktop mode uses Xvfb, xauth, Openbox, and x11vnc under their respective package licenses. Google Chrome is installed from Google's official download service. The image contains the locked binary installation; its use and redistribution remain subject to Google's terms. Browser binaries are not committed as source files.
 

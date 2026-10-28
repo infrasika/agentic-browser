@@ -1,6 +1,18 @@
 # 配置文件与容器的对应关系
 
-配置在**部署时**读取，不在构建时写入镜像。旧 `.deployment/librechat/private.env` 已退出当前架构；修改它不会改变现在的站点。新部署只维护安装目录的 `config/settings.json` 与 `config/secrets.env`。
+配置在**部署时**读取，不在构建时写入镜像。安装目录由 `agentctl.py --directory` 指定，日常维护其中的 `config/settings.json` 与 `config/secrets.env`。
+
+例如安装到 `/srv/my-agent`，文件位置如下：
+
+```text
+/srv/my-agent/
+├── config/
+│   ├── settings.json   # 模型、费率、额度、容量等
+│   ├── secrets.env     # API key、登录和邮件密钥
+│   └── browser-token   # 自动生成的内部服务密钥
+├── .env                # 自动生成，供 Compose 替换占位符
+└── compose.yaml
+```
 
 ## 文件如何传到应用
 
@@ -12,13 +24,17 @@
 | `release.json`、实例信息与部分 settings | `agentctl render` 生成安装目录 `.env`，供 `compose.yaml` 的 `${…}` 插值 | Compose |
 | `config/nginx.conf` | 根据 origin、代理信任地址生成，只读挂载 | Gateway |
 
-因此，**不是把 `private.env` 整份塞进 Compose YAML**。生成的 `.env` 包含六个镜像地址、实例名、UID/GID、Docker socket GID、入口端口、origin、数据目录和浏览器并发；不包含 Qwen key、管理员密码、JWT 或 SMTP 密码。Compose 只记录 secret 文件路径，应用启动后才读取这些值。
+生成的 `.env` 包含六个镜像地址、实例名、UID/GID、Docker socket GID、入口端口、origin、数据目录和浏览器并发；不包含 Qwen key、管理员密码、JWT 或 SMTP 密码。Compose 只记录 secret 文件路径，应用启动后才读取这些值。
+
+“插值”就是替换 YAML 中的占位符。例如 `.env` 中的 `AGENT_PORT=3351` 会让 Compose 将 `${AGENT_PORT:-3333}` 替换为 `3351`，最终端口映射为 `127.0.0.1:3351:8080`。其中 `:-3333` 表示未设置时使用默认值。`${AGENT_IMAGE:?...}` 同理替换成镜像地址，缺失时则报错。
+
+管理工具会显式通过 `--env-file` 指定本安装目录的 `.env`。这个文件用于解析 Compose 配置，并不会自动把其中每个变量注入容器；容器环境变量由 YAML 的 `environment` 指定，密钥则按上表作为文件挂载。
 
 普通 Compose secrets 使用文件挂载，不是宿主磁盘加密服务。安装目录为 0700，配置文件为 0600；宿主管理员仍能读取文件和进程。不要公开配置目录、备份或进程环境。[Docker Compose secrets 说明](https://docs.docker.com/compose/how-tos/use-secrets/)
 
 ## settings.json：普通设置
 
-`init` 生成模板。只修改已有键或以下支持的可选键，不添加旧环境变量名。
+`init` 生成模板。只修改已有键或以下支持的可选键。
 
 | 字段 | 用途 |
 | --- | --- |
@@ -48,7 +64,7 @@
 | `TURNSTILE_SECRET_KEY` | 可选 Turnstile 私钥，必须与 settings 的 site key 配对 |
 | `SMTP_PASSWORD` | 可选 SMTP 凭据；Cloudflare 发信凭据也放这里 |
 
-这里没有 `QWEN_MODEL`、`QWEN_BASE_URL`、`DEMO_ADMIN_EMAIL` 等旧键，它们已归入 settings。格式遵循 Node `parseEnv`；需要包含 `#` 等特殊字符时使用引号。不要使用 `source secrets.env` 或将真实值作为命令行参数。
+模型名称、API 地址和管理员邮箱在 `settings.json` 中设置。密钥格式遵循 Node `parseEnv`；需要包含 `#` 等特殊字符时使用引号。不要使用 `source secrets.env` 或将真实值作为命令行参数。
 
 ## 修改与生效
 
@@ -61,4 +77,4 @@ python3 /srv/my-agent/agentctl.py --directory /srv/my-agent doctor
 
 `apply` 先备份，再重建容器加载配置。不要手改生成的 `.env`、`nginx.conf` 或容器内 `/tmp/agent/librechat.yaml`；它们会重新生成。SMTP 配置需通过 `mail-test` 后启用找回密码，见 [运维](OPERATIONS.md)。
 
-Git/GHCR 的发布授权独立于以上文件。构建无需业务密钥，发布使用 Docker 已有登录；CI 可用 `GITHUB_TOKEN` 登录 Docker。不要把发布 Token 加入 `secrets.env`、旧 `private.env` 或安装包。
+Git/GHCR 的发布授权独立于以上文件。构建无需业务密钥，发布使用 Docker 已有登录；CI 可用 `GITHUB_TOKEN` 登录 Docker。不要把发布 Token 加入 `secrets.env` 或安装包。

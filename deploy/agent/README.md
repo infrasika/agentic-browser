@@ -30,7 +30,7 @@ node scripts/accept-agent-operations.mjs --run --release /path/to/release.json
 
 `--hold` 可在通过后保留测试实例检查界面，收到 SIGTERM 后清理。完整发行包还有独立的 Python/Docker 验收，见 [安装说明](INSTALL.md)。
 
-底层浏览器可用 `scripts/accept-browser-service.ts` 验收；可选 `scripts/accept-browser-soak.ts --run --capacity=1 --hold-seconds=300` 在有足够空闲资源的测试机执行持续负载。两者均通过 `BROWSER_RUNTIME_IMAGE` 指定固定镜像，使用独立账本和容器，不修改站点容量。
+可选 `node --import tsx scripts/accept-browser-soak.ts --run --capacity=1 --hold-seconds=300` 在有足够空闲资源的测试机执行浏览器持续负载、排队与接管验收。通过 `BROWSER_RUNTIME_IMAGE` 指定固定镜像 ID，使用独立账本和容器，不修改站点容量。
 
 ## 配置与持久化
 
@@ -38,4 +38,4 @@ node scripts/accept-agent-operations.mjs --run --release /path/to/release.json
 
 安装器生成的 `.env` 不手工编辑，数据统一落在安装目录的 `data/`。配置、邮件、备份和恢复细节只在 [运维手册](OPERATIONS.md) 维护。当前交付和剩余事项见 [进度](../../docs/plans/PROGRESS.md)。
 
-各字段、Compose 插值和 secret 文件挂载的对应关系见 [配置说明](CONFIGURATION.md)。旧 `private.env` 不参与当前部署；构建、发布不读取站点密钥。
+各字段、Compose 插值和 secret 文件挂载的对应关系见 [配置说明](CONFIGURATION.md)。构建、发布不读取站点密钥。

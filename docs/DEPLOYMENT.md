@@ -1,6 +1,6 @@
 # 当前服务器：原域名完整 Agent 部署
 
-2026-10-28（北京时间），按用户授权在原域名就地迁移并升级至 `v0.2.0-rc.6`。当前网站由完整 Docker Compose Agent 提供，宿主只负责 Nginx、Docker 和 Python 运维工具。
+当前网站运行完整 Docker Compose Agent `v0.2.0-rc.6`，宿主负责 Nginx、Docker 和 Python 运维工具。
 
 ## 入口与配置
 
@@ -12,9 +12,17 @@
 - 公开注册与 Turnstile 保留，Cloudflare SMTP 找回密码保留；每用户一个浏览器，实际并发仍为 5，硬上限 10。
 - 日预算默认 20,000,000 credits，个人初始额度 200,000；管理员页面保存的预算设置优先。
 
-日常只编辑本安装目录下 `config/settings.json`（非密钥配置）和 `config/secrets.env`（模型、登录、邮件密钥）。`config/browser-token` 是内部浏览器认证凭据；文件均为 0600，目录为 0700。旧 `.deployment/librechat/private.env` 和独立测试实例的配置仅作停机回退资料，不再驱动当前网站。
+**配置目录：`/home/ubuntu/Yu/agentic-browser/.deployment/agent-site/config/`。** `.deployment` 是隐藏目录，可用 `ls -la` 查看。
 
-SMTP 沿用原先验证通过的 Cloudflare 主机、发信地址和凭据；迁移验证收据只在旧指纹完全匹配时转换，没有重新发送邮件或轮换密钥。
+| 文件 | 用途 |
+| --- | --- |
+| `config/settings.json` | 日常编辑：模型、费率、额度、容量、域名和 SMTP 设置 |
+| `config/secrets.env` | 日常编辑：模型 API key、登录和邮件密钥 |
+| `config/browser-token` | 自动生成的内部浏览器认证凭据 |
+| `config/nginx.conf`、`config/smtp-verified.json`、`config/backup.json` | 管理工具生成的网关配置、邮件验证收据和备份策略 |
+| `.env`（安装目录下） | 自动生成的 Compose 占位符取值，不手工编辑 |
+
+配置文件权限 0600，目录权限 0700。比如 `.env` 中 `AGENT_PORT=3351` 让 Compose 把端口占位符替换为 3351；Qwen、登录和 SMTP 密钥通过单独的 secret 文件挂载。完整字段与说明见 [CONFIGURATION.md](../deploy/agent/CONFIGURATION.md)。
 
 ## 本机持久化
 
@@ -39,22 +47,16 @@ python3 /home/ubuntu/Yu/agentic-browser/.deployment/agent-site/agentctl.py --dir
 systemctl list-timers agentic-backup-agent-75a6bb6859e4.timer
 ```
 
-修改配置后，在没有运行或排队任务时执行同一命令前缀下的 `apply`，先备份再更新。代码库已移除旧宿主运维入口。
+修改配置后，在没有运行或排队任务时执行同一命令前缀下的 `apply`，先备份再更新。
 
-新系统定时器以 ubuntu（UID/GID 1000）运行，每天北京时间 04:00 起空闲备份，忙时每 60 分钟重试，保留 7 份自动备份，并每分钟检查普通备份中断恢复。首份完整备份 `20261028T122321Z-8858256c` 已验证，位于 `agent-site/backups/`。已用这份实际备份恢复到独立目录核对账号、聊天、余额和预算；恢复副本只绑定自己的数据目录，代理信任列表重新置空。原管理员密码登录成功，真实 Qwen 完成读取网页并关闭浏览器，约消耗 3,663 credits；临时恢复实例及其容器、卷、网络已清理。
+定时器以 ubuntu（UID/GID 1000）运行，每天北京时间 04:00 起空闲备份，忙时每 60 分钟重试，保留 7 份自动备份，并每分钟检查普通备份中断恢复。备份位于 `agent-site/backups/`。现有备份 `20261028T122321Z-8858256c` 已做恢复演练，`20261028T141742Z-4e045fa5` 是 rc.6 升级前备份，完整性校验通过。
 
 备份包含密钥和用户数据，仅保存在私密目录。当前没有异地备份，磁盘损坏恢复仍需外部存储。完整操作说明见 [私有部署运维](../deploy/agent/OPERATIONS.md)。
 
-## 迁移与退役记录
-
-停写期间导出旧 `LibreChatBrowserDemo` 数据库，导入新 `AgenticBrowser` 数据库。全部 65 个集合、183 条记录的摘要一致；应用启动后再次核对 2 个账号、4 段聊天、8 条消息、2 个余额、94 条交易和 1 条账期预算，均保持一致。持久登录、加密和模型凭据不变。无运行/接管任务时重建 Redis 缓存，旧 RDB 已保存在迁移快照，不携带旧进程地址缓存。
-
-原始停写快照与 Nginx 配置在 `.deployment/in-place-migration/source/` 和 `nginx.before.conf`。旧宿主服务 `librechat-browser-demo`、`agentic-browser-service`、旧备份 timer，以及 `private-agent-test` 的 timer 已停用；旧数据库容器已停止且关闭自动重启，旧数据保留。3350 测试实例也已停止，不再作为日常入口。
-
-这些旧快照只代表切换时的数据。网站产生新记录后，应从新实例最新备份恢复，不能直接切回旧库而丢弃后续写入。恢复演练不重启整机；其他项目的 PostgreSQL、Bifrost 和预览服务未改动。
+## 版本与验收
 
 当前安装为已验收的 `v0.2.0-rc.6` 六镜像清单：三个应用镜像完整构建于 Browser 仓库 `a17ea73` / LibreChat `0d7ee88`，包内安装器来自 `ad65b08`。完整候选包保存在 `output/agent/releases/v0.2.0-rc.6/`，并已用仅含 Python/Docker 的 PATH 通过安装与故障恢复验收。
 
-rc.5 → rc.6 升级前备份为 `20261028T141742Z-4e045fa5`，完整性校验通过。账号、余额、账期预算、交易、聊天和消息共六类集合的摘要，以及配置/凭据文件和六个数据目录均保持一致；运行镜像与候选包完全匹配。升级同时应用新版 Compose 模板，Agent 使用 `/readyz` 健康检查，网关修复流式响应结束后的连接复用问题。日常配置用安装目录的 `agentctl.py ... apply`；版本升级从新包运行 `agentctl.py ... upgrade`。
+日常配置用安装目录的 `agentctl.py ... apply`；版本升级从新包运行 `agentctl.py ... upgrade`。故障恢复使用当前安装的备份，不使用退役站点的数据库快照。
 
-迁移证据见 `output/agent/in-place-deployment.json`，本次实际升级证据见 `output/agent/rc6-site-upgrade.json`，各项验收状态统一见 [PROGRESS.md](plans/PROGRESS.md)。
+实际升级证据见 `output/agent/rc6-site-upgrade.json`，各项验收状态统一见 [PROGRESS.md](plans/PROGRESS.md)。

@@ -28,7 +28,7 @@ Data lives in the installation’s `data/` directories, mounted into the databas
 
 See [installation](deploy/agent/INSTALL.md), [operations](deploy/agent/OPERATIONS.md), and [release preparation](deploy/agent/RELEASING.md). Start with one browser and validate capacity on your own host. Linux amd64 is the supported target.
 
-Maintainers can prepare Linux amd64 images from a Mac using Docker Desktop. The [build and GHCR guide](deploy/agent/RELEASING.md) covers both customized source repositories, locked browser assets, existing Docker/Keychain credentials, publication preflight and digest-pinned bundles. Mac runtime support remains unverified. [Configuration](deploy/agent/CONFIGURATION.md) explains `settings.json`, Compose secrets and generated `.env`; the retired `private.env` is not an input to the current deployment.
+Maintainers can prepare Linux amd64 images from a Mac using Docker Desktop. The [build and GHCR guide](deploy/agent/RELEASING.md) covers both customized source repositories, locked browser assets, existing Docker/Keychain credentials, publication preflight and digest-pinned bundles. Mac runtime support remains unverified. [Configuration](deploy/agent/CONFIGURATION.md) explains the installation's `config/` directory, Compose secrets and generated `.env`.
 
 ## Project boundaries
 
