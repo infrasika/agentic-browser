@@ -1,10 +1,10 @@
-# 私有 Agent 运维（开发预览）
+# 私有 Agent 运维
 
-使用 `agentctl.py` 管理一个完整 Agent 实例，应用只在镜像里运行；宿主需要 Linux amd64、Python 3、Docker Engine 26+ 和 Compose v2。当前使用本地预览镜像，候选包工具已提供，公开分发渠道尚未发布。每个安装目录对应独立的 Compose project；迁移已有站点需停写、导入数据、核对后再切换域名。
+使用 `agentctl.py` 管理一个完整 Agent 实例，应用只在镜像里运行；宿主需要 Linux amd64、Python 3、Docker Engine 26+ 和 Compose v2/v5。当前 rc.6 已在测试服务器部署，完整 Agent 镜像尚未发布到 GHCR。每个安装目录对应独立的 Compose project；迁移已有站点需停写、导入数据、核对后再切换域名。
 
 ## 初始化与启动
 
-发行包将包含 `agentctl.py`、`compose.yaml` 和 `release.json`。新版包的版本清单固定 Agent、Browser Service、Chrome runtime、gateway、Mongo 和 Redis 六个镜像；正式 registry 清单使用 digest；普通模式拒绝 `latest` 等可变标签。开发者可用 `--development` 显式允许本机 `sha256:` image ID。
+发行包包含 `agentctl.py`、`compose.yaml` 和 `release.json`。版本清单固定 Agent、Browser Service、Chrome runtime、gateway、Mongo 和 Redis 六个镜像；registry 清单使用 digest；普通模式拒绝 `latest` 等可变标签。开发者可用 `--development` 显式允许本机 `sha256:` image ID。配置字段及挂载关系见 [CONFIGURATION.md](CONFIGURATION.md)。
 
 ```bash
 python3 agentctl.py --directory /srv/my-agent init --release release.json

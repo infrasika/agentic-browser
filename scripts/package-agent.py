@@ -12,7 +12,9 @@ import tarfile
 import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
-DOCKER = ['docker', '--host', 'unix:///var/run/docker.sock']
+# Build/package tools use the operator's Docker context (including macOS
+# Docker Desktop). The Linux deployment CLI owns its separate host socket.
+DOCKER = ['docker']
 INFRA = {
     'gateway': 'nginx@sha256:47928bf67eb62a1863cb08d9ecb52d3e704304ba614eaee17884204677702951',
     'mongo': 'mongo:8.0@sha256:4a4ab5d4834207389e0d7270fac988e21ffedccecba77991a552f755df229907',
@@ -24,6 +26,7 @@ FILES = {
     'maintenance.py': 'deploy/agent/maintenance.py',
     'nginx.host.conf': 'deploy/agent/nginx.host.conf',
     'bundle.py': 'deploy/agent/bundle.py', 'README.md': 'deploy/agent/INSTALL.md',
+    'CONFIGURATION.md': 'deploy/agent/CONFIGURATION.md',
     'OPERATIONS.md': 'deploy/agent/OPERATIONS.md', 'acceptance/verify.py': 'scripts/agent/verify-bundle.py',
     'acceptance/model-fixture.mjs': 'scripts/agent/model-fixture.mjs',
     'LICENSES/DISTRIBUTION-NOTICES.md': 'runtime/DISTRIBUTION-NOTICES.md',
@@ -66,6 +69,19 @@ def validate_image_sources(source_commit, package_commit):
     if before != after: raise ValueError('application package manifest changed; rebuild first')
 
 
+def inspect_image(name, ref):
+    try:
+        raw = subprocess.check_output(DOCKER + ['image', 'inspect', ref], stderr=subprocess.DEVNULL)
+    except subprocess.CalledProcessError:
+        # A new build workstation only has the three application images.
+        # Fetch missing official dependencies by the pinned reference; never
+        # replace a missing application build with an arbitrary registry pull.
+        if INFRA.get(name) != ref: raise
+        subprocess.run(DOCKER + ['pull', '--platform', 'linux/amd64', ref], check=True)
+        raw = subprocess.check_output(DOCKER + ['image', 'inspect', ref])
+    return json.loads(raw)[0]
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--build-report', type=Path, required=True)
@@ -88,7 +104,7 @@ def main():
         refs = release['images']; distribution = 'registry-candidate'
     inventory = {}
     for name, ref in refs.items():
-        info = json.loads(subprocess.check_output(DOCKER + ['image', 'inspect', ref]))[0]
+        info = inspect_image(name, ref)
         if info['Os'] != 'linux' or info['Architecture'] != 'amd64': raise ValueError('linux/amd64 required')
         if name in report['images'] and info['Id'] != report['images'][name]['id']: raise ValueError('build/image mismatch')
         inventory[name] = {'id': info['Id'], 'platform': 'linux/amd64'}

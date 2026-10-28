@@ -5,6 +5,7 @@ from pathlib import Path
 import subprocess
 import tempfile
 import unittest
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -67,9 +68,25 @@ class Bundle(unittest.TestCase):
             (root / 'maintenance.py').unlink(); self.sums(root)
             with self.assertRaisesRegex(ValueError, 'incomplete bundle'): bundle.verify(root)
 
+    def test_configuration_guide_is_in_the_distribution(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder); self.fixture(root)
+            (root / 'CONFIGURATION.md').unlink(); self.sums(root)
+            with self.assertRaisesRegex(ValueError, 'incomplete bundle'): bundle.verify(root)
+
     def test_preview_overlay_and_partial_builds_cannot_be_packaged(self):
         for value in [{}, {'passed': True, 'sourceMode': 'working-tree'}, {'passed': True, 'sourceMode': 'committed', 'images': {'agent': {}}}]:
             with self.assertRaises(ValueError): package.validate_report(value)
+
+    def test_packager_only_fetches_missing_pinned_official_dependencies(self):
+        error = subprocess.CalledProcessError(1, ['docker', 'inspect'])
+        ref = package.INFRA['mongo']
+        with patch.object(package.subprocess, 'check_output', side_effect=[error, b'[{"Id":"fixture"}]']), patch.object(package.subprocess, 'run') as run:
+            self.assertEqual(package.inspect_image('mongo', ref)['Id'], 'fixture')
+            run.assert_called_once_with(['docker', 'pull', '--platform', 'linux/amd64', ref], check=True)
+        with patch.object(package.subprocess, 'check_output', side_effect=error), patch.object(package.subprocess, 'run') as run:
+            with self.assertRaises(subprocess.CalledProcessError): package.inspect_image('agent', 'untrusted/image:latest')
+            run.assert_not_called()
 
     def test_git_snapshot_excludes_untracked_secrets_and_working_edits(self):
         with tempfile.TemporaryDirectory() as folder:

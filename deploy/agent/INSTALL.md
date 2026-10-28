@@ -25,19 +25,25 @@ python3 bundle.py verify
 python3 bundle.py load-images
 ```
 
-这会导入六个固定 image ID，不修改已有服务。离线指安装镜像可转移，不表示 Qwen 或目标网站可以离线工作。正式 registry 候选包不含镜像归档，安装时按不可变 digest 拉取。
+这会导入六个固定 image ID，不修改已有服务。离线指安装镜像可转移，不表示 Qwen 或目标网站可以离线工作。rc.6 离线镜像来自 Docker 29 的 containerd image store；导入此包也应使用相同镜像存储，否则 image ID 的表示可能不同。不要在已有业务宿主上直接切换存储后端。registry 候选包不含镜像归档，安装时按不可变 digest 拉取。
+
+如果收到的是 registry 候选包，跳过 `load-images`。公开 GHCR 包无需登录；私有 GHCR 包需要部署用户先配置 Docker 登录。不要填写尚未发布的镜像地址，实际引用以包内 `release.json` 为准。
 
 ## 2. 初始化并一次填写配置
 
 选择当前用户可写的新目录：
 
 ```bash
-python3 agentctl.py --directory "$HOME/my-agent" init --release release.json --development
+# registry 候选包
+python3 agentctl.py --directory "$HOME/my-agent" init --release release.json
+# 离线候选包则在这条命令末尾加 --development
 ```
 
 `--development` 仅用于包含本机 image ID 的离线候选包；正式 registry digest 清单省略该参数。不能把 image ID 当成可从 registry 拉取的 digest。已有安装目录拒绝覆盖。
 
 编辑 `~/my-agent/config/settings.json` 与 `~/my-agent/config/secrets.env`，填写管理员邮箱、Qwen 模型/base URL/API key 和供应商实际费率。管理员密码、JWT、加密和内部服务密钥只生成一次，文件权限 0600。默认日预算 20,000,000 credits，初始用户额度 200,000；费用换算取决于所配置费率。不要把 API key 填入聊天或命令行。
+
+字段和传递方式见 [CONFIGURATION.md](CONFIGURATION.md)：普通设置通过只读配置文件和生成的 Compose `.env` 传递，密钥通过 `/run/secrets/agent` 挂载。旧 `private.env` 不再使用，不需要编辑 Compose YAML 填密钥。
 
 ```bash
 python3 agentctl.py --directory "$HOME/my-agent" up

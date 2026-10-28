@@ -8,7 +8,7 @@
 - 相邻 `librechat-agent` 仓库：定制聊天应用、账号、原生 Agent 工具与成本管理。
 - 协议定义在 `src/api/`；修改协议时用 `scripts/sync-browser-contract.mjs /path/to/librechat-agent` 同步，`--check` 核对。
 
-最终用户只需要 Python、Docker 和配置文件。开发源码需要 Node 24；构建需要 Linux amd64、Python、Docker/Buildx 和两个源码仓库。
+最终用户只需要 Python、Docker 和配置文件。开发源码需要 Node 24；构建工具需要 Python 3.12+、Docker/Buildx 和两个源码仓库，固定输出 Linux amd64 镜像。Mac 可使用 Docker Desktop 构建；Apple Silicon 依赖 amd64 模拟，当前未做 Mac 实机验收。完整操作见 [构建与发布](RELEASING.md)。
 
 ## 构建与测试
 
@@ -37,3 +37,5 @@ node scripts/accept-agent-operations.mjs --run --release /path/to/release.json
 `settings.json` 保存站点、模型/费率、额度、容量和代理设置；`secrets.env` 保存凭据；`browser-token` 仅交给 Agent 与 Browser Service。只有 gateway 发布回环端口，Docker socket 只交给 Browser Service，每个 Chrome 只挂载自己的会话子目录。
 
 安装器生成的 `.env` 不手工编辑，数据统一落在安装目录的 `data/`。配置、邮件、备份和恢复细节只在 [运维手册](OPERATIONS.md) 维护。当前交付和剩余事项见 [进度](../../docs/plans/PROGRESS.md)。
+
+各字段、Compose 插值和 secret 文件挂载的对应关系见 [配置说明](CONFIGURATION.md)。旧 `private.env` 不参与当前部署；构建、发布不读取站点密钥。

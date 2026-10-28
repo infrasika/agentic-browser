@@ -121,6 +121,7 @@ def main():
             with (work/(component+'.log')).open('w') as log:
                 run(['docker','buildx','build','--builder',builder,'--platform','linux/amd64','--load',
                      '--progress','plain','--file',str(context/'Dockerfile.agent'),'--tag',image,
+                     '--label','org.opencontainers.image.source=https://github.com/infrasika/agentic-browser',
                      '--label','org.opencontainers.image.revision='+report['sourceCommits']['browser'],
                      '--label','dev.agentic-browser.librechat-revision='+report['sourceCommits']['librechat'],
                      '--build-arg','AB_REVISION='+report['sourceCommits']['browser'],

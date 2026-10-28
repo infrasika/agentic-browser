@@ -7,7 +7,7 @@ import json
 import platform
 from pathlib import Path
 import struct
-import subprocess
+import tarfile
 import urllib.parse
 import urllib.request
 import zipfile
@@ -19,6 +19,34 @@ EXTENSIONS = {
     'afkoofjocpbclhnldmmaphappihehpma': 'zkPass TransGate',
     'kpcbjghknfclbkejkdllpjhhheppaoca': 'zkPass Schema Validator',
 }
+
+
+def deb_metadata(path):
+    """Read Debian package metadata without requiring Linux's dpkg on macOS."""
+    with path.open('rb') as package:
+        if package.read(8) != b'!<arch>\n': raise ValueError('Invalid Debian archive')
+        while header := package.read(60):
+            if len(header) != 60 or header[58:] != b'`\n': raise ValueError('Invalid Debian member')
+            name = header[:16].decode('ascii').strip().rstrip('/')
+            size = int(header[48:58])
+            if size < 0: raise ValueError('Invalid Debian member size')
+            if name.startswith('control.tar'):
+                if size > 4 * 1024 * 1024: raise ValueError('Debian metadata too large')
+                with tarfile.open(fileobj=io.BytesIO(package.read(size)), mode='r:*') as archive:
+                    entries = [m for m in archive.getmembers() if m.name in ('control', './control')]
+                    if len(entries) != 1 or not entries[0].isfile() or entries[0].size > 1024 * 1024:
+                        raise ValueError('Invalid Debian control file')
+                    fields = {}
+                    for line in archive.extractfile(entries[0]).read().decode().splitlines():
+                        if line.startswith((' ', '\t')): continue
+                        key, separator, value = line.partition(':')
+                        if separator and key in ('Version', 'Architecture'):
+                            if key in fields: raise ValueError('Duplicate Debian control field')
+                            fields[key] = value.strip()
+                    if set(fields) != {'Version', 'Architecture'}: raise ValueError('Missing Debian metadata')
+                    return fields
+            package.seek(size + size % 2, 1)
+    raise ValueError('Missing Debian control archive')
 
 
 def download(url, path, expected=None):
@@ -102,9 +130,10 @@ def main():
     chrome_url = f'https://dl.google.com/linux/direct/google-chrome-stable_current_{args.arch}.deb'
     chrome_path = ASSETS / f'chrome-{args.arch}.deb'
     chrome = download(chrome_url, chrome_path, None if args.refresh_lock else expected_chrome.get('sha256'))
-    if subprocess.check_output(['dpkg-deb', '-f', str(chrome_path), 'Architecture'], text=True).strip() != args.arch:
+    metadata = deb_metadata(chrome_path)
+    if metadata['Architecture'] != args.arch:
         raise RuntimeError('Chrome package architecture mismatch')
-    chrome_version = subprocess.check_output(['dpkg-deb', '-f', str(chrome_path), 'Version'], text=True).strip()
+    chrome_version = metadata['Version']
     result = {**old, 'format': 1, chrome_key: {'version': chrome_version, 'url': chrome_url, 'sha256': hashlib.sha256(chrome).hexdigest()}, 'extensions': []}
     for extension_id, name in EXTENSIONS.items():
         query = urllib.parse.urlencode({'response': 'redirect', 'prodversion': chrome_version.split('-')[0], 'acceptformat': 'crx3', 'x': f'id={extension_id}&uc'})
