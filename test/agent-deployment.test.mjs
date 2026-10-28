@@ -82,3 +82,15 @@ test('SMTP requires a credential pair and verification bound to sender, credenti
   assert.equal(mailConfiguration({...config,origin:'https://other.example.test'},credentials,receipt).enabled,false);
   assert.equal(mailConfiguration(config,{...credentials,SMTP_PASSWORD:'changed'},receipt).enabled,false);
 });
+
+test('only explicit trusted reverse proxies can supply client IP addresses', () => {
+  const config=validateSettings({...settings,trustedProxyIPs:['172.30.0.1']},secrets).config;
+  const nginx=gatewayConfiguration(config.origin,config.trustedProxyIPs);
+  assert.match(nginx,/set_real_ip_from 172\.30\.0\.1;/);
+  assert.match(nginx,/real_ip_header X-Real-IP/);
+  assert.doesNotMatch(gatewayConfiguration(config.origin),/set_real_ip_from/);
+  for (const ip of ['0.0.0.0/0','127.0.0.1; return 200','example.test']) {
+    assert.throws(()=>validateSettings({...settings,trustedProxyIPs:[ip]},secrets));
+    assert.throws(()=>gatewayConfiguration(config.origin,[ip]));
+  }
+});

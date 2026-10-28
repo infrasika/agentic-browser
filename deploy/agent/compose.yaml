@@ -134,12 +134,43 @@ networks:
   front: {}
   database: {internal: true}
 volumes:
-  browser-data: {name: '${AGENT_PROJECT:-agentic-browser-agent}-browser'}
-  mongo-data: {}
-  redis-data: {}
-  uploads: {}
-  images: {}
-  logs: {}
+  browser-data:
+    name: '${AGENT_PROJECT:-agentic-browser-agent}-browser'
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${AGENT_DATA_DIR:?Set the installation data directory}/browser-data
+  mongo-data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${AGENT_DATA_DIR:?Set the installation data directory}/mongo-data
+  redis-data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${AGENT_DATA_DIR:?Set the installation data directory}/redis-data
+  uploads:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${AGENT_DATA_DIR:?Set the installation data directory}/uploads
+  images:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${AGENT_DATA_DIR:?Set the installation data directory}/images
+  logs:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${AGENT_DATA_DIR:?Set the installation data directory}/logs
 secrets:
   agent: {file: ./config/secrets.env}
   browser_token: {file: ./config/browser-token}

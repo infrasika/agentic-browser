@@ -13,6 +13,20 @@ spec=importlib.util.spec_from_file_location('agentctl',Path(__file__).resolve().
 cli=importlib.util.module_from_spec(spec);spec.loader.exec_module(cli)
 
 class Operations(unittest.TestCase):
+    def test_storage_is_owned_by_each_installation_and_missing_paths_fail_closed(self):
+        with tempfile.TemporaryDirectory() as folder:
+            first=Path(folder)/'first';second=Path(folder)/'restore'
+            first.mkdir();second.mkdir()
+            a=cli.storage_directory(first,create=True);b=cli.storage_directory(second,create=True)
+            (a/'mongo-data/keep').write_text('original')
+            self.assertNotEqual(a,b)
+            self.assertFalse((b/'mongo-data/keep').exists())
+            (b/'mongo-data').rmdir()
+            with self.assertRaises(cli.Failure):cli.storage_directory(second)
+            (b/'mongo-data').symlink_to(a/'mongo-data',target_is_directory=True)
+            with self.assertRaises(cli.Failure):cli.storage_directory(second)
+            self.assertEqual((a/'mongo-data/keep').read_text(),'original')
+
     def test_timed_out_volume_helper_is_removed_by_its_exact_name(self):
         with patch.object(cli.subprocess,'run',side_effect=subprocess.TimeoutExpired('docker',300)),patch.object(cli,'run') as cleanup:
             with self.assertRaises(cli.Failure):cli.transfer_volume('image','volume','agent-0123456789ab',io.BytesIO())

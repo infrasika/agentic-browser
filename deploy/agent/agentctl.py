@@ -129,11 +129,13 @@ class Installation:
             '/app/selfhost/init.mjs', action, '/config']))
 
     def render(self):
+        storage_directory(self.root)
         result = self.config('render')
         images = self.release['images']
         values = {'AGENT_PROJECT': self.meta['project'], 'AGENT_UID': self.meta['uid'], 'AGENT_GID': self.meta['gid'],
             'DOCKER_GID': Path('/var/run/docker.sock').stat().st_gid, 'AGENT_PORT': self.meta['port'],
             'AGENT_ORIGIN': result['origin'], 'BROWSER_MAX_SESSIONS': result['maximum'],
+            'AGENT_DATA_DIR': str(self.root / 'data'),
             **{k.upper() + '_IMAGE': v for k, v in images.items()}}
         atomic(self.root / '.env', ''.join(f'{key}={value}\n' for key, value in values.items()))
         self.compose(['config', '--quiet'])
@@ -319,12 +321,25 @@ def install_tools(directory):
     for name in ['agentctl.py', 'maintenance.py']:
         atomic(directory / name, (source / name).read_text())
 
+def storage_directory(root, create=False):
+    """A missing/moved data directory must never silently start an empty database."""
+    directory = root / 'data'
+    if create:
+        directory.mkdir(mode=0o700)
+        for name in VOLUMES: (directory / name).mkdir(mode=0o700)
+    private(directory, True)
+    for name in VOLUMES:
+        child = directory / name
+        if child.is_symlink() or not child.is_dir(): raise Failure('storage_directory_missing_or_unsafe')
+    return directory
+
+
 def initialize(directory, release_path, port, development=False):
     if not 1024 <= port <= 65535: raise Failure('invalid_loopback_port')
     if not sys.platform.startswith('linux') or os.uname().machine != 'x86_64': raise Failure('linux_amd64_host_required')
     if directory.exists(): raise Failure('installation_directory_already_exists')
     if directory.absolute() != directory.resolve(): raise Failure('installation_symlinks_not_allowed')
-    if ',' in str(directory) or '\n' in str(directory): raise Failure('unsupported_installation_path')
+    if any(char in str(directory) for char in [',', '\n', '\r', '$', '#', "'", '"', '\\']): raise Failure('unsupported_installation_path')
     try:
         with socket.socket() as probe:
             probe.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -337,6 +352,7 @@ def initialize(directory, release_path, port, development=False):
     if int(version['Version'].split('.')[0]) < 26: raise Failure('docker_engine_26_required')
     directory.mkdir(mode=0o700, parents=True)
     for name in ['config', 'state', 'state/maintenance']: (directory / name).mkdir(mode=0o700)
+    storage_directory(directory, create=True)
     source = Path(__file__).resolve().parent
     shutil.copyfile(source / 'compose.yaml', directory / 'compose.yaml')
     install_tools(directory)

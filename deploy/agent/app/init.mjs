@@ -40,7 +40,7 @@ try {
     }
     const { config } = validateSettings(JSON.parse(await readFile(resolve(directory, 'settings.json'), 'utf8')), parseEnv(await readFile(resolve(directory, 'secrets.env'), 'utf8')));
     if (!/^[a-f0-9]{64}\n?$/.test(await readFile(resolve(directory, 'browser-token'), 'utf8'))) throw new Error('Invalid service credential');
-    if (command === 'render') await writeFile(resolve(directory, 'nginx.conf'), gatewayConfiguration(config.origin), { mode: 0o600 });
+    if (command === 'render') await writeFile(resolve(directory, 'nginx.conf'), gatewayConfiguration(config.origin, config.trustedProxyIPs), { mode: 0o600 });
     console.log(JSON.stringify({ ready: true, origin: config.origin, maximum: config.browser.maximum, registration: config.registration }));
   }
 } catch {

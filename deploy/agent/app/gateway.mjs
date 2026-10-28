@@ -1,4 +1,7 @@
-export function gatewayConfiguration(origin) {
+import { isIP } from 'node:net';
+
+export function gatewayConfiguration(origin, trustedProxyIPs = []) {
+  if (!Array.isArray(trustedProxyIPs) || trustedProxyIPs.some(ip => !isIP(ip))) throw new Error('Trusted proxies must be explicit IP addresses');
   const url = new URL(origin);
   if (!['http:', 'https:'].includes(url.protocol) || !/^[a-zA-Z0-9.:[\]-]+$/.test(url.host)) throw new Error('Invalid gateway origin');
   return `worker_processes 1;
@@ -20,6 +23,9 @@ http {
   server {
     listen 8080;
     server_name _;
+${trustedProxyIPs.map(ip => '    set_real_ip_from ' + ip + ';').join('\n')}
+    real_ip_header X-Real-IP;
+    real_ip_recursive off;
     if ($http_host != "${url.host}") { return 421; }
     client_max_body_size 10m;
     client_body_timeout 15s;
