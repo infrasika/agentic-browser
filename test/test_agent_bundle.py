@@ -99,13 +99,23 @@ class Bundle(unittest.TestCase):
     def test_packager_fetches_requested_platform_of_pinned_official_dependencies(self):
         error = subprocess.CalledProcessError(1, ['docker', 'inspect'])
         ref = package.INFRA['mongo']
-        with patch.object(package.subprocess, 'check_output', return_value=b'[{"Id":"fixture"}]') as inspect, patch.object(package.subprocess, 'run') as run:
+        child = ref.split('@')[0] + '@sha256:' + 'a'*64
+        with patch.object(package, 'platform_reference', return_value=child) as select, patch.object(package.subprocess, 'check_output', return_value=b'[{"Id":"fixture"}]') as inspect, patch.object(package.subprocess, 'run') as run:
             self.assertEqual(package.inspect_image('mongo', ref, 'linux/arm64')['Id'], 'fixture')
-            run.assert_called_once_with(['docker', 'pull', '--platform', 'linux/arm64', ref], check=True)
+            select.assert_called_once_with(ref, 'linux/arm64')
+            run.assert_called_once_with(['docker', 'pull', '--platform', 'linux/arm64', child], check=True)
             self.assertIn('linux/arm64', inspect.call_args.args[0])
         with patch.object(package.subprocess, 'check_output', side_effect=error), patch.object(package.subprocess, 'run') as run:
             with self.assertRaises(subprocess.CalledProcessError): package.inspect_image('agent', 'untrusted/image:latest')
             run.assert_not_called()
+
+    def test_index_selection_requires_one_matching_child(self):
+        child = {'digest': 'sha256:'+'b'*64, 'platform': {'os': 'linux', 'architecture': 'arm64'}}
+        for children, valid in [([child], True), ([], False), ([child, child], False)]:
+            with patch.object(package.subprocess, 'check_output', return_value=json.dumps({'manifests': children}).encode()):
+                if valid: self.assertEqual(package.platform_reference('example/image@sha256:'+'a'*64, 'linux/arm64'), 'example/image@'+child['digest'])
+                else:
+                    with self.assertRaisesRegex(ValueError, 'unique'): package.platform_reference('example/image@sha256:'+'a'*64, 'linux/arm64')
 
     def test_git_snapshot_excludes_untracked_secrets_and_working_edits(self):
         with tempfile.TemporaryDirectory() as folder:

@@ -74,9 +74,19 @@ def validate_image_sources(source_commit, package_commit):
     if before != after: raise ValueError('application package manifest changed; rebuild first')
 
 
+def platform_reference(ref, platform):
+    index = json.loads(subprocess.check_output(['docker', 'buildx', 'imagetools', 'inspect', '--raw', ref]))
+    children = [d for d in index.get('manifests', []) if
+        d.get('platform', {}).get('os', '') + '/' + d.get('platform', {}).get('architecture', '') == platform]
+    if len(children) != 1: raise ValueError('release index missing unique build platform')
+    return ref.split('@')[0] + '@' + children[0]['digest']
+
+
 def inspect_image(name, ref, platform='linux/amd64'):
     if INFRA.get(name) == ref:
-        # A multi-platform index can be cached for the other architecture.
+        # Pull the child explicitly: containerd's inspect --platform returns its
+        # ID, but that ID is not independently addressable after an index pull.
+        ref = platform_reference(ref, platform)
         subprocess.run(DOCKER + ['pull', '--platform', platform, ref], check=True)
     raw = subprocess.check_output(DOCKER + ['image', 'inspect', '--platform', platform, ref], stderr=subprocess.DEVNULL)
     return json.loads(raw)[0]
@@ -104,11 +114,7 @@ def main():
     inventory = {}
     for name, ref in refs.items():
         if args.release and name in report['images']:
-            index = json.loads(subprocess.check_output(['docker', 'buildx', 'imagetools', 'inspect', '--raw', ref]))
-            children = [d for d in index.get('manifests', []) if
-                d.get('platform', {}).get('os', '') + '/' + d.get('platform', {}).get('architecture', '') == report['platform']]
-            if len(children) != 1: raise ValueError('release index missing unique build platform')
-            ref = ref.split('@')[0] + '@' + children[0]['digest']
+            ref = platform_reference(ref, report['platform'])
             subprocess.run(DOCKER + ['pull', '--platform', report['platform'], ref], check=True)
         info = inspect_image(name, ref, report['platform'])
         if info['Os'] + '/' + info['Architecture'] != report['platform']: raise ValueError('bundle/build platform mismatch')

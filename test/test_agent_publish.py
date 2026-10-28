@@ -24,6 +24,22 @@ assets = load('assets', 'scripts/build/fetch-runtime-assets.py')
 
 
 class Publishing(unittest.TestCase):
+    def test_plan_rejects_mixed_sources_duplicate_platforms_and_wrong_image_architecture(self):
+        import copy
+        report = {'passed': True, 'sourceMode': 'committed', 'platform': 'linux/amd64',
+            'sourceCommits': {'browser': 'a'*40, 'librechat': 'b'*40}, 'librechatTree': 'c'*40,
+            'images': {name: {'id': 'sha256:' + char*64} for name, char in zip(publisher.NAMES, 'def')}}
+        arm = copy.deepcopy(report); arm['platform'] = 'linux/arm64'
+        def info(ref):
+            return {'Id': ref, 'Os': 'linux', 'Architecture': 'amd64', 'Config': {'Labels': {
+                'org.opencontainers.image.revision': 'a'*40, 'dev.agentic-browser.librechat-revision': 'b'*40,
+                'dev.agentic-browser.librechat-tree': 'c'*40}}}
+        with patch.object(publisher, 'command', return_value='a'*40), patch.object(publisher.package, 'validate_image_sources'), patch.object(publisher, 'inspect', side_effect=info):
+            with self.assertRaisesRegex(ValueError, 'Duplicate'): publisher.plan([report, report], 'v1.0.0', 'example')
+            with self.assertRaisesRegex(ValueError, 'platform mismatch'): publisher.plan([report, arm], 'v1.0.0', 'example')
+            arm['sourceCommits']['browser'] = 'f'*40
+            with self.assertRaisesRegex(ValueError, 'same source'): publisher.plan([report, arm], 'v1.0.0', 'example')
+
     def fixture(self):
         prepared = {'version': 'v0.2.0-rc.6', 'platforms': ['linux/amd64', 'linux/arm64'], 'images': {}, 'infrastructure': dict(publisher.package.INFRA)}
         images, remote, commands = {}, {}, []
