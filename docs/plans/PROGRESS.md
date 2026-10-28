@@ -33,7 +33,7 @@
 
 按维护者最新决定，GHCR 上传留待 Mac 执行，Ubuntu 不发布、不 push、不升级站点。新增发布工具默认只做本地预检，显式 `--run` 才使用 Docker 已有凭据助手上传三个自有镜像；官方基础服务只保留 digest 引用。拒绝覆盖不同内容的同版本标签，上传后拉回核对，另有匿名拉取验证。当前只完成模拟保护测试与本地 dry-run，未执行真实上传或 Mac 实机验证。
 
-构建/打包使用当前 Docker context；浏览器资源元数据改为 Python 读取，不再要求 Mac 安装 `dpkg-deb`。构建、GHCR、配置传递与部署文档已补充。定制 LibreChat 的 origin 仍是上游，所需定制提交未推送，因此准备包含两个 Git bundle 与锁定资源的私密源码移交包；它不包含部署密钥或用户数据，不是公开安装包。
+构建/打包使用当前 Docker context；浏览器资源元数据改为 Python 读取，不再要求 Mac 安装 `dpkg-deb`。构建、GHCR、配置传递与部署文档已补充。定制 LibreChat 的 origin 仍是上游，所需定制提交未推送，因此准备包含Browser Git bundle、保留 shallow 边界的 LibreChat 裸仓库与锁定资源的私密源码移交包；它不包含部署密钥或用户数据，不是公开安装包。
 
 38 项 Python 测试、本机三镜像发布 dry-run、锁定资源校验与 DEB 元数据对照通过。预检报告位于 `output/agent/mac-preparation/publish-plan.json`，明确记录 `published: false`、`credentialsRead: false`。发布命令留在文档供 Mac 操作，当前完整 Agent 的 GHCR 上传仍未执行。
 

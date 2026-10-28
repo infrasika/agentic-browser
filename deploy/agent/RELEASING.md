@@ -16,7 +16,7 @@ workspace/
   librechat-agent/       # 定制 LibreChat，不是上游原版
 ```
 
-**只 clone 上游 LibreChat 不够。** 当前定制仓库的 origin 仍指向上游，定制提交 `0d7ee88b4fa9259b5176772968f8a29925348a01` 只在本地；需取得包含该提交的私有 fork 或源码移交包。本轮准备的 `agent-mac-handoff.tar.gz` 含两个仓库的 Git bundle、已锁定浏览器资源和无密钥构建报告；它是私密源码交付，不是公开安装包。解压后先校验 `shasum -a 256 -c SHA256SUMS`，再执行包内 `README.md` 的 clone 命令。无需复制 Ubuntu 的 `.deployment`、业务配置或数据。
+**只 clone 上游 LibreChat 不够。** 当前定制仓库的 origin 仍指向上游，定制提交 `0d7ee88b4fa9259b5176772968f8a29925348a01` 只在本地；需取得包含该提交的私有 fork 或源码移交包。本轮准备的 `agent-mac-handoff.tar.gz` 含两个仓库的 Git 源码快照、已锁定浏览器资源和无密钥构建报告（Browser 使用 Git bundle，浅克隆的 LibreChat 使用保留 shallow 边界的裸仓库）；它是私密源码交付，不是公开安装包。解压后先校验 `shasum -a 256 -c SHA256SUMS`，再执行包内 `README.md` 的 clone 命令。无需复制 Ubuntu 的 `.deployment`、业务配置或数据。
 
 若通过 Git clone 获取源码，确认当前工作分支、安装工具提交和定制 LibreChat 提交都已在对应远端；本轮不会自动 push 到 GitHub。
 
