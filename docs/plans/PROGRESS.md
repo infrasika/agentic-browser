@@ -33,7 +33,7 @@
 
 清理后 TypeScript、24 项 Node、38 项 Python、协议同步和 42 个文档链接检查通过；当前 10 份配置/安装文件摘要和所有运行容器 ID 不变，站点健康，未重启或发布。
 
-目录进一步按职责整理：构建发布工具在 `scripts/build/`，验收脚本和夹具在 `test/acceptance/`，构建记录移到 `output/build/`，以后临时验收安装只写入 `output/tests/`。删除 178 份 `.playwright-cli/` 旧测试记录、过期 Python 字节码和空目录；历史备份、迁移快照及退役部署集中到 `.deployment/archive/`，1,506 个归档文件摘要一致。移除 7 个已停止的旧测试容器，保留其 8 个数据卷。当前安装路径及密钥不变；`runtime/` 保留 Chrome 镜像的必要构建输入。
+目录进一步按职责整理：构建发布工具在 `scripts/build/`，验收脚本和夹具在 `test/acceptance/`，构建记录移到 `output/build/`，以后临时验收安装只写入 `output/tests/`。删除 178 份 `.playwright-cli/` 旧测试记录、过期 Python 字节码和空目录；历史备份、迁移快照及退役部署集中到 `.deployment/archive/`，1,506 个归档文件摘要一致。按维护者只保留当前站点数据卷的要求，共移除 10 个退役容器和 12 个已确认归属的旧卷，当前站点 7 个卷保留。旧 UI 预览已停止，根目录旧 MCP `.env` 已删除。当前安装路径及密钥不变；`runtime/` 保留 Chrome 镜像的必要构建输入。
 
 ## Mac 移交准备
 
@@ -42,6 +42,8 @@
 构建/打包使用当前 Docker context；浏览器资源元数据改为 Python 读取，不再要求 Mac 安装 `dpkg-deb`。构建、GHCR、配置传递与部署文档已补充。定制 LibreChat 的 origin 仍是上游，所需定制提交未推送，因此准备包含Browser Git bundle、保留 shallow 边界的 LibreChat 裸仓库与锁定资源的私密源码移交包；它不包含部署密钥或用户数据，不是公开安装包。
 
 38 项 Python 测试、锁定资源校验与 DEB 元数据对照通过。清理后的源码需要在 Mac 重新构建，移交包已移除旧服务器构建报告，且实际验证了发布工具拒绝混用旧镜像。`output/agent/mac-preparation/publish-plan.json` 记录 `rebuild_required`、`published: false`、`credentialsRead: false`。发布命令留在文档供 Mac 操作，当前完整 Agent 的 GHCR 上传仍未执行。
+
+从移交包重新克隆两个仓库，不复制根目录 `.env` 或 `.deployment/`，使用实际构建函数成功准备三个镜像上下文并校验锁定资源。证据：`output/agent/mac-preparation/config-independent-build.json`。这验证构建输入独立于运行配置，未执行新的镜像编译或 Mac 实机构建。
 
 ## 尚未完成
 

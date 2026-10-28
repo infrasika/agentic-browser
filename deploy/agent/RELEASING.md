@@ -20,6 +20,8 @@ workspace/
 
 若通过 Git clone 获取源码，确认当前工作分支、安装工具提交和定制 LibreChat 提交都已在对应远端；本轮不会自动 push 到 GitHub。
 
+`.deployment/` 被 Git 忽略不会影响构建，源码根目录也不需要 `.env`。构建输入是这两个源码仓库、锁定的 Chrome/扩展资源以及 Docker 构建依赖；不读取服务器账号、数据库或 Qwen 密钥。安装到目标服务器后，`agentctl.py init` 才生成该实例的 `config/`，配置完成后再生成供 Compose 使用的 `.env`。不要为了在 Mac 构建而提交或复制服务器的部署配置。
+
 ## 源码与镜像
 
 两个仓库分别保留提交历史。Agent 镜像由 LibreChat 提交加 Browser 仓库的 `deploy/agent/app` 构建，Browser Service 和 runtime 来自 Browser 仓库。先提交源码，再构建：

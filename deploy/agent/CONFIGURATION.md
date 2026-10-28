@@ -2,6 +2,8 @@
 
 配置在**部署时**读取，不在构建时写入镜像。安装目录由 `agentctl.py --directory` 指定，日常维护其中的 `config/settings.json` 与 `config/secrets.env`。
 
+源码仓库根目录不需要 `.env`。管理工具只读取所选安装目录中的 `.env`；本机 `.deployment/` 不进入 Git 或镜像，Mac 构建也不依赖它。
+
 例如安装到 `/srv/my-agent`，文件位置如下：
 
 ```text
