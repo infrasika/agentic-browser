@@ -21,6 +21,7 @@ INFRA = {
 # Exact allowlist: no checkout-wide copy, local account data or private config.
 FILES = {
     'agentctl.py': 'deploy/agent/agentctl.py', 'compose.yaml': 'deploy/agent/compose.yaml',
+    'maintenance.py': 'deploy/agent/maintenance.py',
     'bundle.py': 'deploy/agent/bundle.py', 'README.md': 'deploy/agent/INSTALL.md',
     'OPERATIONS.md': 'deploy/agent/OPERATIONS.md', 'acceptance/verify.py': 'scripts/agent/verify-bundle.py',
     'acceptance/model-fixture.mjs': 'scripts/agent/model-fixture.mjs',

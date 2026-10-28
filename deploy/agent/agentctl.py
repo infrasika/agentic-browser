@@ -19,6 +19,7 @@ import time
 import uuid
 from urllib.parse import urlsplit
 
+sys.dont_write_bytecode = True
 KIND = 'agentic-browser-installation-v1'
 VOLUMES = ['browser-data', 'mongo-data', 'redis-data', 'uploads', 'images', 'logs']
 SERVICES = ['mongo', 'redis', 'browser', 'agent', 'gateway']
@@ -212,6 +213,10 @@ class Installation:
             raise Failure('incomplete_restore; use a fresh target')
         if state.get('operation') == 'restore' and state.get('phase') == 'ready':
             self.render()
+        # A killed Docker client can leave its archive helper alive. Remove only
+        # this installation's operation helpers before restarting volume writers.
+        helpers = run(DOCKER + ['ps', '-aq', '--filter', 'label=dev.agentic-browser.operation=' + self.meta['project']]).split()
+        if helpers: run(DOCKER + ['rm', '-f', *helpers])
         self.compose(['up', '-d', '--wait', '--wait-timeout', '240'], timeout=300)
         # Healthchecks must pass before visitors are admitted.
         self.gate.unlink(missing_ok=True)
@@ -241,6 +246,7 @@ class Installation:
             private(self.root / 'config' / name)
             shutil.copyfile(self.root / 'config' / name, destination / name)
         if (self.root / 'config/smtp-verified.json').exists(): shutil.copyfile(self.root / 'config/smtp-verified.json', destination / 'smtp-verified.json')
+        if (self.root / 'config/backup.json').exists(): shutil.copyfile(self.root / 'config/backup.json', destination / 'backup.json')
         shutil.copyfile(self.root / 'release.json', destination / 'release.json')
         shutil.copyfile(self.root / 'compose.yaml', destination / 'compose.yaml')
         files = {p.name: digest(p) for p in destination.iterdir() if p.is_file()}
@@ -282,6 +288,7 @@ class Installation:
             self.compose(['up', '-d', '--force-recreate', '--wait', '--wait-timeout', '240'], timeout=300)
             self.gate.unlink(); self.doctor(); self.intent.unlink()
             atomic(self.root / 'state/applied.json', self.fingerprint())
+            install_tools(self.root)
             return {'status': 'upgraded', 'backup': str(previous), 'version': target['version']}
         except BaseException:
             atomic(self.gate, 'maintenance\n')
@@ -307,6 +314,11 @@ def verify_backup(path):
                         raise Failure('backup_contains_runtime_records')
     return manifest
 
+def install_tools(directory):
+    source = Path(__file__).resolve().parent
+    for name in ['agentctl.py', 'maintenance.py']:
+        atomic(directory / name, (source / name).read_text())
+
 def initialize(directory, release_path, port, development=False):
     if not 1024 <= port <= 65535: raise Failure('invalid_loopback_port')
     if not sys.platform.startswith('linux') or os.uname().machine != 'x86_64': raise Failure('linux_amd64_host_required')
@@ -327,7 +339,7 @@ def initialize(directory, release_path, port, development=False):
     for name in ['config', 'state', 'state/maintenance']: (directory / name).mkdir(mode=0o700)
     source = Path(__file__).resolve().parent
     shutil.copyfile(source / 'compose.yaml', directory / 'compose.yaml')
-    shutil.copyfile(source / 'agentctl.py', directory / 'agentctl.py')
+    install_tools(directory)
     meta = {'kind': KIND, 'project': 'agent-' + uuid.uuid4().hex[:12], 'uid': os.getuid(), 'gid': os.getgid(), 'port': port}
     atomic(directory / 'installation.json', meta); atomic(directory / 'release.json', release)
     run(DOCKER + ['run', '--rm', '--network=none', '--user', f'{os.getuid()}:{os.getgid()}', '--read-only', '--cap-drop=ALL',
@@ -377,6 +389,14 @@ def main():
     sub = parser.add_subparsers(dest='command', required=True)
     init = sub.add_parser('init'); init.add_argument('--release', type=Path, required=True); init.add_argument('--port', type=int, default=3333); init.add_argument('--development', action='store_true')
     for name in ['up', 'doctor', 'backup', 'recover', 'apply']: sub.add_parser(name)
+    sub.add_parser('maintain')
+    sub.add_parser('maintenance-status')
+    schedule = sub.add_parser('schedule')
+    schedule.add_argument('--timezone', default='UTC')
+    schedule.add_argument('--hour', type=int, default=4)
+    schedule.add_argument('--keep', type=int, default=7)
+    schedule.add_argument('--retry-minutes', type=int, default=60)
+    schedule.add_argument('--copy-to', type=Path)
     for name in ['user-create', 'user-reset']:
         child = sub.add_parser(name); child.add_argument('--input-file', type=Path)
     mail = sub.add_parser('mail-test'); mail.add_argument('--to', required=True)
@@ -391,8 +411,16 @@ def main():
     else:
         install = Installation(directory)
         with (directory / 'state/lock').open('a') as lock:
-            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            try: fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except BlockingIOError:
+                if args.command == 'maintain': print(json.dumps({'status': 'operation_in_progress'})); return
+                raise Failure('operation_in_progress; retry later') from None
             if args.command == 'up': install.up(); result = {'status': 'running'}
+            elif args.command in ['schedule', 'maintain', 'maintenance-status']:
+                import maintenance
+                if args.command == 'schedule': result = maintenance.configure(install, args)
+                elif args.command == 'maintain': result = maintenance.tick(install)
+                else: result = maintenance.status(install)
             elif args.command == 'doctor': result = install.doctor()
             elif args.command == 'recover':
                 if install.intent.exists() and read_json(install.intent).get('phase') in ['restoring', 'restore_failed']: raise Failure('incomplete_restore; use a fresh target')
@@ -412,6 +440,8 @@ def main():
     print(json.dumps(result))
 
 if __name__ == '__main__':
+    # The maintenance module shares this exact Failure type when run as a script.
+    sys.modules['agentctl'] = sys.modules[__name__]
     try: main()
     except Failure as error: print(str(error), file=sys.stderr); sys.exit(1)
     except (OSError, ValueError, KeyError, TypeError, tarfile.TarError): print('Operation failed; check private file permissions, manifest and configuration. No secret values were logged.', file=sys.stderr); sys.exit(1)

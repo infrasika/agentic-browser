@@ -5,6 +5,7 @@ import importlib.util
 import json
 import os
 from pathlib import Path
+import selectors
 import shutil
 import subprocess
 import sys
@@ -33,7 +34,7 @@ def main():
     parser.add_argument('--port', type=int, default=3340)
     args = parser.parse_args()
     if args.work.exists() or args.work.absolute() != args.work.resolve(): raise ValueError('new non-symlink work directory required')
-    if not 1024 <= args.port < 65535: raise ValueError('two consecutive loopback ports required')
+    if not 1024 <= args.port <= 65533: raise ValueError('three consecutive loopback ports required')
     bundle = args.bundle.resolve(); work = args.work.resolve()
     run(['python3', str(bundle / 'bundle.py'), 'verify'])
     build = json.loads((bundle / 'BUILD.json').read_text())
@@ -42,7 +43,7 @@ def main():
         actual = json.loads(run(DOCKER + ['image', 'inspect', info['id']]))[0]
         if actual['Id'] != info['id']: raise ValueError('load the bundle images first')
     work.mkdir(mode=0o700, parents=True)
-    source, restored = work / 'installation', work / 'restored'
+    source, restored, rollback = work / 'installation', work / 'restored', work / 'rollback'
     projects, instances = {}, set()
     fixture = None
     report = {'passed': False, 'stage': 'init', 'checks': [], 'hostApplicationDependencies': ['Python 3', 'Docker Engine', 'Docker Compose'],
@@ -87,6 +88,35 @@ def main():
         except subprocess.CalledProcessError: return
         raise AssertionError('Expected operation to refuse in ' + report['stage'])
 
+    def interrupted_backup(directory):
+        # Kill a real operator only after it has stopped all four writers. Its
+        # helper is deliberately left alive to verify bounded orphan cleanup.
+        script = '''import fcntl,json,sys,time
+sys.path.insert(0,sys.argv[1])
+from pathlib import Path
+import agentctl as ctl
+root=Path(sys.argv[2]); job=ctl.Installation(root)
+with (root/'state/lock').open('a') as lock:
+    fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
+    job.enter('backup')
+    ctl.run(ctl.DOCKER+['run','-d','--name',job.meta['project']+'-fault-helper','--label','dev.agentic-browser.operation='+job.meta['project'],'--network=none','--read-only','--cap-drop=ALL','--memory=64m','--entrypoint=node',job.release['images']['agent'],'-e','setTimeout(()=>{},600000)'])
+    print('writers_stopped',flush=True)
+    time.sleep(600)
+'''
+        process = subprocess.Popen(['python3', '-c', script, str(bundle), str(directory)], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        try:
+            with selectors.DefaultSelector() as selector:
+                selector.register(process.stdout, selectors.EVENT_READ)
+                if not selector.select(timeout=180) or process.stdout.readline().strip() != 'writers_stopped':
+                    raise AssertionError('backup interruption fixture did not reach stopped writers')
+            process.kill(); process.communicate(timeout=10)
+            request('/api/config', port=args.port + 1, expected=503)
+            assert cli(directory, 'maintain')['status'] == 'recovered_interrupted_backup'
+            cli(directory, 'doctor')
+            assert not run(DOCKER + ['ps', '-aq', '--filter', 'label=dev.agentic-browser.operation=' + projects[directory]])
+        finally:
+            if process.poll() is None: process.kill(); process.communicate(timeout=10)
+
     def browser_task(token, port):
         mid = str(uuid.uuid4())
         start = request('/api/agents/chat', token, {'text': 'Open https://httpbin.org/anything/agentic-browser-acceptance, let me take control, then read the page and close the browser.', 'sender': 'User', 'isCreatedByUser': True, 'parentMessageId': '00000000-0000-0000-0000-000000000000', 'conversationId': 'new', 'messageId': mid, 'responseMessageId': mid + '_', 'endpoint': 'agents', 'agent_id': 'agent_browser_demo', 'spec': 'browser-demo', 'isTemporary': False, 'isRegenerate': False}, port)
@@ -98,6 +128,7 @@ def main():
         else: raise AssertionError('handoff timeout')
         if port == args.port:
             expect_failure(lambda: cli(source, 'backup'))
+            assert cli(source, 'maintain')['status'] == 'deferred_busy'
             request('/api/config', port=port)
         request(path + '/control', token, {'revision': lease['revision'], 'target': 'agent', 'operationId': str(uuid.uuid4())}, port)
         for _ in range(120):
@@ -128,6 +159,8 @@ def main():
         fixture = projects[source] + '-fixture'
         run(DOCKER + ['run', '-d', '--name', fixture, '--network', projects[source] + '_front', '--network-alias', 'fixture', '--read-only', '--user', f'{os.getuid()}:{os.getgid()}', '--cap-drop=ALL', '--security-opt=no-new-privileges', '--memory=192m', '--cpus=.5', '--mount', 'type=bind,src=' + str(bundle / 'acceptance/model-fixture.mjs') + ',dst=/fixture.mjs,readonly', '--entrypoint=node', build['images']['agent']['id'], '/fixture.mjs'])
         cli(source, 'up'); cli(source, 'doctor')
+        replica = work / 'replica'; replica.mkdir(mode=0o700)
+        cli(source, 'schedule', '--timezone', 'Asia/Shanghai', '--hour', '0', '--retry-minutes', '1', '--copy-to', str(replica))
         identity = compose(source, 'exec', '-T', 'browser', 'cat', '/data/runtimes/instance-id'); instances.add(identity)
         request('/mcp', expected=404)
         report['checks'].append('configuration_required_and_existing_installation_preserved; private_gateway_healthy_mcp_closed')
@@ -145,6 +178,15 @@ def main():
         report['stage'] = 'backup_restore'
         time.sleep(2)
         before = snapshot(source)
+        # Advance only the recorded retry timestamp, without waiting a minute.
+        state_file = source / 'state/backup-status.json'
+        state = json.loads(state_file.read_text()); state['lastAttemptAt'] = '2000-01-01T00:00:00+00:00'; write(state_file, state)
+        assert cli(source, 'maintain')['status'] == 'completed'
+        state = cli(source, 'maintenance-status')['state']
+        assert cli(source, 'verify-backup', str(replica / projects[source] / state['lastBackup']))['verified']
+        assert cli(source, 'maintain')['status'] in ['retry_not_due', 'not_due']
+        assert snapshot(source) == before
+        report['checks'].append('scheduled_idle_backup_busy_retry_verified_copy_and_daily_deduplication; copy_is_same_host_fixture')
         backup = cli(source, 'backup')['backup']; assert cli(source, 'verify-backup', backup)['verified']
         compose(source, 'stop')
         cli(restored, 'restore', backup, '--port', str(args.port + 1), *development)
@@ -166,6 +208,28 @@ def main():
         assert cli(restored, 'upgrade', '--release', str(next_file), *development)['status'] == 'upgraded'
         assert snapshot(restored) == before
         report['checks'].append('same_build_upgrade_procedure_takes_backup_and_preserves_data; not_a_cross_version_migration_test')
+        report['stage'] = 'interrupted_backup'
+        before = snapshot(restored)
+        interrupted_backup(restored)
+        assert snapshot(restored) == before
+        report['checks'].append('SIGKILL_after_stopping_writers_recovers_health_data_and_owned_orphan_helper')
+        report['stage'] = 'failed_upgrade_and_rollback'
+        broken = {**next_release, 'version': 'injected-invalid-agent', 'images': {**next_release['images'], 'agent': next_release['images']['runtime']}}
+        broken_file = work / 'broken-release.json'; write(broken_file, broken)
+        expect_failure(lambda: cli(restored, 'upgrade', '--release', str(broken_file), *development))
+        assert cli(restored, 'maintain')['status'] == 'operator_required'
+        request('/api/config', port=args.port + 1, expected=503)
+        operation = json.loads((restored / 'state/operation.json').read_text())
+        assert operation['phase'] == 'upgrade_failed'
+        cli(rollback, 'restore', operation['backup'], '--port', str(args.port + 2), *development)
+        projects[rollback] = json.loads((rollback / 'installation.json').read_text())['project']
+        run(DOCKER + ['network', 'connect', '--alias', 'fixture', projects[rollback] + '_front', fixture])
+        cli(rollback, 'recover'); cli(rollback, 'doctor')
+        instances.add(compose(rollback, 'exec', '-T', 'browser', 'cat', '/data/runtimes/instance-id'))
+        assert snapshot(rollback) == before
+        token = login(user['email'], user['password'], args.port + 2)
+        browser_task(token, args.port + 2)
+        report['checks'].append('invalid_image_upgrade_retains_maintenance_and_pre_upgrade_backup_restores_data_and_real_task')
         report['passed'] = True
     except Exception as error:
         # Keep all details local; stdout contains only stage/status, never tokens or passwords.
@@ -173,7 +237,7 @@ def main():
     finally:
         # An init/restore may fail after allocating its project. Discover only our
         # newly-created directories, so partial failure still has bounded cleanup.
-        for directory in [source, restored]:
+        for directory in [source, restored, rollback]:
             meta = directory / 'installation.json'
             if meta.is_file(): projects[directory] = json.loads(meta.read_text())['project']
         if fixture:
@@ -182,6 +246,8 @@ def main():
         cleanup_errors = []
         for directory, project in projects.items():
             try:
+                helpers = run(DOCKER + ['ps', '-aq', '--filter', 'label=dev.agentic-browser.operation=' + project]).split()
+                if helpers: run(DOCKER + ['rm', '-f', *helpers])
                 if (directory / '.env').is_file():
                     write(work / (project + '-logs.txt'), compose(directory, 'logs', '--no-color', '--tail', '80'))
                     compose(directory, 'down', '--volumes', '--remove-orphans')

@@ -73,7 +73,30 @@ python3 agentctl.py --directory /srv/my-agent verify-backup /srv/my-agent/backup
 
 有运行、排队、人工接管、未确认事件或未清理 runtime 时会延后，不终止用户任务。空闲时入口进入维护状态并排空已进入应用的请求，再停止 Agent、Browser、Redis 和 Mongo 写入。归档包括六个数据卷、配置/密钥、Compose 和固定镜像清单；每个文件有 SHA-256，完整验证后才去掉 `.pending` 标记。备份结束先恢复健康，再解除维护。
 
-这是停写后的完整数据卷快照，恢复要求相同数值 UID/GID、匹配的固定镜像及 Compose v1 拓扑；不支持跨 Mongo 大版本转换。归档包含密钥、账号和聊天，目录/文件权限为 0700/0600，应使用受控存储。镜像本身、外层 HTTPS 代理/证书、手工额外挂载文件不在备份内；公开镜像未发布前需另外保留对应本机镜像（候选包的 images.tar.gz 包含六个安装镜像）。异地副本、加密存储、定时调度和自动轮转仍由后续发行运维补齐。
+这是停写后的完整数据卷快照，恢复要求相同数值 UID/GID、匹配的固定镜像及 Compose v1 拓扑；不支持跨 Mongo 大版本转换。归档包含密钥、账号和聊天，目录/文件权限为 0700/0600，应使用受控存储。镜像本身、外层 HTTPS 代理/证书、手工额外挂载文件不在备份内；公开镜像未发布前需另外保留对应本机镜像（候选包的 images.tar.gz 包含六个安装镜像）。
+
+## 定时备份与中断恢复
+
+以安装目录的所有者运行（不要用 root 替代该用户）：
+
+```bash
+python3 /srv/my-agent/agentctl.py --directory /srv/my-agent schedule --timezone Asia/Shanghai --hour 4 --keep 7 --retry-minutes 60
+```
+
+命令生成私密的 `config/backup.json` 和 `state/systemd/` 下的两个用户级 systemd unit，不修改其他实例。将输出目录内的 `.service` 和 `.timer` 用 `systemctl --user link` 链接，再 `systemctl --user enable --now TIMER_NAME` 启用。需要开机后及退出 SSH 后继续执行时，由服务器管理员启用 `loginctl enable-linger USER`；不支持 systemd 的宿主可由自己的调度器每分钟调用 `maintain`。
+
+```bash
+python3 /srv/my-agent/agentctl.py --directory /srv/my-agent maintain
+python3 /srv/my-agent/agentctl.py --directory /srv/my-agent maintenance-status
+```
+
+定时器每分钟检查中断恢复；每天按指定时区从设定小时开始尝试备份。任务运行或人工接管期间延后，按 `retry-minutes` 重试；成功后同一个当地日期不重复备份。系统错过运行时间后会在下一次检查补做。所有维护操作共用实例锁，互不并行。
+
+默认保留最近 7 份**该调度器生成的完整备份**，手工备份、升级前备份和 `.pending` 不自动删除。归档或复制失败可在私密状态文件和 systemd journal 中查到失败状态，不输出凭据。普通备份被强杀后，下一次检查会清理属于该实例的遗留归档辅助容器、恢复健康，再开放入口；不会自动恢复失败升级、未完成 restore 或来历不明的维护标记。人为停止服务但没有备份恢复意图时，也不会自动启动。
+
+可加 `--copy-to /mnt/backup/agent-copies`，将每份备份校验后原子复制到另一个预先创建的 0700 目录，再轮转；复制失败只重试同一份快照，不重复停服务。路径可指向受控的加密磁盘或远程挂载目录，目录所有者须与实例一致。工具不会自动配置存储账号、加密或挂载；远程挂载应由宿主保证可用并禁止掉线后写入本地挂载点。本机目录副本不构成异地灾备。未提供目标时只有本地备份。
+
+备份包含调度策略供审计，但恢复出的新实例不会继承定时器、复制目标或自动开启备份；验收后重新执行 `schedule`。升级时从新候选包运行 `agentctl.py ... upgrade`，成功后更新安装目录的管理工具；现有定时器会使用新工具。
 
 恢复**只允许新的安装目录和新 project/数据卷**：
 
@@ -93,6 +116,6 @@ python3 agentctl.py --directory /srv/my-agent upgrade --release next-release.jso
 
 当前支持相同 Compose 拓扑的镜像升级。先检查并准备固定镜像，空闲时生成升级前备份，再启动新版本，健康通过后解除维护；保留账号、配置和密钥。升级失败保留维护状态与备份路径，不自动把旧程序连接到可能已迁移的新数据库。用升级前备份恢复到一个新实例，验收后再切换入口。
 
-普通备份被中断时，`state/operation.json` 保留恢复意图；执行 `recover` 恢复服务。未完成的 restore 或失败升级会拒绝直接解除维护。`SIGTERM` 尽力恢复普通备份；进程被强杀或宿主断电后需要手动 `recover`，当前没有安装宿主 watchdog。不要手工删除维护标记来绕过失败状态。
+普通备份被中断时，`state/operation.json` 保留恢复意图；执行 `recover` 恢复服务。未完成的 restore 或失败升级会拒绝直接解除维护。`SIGTERM` 尽力恢复普通备份；进程被强杀或宿主断电后，已启用的定时器会尝试恢复普通备份，否则手动 `recover`。升级失败必须从升级前备份恢复到新实例，不要手工删除维护标记来绕过失败状态。
 
 诊断仅输出状态和汇总。必要时在安装目录运行 `docker compose ps` / `docker compose logs` 查看本机详情；日志和备份不应上传公共 issue。当前没有一键销毁或覆盖恢复命令。
