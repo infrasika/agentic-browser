@@ -26,7 +26,7 @@ node scripts/accept-agent-compose.mjs --run --release /path/to/release.json
 node scripts/accept-agent-operations.mjs --run --release /path/to/release.json
 ```
 
-上述测试创建独立 Compose project、本机数据目录和模拟模型，真实 Chrome 访问 HTTP 测试页。浏览器验收使用 3334，运维验收使用 3335/3336；端口必须空闲。覆盖双账号权限、初始 credits、排队、WebSocket、接管继续、SMTP 找回、备份、恢复与升级失败。无需已有站点、宿主 systemd 或私密业务配置。成功后清理本次数据，失败诊断留在 `.deployment/`，公开报告只含汇总。
+上述测试创建独立 Compose project、本机数据目录和模拟模型，真实 Chrome 访问 HTTP 测试页。浏览器验收使用 3334，运维验收使用 3335/3336；端口必须空闲。覆盖双账号权限、初始 credits、幂等加额度、预算耗尽、排队、WebSocket、接管继续、退出释放、SMTP 找回、备份、恢复与升级失败。无需已有站点、宿主 systemd 或私密业务配置。成功后清理本次数据，失败诊断留在 `.deployment/`，公开报告只含汇总。
 
 `--hold` 可在通过后保留测试实例检查界面，收到 SIGTERM 后清理。完整发行包还有独立的 Python/Docker 验收，见 [安装说明](INSTALL.md)。
 

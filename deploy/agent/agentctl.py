@@ -281,11 +281,13 @@ class Installation:
 
     def upgrade(self, release_path, development):
         target = release_file(release_path, development)
+        template = (Path(__file__).resolve().parent / 'compose.yaml').read_text()
         pull_images(target)
         previous = self.backup(stay=True)
         try:
             atomic(self.intent, {'kind': KIND, 'operation': 'upgrade', 'phase': 'upgrading', 'backup': str(previous)})
             atomic(self.root / 'release.json', target); self.release = target
+            atomic(self.root / 'compose.yaml', template)
             self.render()
             self.compose(['up', '-d', '--force-recreate', '--wait', '--wait-timeout', '240'], timeout=300)
             self.gate.unlink(); self.doctor(); self.intent.unlink()

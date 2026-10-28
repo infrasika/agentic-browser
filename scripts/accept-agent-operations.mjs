@@ -108,6 +108,8 @@ try {
   report.checks.push('offline_volume_backup_verified_and_restored_into_fresh_project','restored_accounts_chats_credits_budget_unchanged_and_runtime_identity_is_new','restore_refuses_existing_installation');
   report.stage='upgrade';
   const upgraded=await cli(['upgrade','--release',release,'--development']);assert.equal(upgraded.status,'upgraded');assert.deepEqual(await dbSnapshot(),original);
+  assert.equal(await readFile(directory+'/compose.yaml','utf8'),await readFile(resolve(root,'deploy/agent/compose.yaml'),'utf8'));
+  assert.match(await readFile(upgraded.backup+'/compose.yaml','utf8'),/NODE_EXTRA_CA_CERTS/);
   const broken=await inputFile('broken-release.json',{version:'invalid-agent-test',images:{...images,agent:await image('node:24.22.1-bookworm-slim')}});
   await assert.rejects(cli(['upgrade','--release',broken,'--development']));
   assert.equal((await req('/api/config')).status,503);
