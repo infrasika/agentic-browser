@@ -24,6 +24,8 @@ Configure your own Qwen model and rates once in private files. Registration is c
 
 **Current status: Linux amd64 installation candidate.** Same-host installation, real-browser and recovery checks have been established with no host Node on PATH; source changes must pass those checks again before a new candidate is accepted. Independent new-server acceptance and public Agent image publication are pending. Candidate bundles can include all six fixed images for transfer to a test server.
 
+Data lives in the installation’s `data/` directories, mounted into the database and application containers. The current test domain runs this complete Compose layout; its operator runbook is [here](docs/plans/TEST_SERVER.md).
+
 See [installation](deploy/agent/INSTALL.md), [operations](deploy/agent/OPERATIONS.md), and [release preparation](deploy/agent/RELEASING.md). Start with one browser and validate capacity on your own host. Linux amd64 is the supported target.
 
 ## Project boundaries

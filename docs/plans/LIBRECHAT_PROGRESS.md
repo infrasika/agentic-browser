@@ -2,6 +2,16 @@
 
 更新时间：2026-10-28（北京时间）。本文只记录当前产品状态；设计见 [架构](../ARCHITECTURE.md)，工作项见 [开发计划](LIBRECHAT_DEVELOPMENT.md)。
 
+## 原域名就地部署（最新）
+
+2026-10-28 按用户授权将 `agentic-browser.zkpass.org` 切至完整 Compose Agent，安装目录 `.deployment/agent-site`、回环端口 3351，所有六类数据落在本机 `data/` 目录。原宿主进程、旧备份 timer 和 3350 独立测试实例已退役停用，旧数据只保留为回退资料。
+
+65 个 Mongo 集合、183 条记录停写迁移后摘要完全一致；启动后账号、聊天、余额、交易、预算与凭据再次核对通过。注册/Turnstile、Cloudflare SMTP 和并发 5 的设置保持；新代理按明确网桥 IP 信任客户端地址。首份完整备份已生成并恢复到独立目录核对，新的每日定时器已启用。恢复副本使用原管理员密码登录，并完成真实 Qwen 网页读取/关闭任务，约消耗 3,663 credits；副本随后已清理。报告：`output/agent/in-place-deployment.json`。
+
+本轮 7 项配置测试、39 项 Python 测试、9 项双账号浏览器验收与 10 项运维验收通过。覆盖真实 Chrome、画面 WebSocket、排队/接管继续、容器重启、SMTP 单次找回、备份、新目录恢复、升级成功与失败保留维护。源码与安装镜像身份、访问方法和数据目录见 [当前服务器](TEST_SERVER.md)。
+
+此次为本机 rc.5 运行部署；完整离线候选包仍为 rc.4，尚未公开发布新的镜像或安装包。
+
 ## 现有演示/测试站
 
 已上线聊天与远程浏览器同屏、排队、接管归还自动继续、本地账号、credits、日预算、管理员入口、Turnstile、邮件找回和每日空闲备份。GitHub 私有仓库 Demo 的名称和数量已由用户登录核对。邮件已由用户确认收到。
@@ -22,9 +32,9 @@
 
 清理阶段报告：`output/agent/cleanup-bundle-acceptance.json`、`output/agent/compose-latest.json`、`output/librechat/browser-service-real.json`、`output/agent/cleanup-rollout.json`。
 
-## 当前服务器实装与自动运维
+## rc.4 同机实装与自动运维（已由原域名部署替代）
 
-用户已确认当前项目用于测试，允许在本机部署和故障演练。本轮保留原环境及其已验证恢复点，新建 `.deployment/private-agent-test`，通过回环 `127.0.0.1:3350` 提供完整 Compose Agent。复用已配置的 Qwen 与管理员邮箱/密码；新实例独立数据库，注册关闭、并发 1。访问与维护方式见 [测试实例说明](TEST_SERVER.md)。
+用户已确认当前项目用于测试，允许在本机部署和故障演练。该阶段保留原环境及其已验证恢复点，新建 `.deployment/private-agent-test`，通过回环 `127.0.0.1:3350` 提供完整 Compose Agent。复用已配置的 Qwen 与管理员邮箱/密码；新实例独立数据库，注册关闭、并发 1。该实例现已停止；最新访问与维护方式见 [当前服务器](TEST_SERVER.md)。
 
 `v0.2.0-rc.4` 候选包的工具提交为 `e37c808`，六镜像仍使用已验证的 Browser `2e0f86e` / LibreChat `0d7ee88` 构建。精确候选包完成 **9 项完整验收**，宿主 PATH 只有 Python/Docker；临时实例、卷、网络和运行时清理无残留，验收后的安装包完整性复核通过。除此前安装与浏览器流程外，新增验证：
 
@@ -42,7 +52,7 @@ Compose 专属系统定时器已启用，以 ubuntu（UID/GID 1000）执行，�
 
 尚未完成：独立新服务器兼容性、应用/数据库实际跨版本升级、真实异地存储与恢复、整机重启/断电演练及公开发布。目录副本仅在本机验证；进程强杀不是整机断电测试。CI 新 runner 工作流已编写，尚未运行。这些事项不阻塞当前服务器的持续测试开发。
 
-## 配置审计
+## 原宿主部署配置审计（历史记录）
 
 `private.env` 已移除重复的 `DOMAIN_SERVER`，其余 21 项仍有实际消费者。删除该重复变量这一步没有改变两种环境的渲染结果或邮件验证凭据；文件权限保持 0600，配置检查通过。后续运行镜像更新和邮件地址核对见下文。`DOMAIN_SERVER` 作为 LibreChat 内部参数由 `DOMAIN_CLIENT` 自动生成，不再要求用户填写。
 
