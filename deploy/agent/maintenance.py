@@ -156,7 +156,8 @@ def tick(install, now=None):
         mirror(install, policy, backup)
         prune(install, policy, state)
         return save('completed', copyPending=None, lastCompletedAt=now.isoformat())
-    except (ctl.Failure, OSError, ValueError, KeyError, TypeError):
+    except (ctl.Failure, OSError, ValueError, KeyError, TypeError) as error:
         # Do not put command output, email addresses or secrets into the journal.
-        save('failed', lastAttemptAt=now.isoformat())
+        code = str(error).split(';', 1)[0] if isinstance(error, ctl.Failure) else 'filesystem_or_configuration_error'
+        save('failed', lastAttemptAt=now.isoformat(), failureCode=code)
         raise ctl.Failure('maintenance_failed; inspect private state and service readiness') from None

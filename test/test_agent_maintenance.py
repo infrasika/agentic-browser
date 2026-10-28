@@ -1,7 +1,9 @@
 from datetime import datetime, timedelta, timezone
 import importlib.util
+import io
 from pathlib import Path
 import sys
+import tarfile
 import tempfile
 from types import SimpleNamespace
 import unittest
@@ -107,6 +109,29 @@ class Maintenance(unittest.TestCase):
         for changes in [{'hour': 24}, {'keep': 0}, {'retryMinutes': True}, {'timeZone': '../UTC'},
                         {'copyTo': str(self.root / 'replica')}, {'copyTo': str(self.root.parent)}]:
             with self.assertRaises(ctl.Failure): job.validate({**self.policy, **changes}, self.root)
+
+    def test_archive_with_backup_policy_is_valid_and_can_be_mirrored(self):
+        import json
+        backup = self.root / 'backups/20261028T010000Z-abcdef01'; backup.mkdir(mode=0o700)
+        for key in ctl.VOLUMES:
+            path = backup / (key + '.tar.gz')
+            with tarfile.open(path, 'w:gz') as archive:
+                entry = tarfile.TarInfo('safe'); archive.addfile(entry, io.BytesIO())
+            path.chmod(0o600)
+        for name in ['settings.json', 'secrets.env', 'browser-token', 'release.json', 'compose.yaml', 'backup.json']:
+            ctl.atomic(backup / name, '{}')
+        ctl.atomic(backup / 'manifest.json', {'kind': ctl.KIND, 'files': {p.name: ctl.digest(p) for p in backup.iterdir()}})
+        with tempfile.TemporaryDirectory() as dest:
+            policy = {**self.policy, 'copyTo': dest}
+            job.mirror(self.install, policy, backup)
+            copied = Path(dest) / self.install.meta['project'] / backup.name
+            self.assertEqual(ctl.verify_backup(copied), ctl.verify_backup(backup))
+            job.mirror(self.install, policy, backup)
+            # Unknown metadata is still rejected instead of broadening the format.
+            manifest = ctl.read_json(backup / 'manifest.json')
+            manifest['files']['unexpected.json'] = 'a' * 64
+            ctl.atomic(backup / 'manifest.json', manifest)
+            with self.assertRaisesRegex(ctl.Failure, 'invalid_backup_manifest'): ctl.verify_backup(backup)
 
 
 if __name__ == '__main__': unittest.main()

@@ -299,7 +299,7 @@ def verify_backup(path):
     private(path, True)
     manifest = read_json(path / 'manifest.json')
     required = {key + '.tar.gz' for key in VOLUMES} | {'settings.json', 'secrets.env', 'browser-token', 'release.json', 'compose.yaml'}
-    if manifest.get('kind') != KIND or not required.issubset(manifest.get('files', {})) or set(manifest['files']) - required - {'smtp-verified.json'}:
+    if manifest.get('kind') != KIND or not required.issubset(manifest.get('files', {})) or set(manifest['files']) - required - {'smtp-verified.json', 'backup.json'}:
         raise Failure('invalid_backup_manifest')
     for name, sha in manifest['files'].items():
         file = path / name; private(file)
