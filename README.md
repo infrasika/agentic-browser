@@ -28,16 +28,16 @@ Data lives in the installation’s `data/` directories, mounted into the databas
 
 See [installation](deploy/agent/INSTALL.md), [operations](deploy/agent/OPERATIONS.md), and [release preparation](deploy/agent/RELEASING.md). Start with one browser and validate capacity on your own host. Linux amd64 is the supported target.
 
-Maintainers can prepare Linux amd64 images from a Mac using Docker Desktop. The [build and GHCR guide](deploy/agent/RELEASING.md) covers both customized source repositories, locked browser assets, existing Docker/Keychain credentials, publication preflight and digest-pinned bundles. Mac runtime support remains unverified. [Configuration](deploy/agent/CONFIGURATION.md) explains the installation's `config/` directory, Compose secrets and generated `.env`.
+Maintainers can build Linux amd64 and arm64 images from this one repository on Mac or Ubuntu. The [build and GHCR guide](deploy/agent/RELEASING.md) covers pinned LibreChat source, locked browser assets, Docker/Keychain credentials and multi-platform GHCR tags. Native ARM64 deployment and Mac execution require separate acceptance. [Configuration](deploy/agent/CONFIGURATION.md) explains the installation's `config/` directory, Compose secrets and generated `.env`.
 
 ## Project boundaries
 
-Two source projects remain independent:
+The source has two application boundaries in one reproducible checkout:
 
 | Project | Responsibility |
 | --- | --- |
 | `agentic-browser` (this repository) | Browser Service, Chrome runtime, private HTTP API and `deploy/agent/` packaging/operations |
-| `librechat-agent` (separate checkout) | Customized LibreChat interface, authentication, native Agent tools and accounting |
+| `integrations/librechat/` | Pinned upstream source and tracked customizations for the chat interface, accounts, native tools and accounting |
 
 The Agent calls Browser Service over a private authenticated interface. Browser features are native Agent tools; MCP is not part of this deployment. Browser Service alone receives the Docker socket to create isolated runtimes. Each Chrome runtime receives only its session’s egress socket directory; model keys and database volumes stay outside it.
 
@@ -49,6 +49,7 @@ The deployment administrator controls the host and stored data. The configured c
 
 | Directory | Purpose |
 | --- | --- |
+| `integrations/librechat/` | Upstream source lock, reviewed customization patch and license; no separate checkout required |
 | `src/` | Browser Service and browser runtime application code |
 | `runtime/` | Chrome image Dockerfile, extension installer, locked versions and sandbox policy; these are build inputs |
 | `deploy/agent/` | Complete Agent Compose template, application startup configuration and installation/operations tools |

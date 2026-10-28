@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Manage one private Agent installation. Requires Linux amd64, Python 3 and Docker Compose."""
+"""Manage one private Agent installation. Requires Linux, Python 3 and Docker Compose."""
 import argparse
 import fcntl
 import getpass
@@ -80,12 +80,20 @@ def release_file(path, development=False):
             raise Failure('immutable_release_images_required')
     return value
 
+def host_platform():
+    architecture = {'x86_64': 'amd64', 'aarch64': 'arm64', 'arm64': 'arm64'}.get(os.uname().machine)
+    if not sys.platform.startswith('linux') or not architecture: raise Failure('supported_linux_host_required')
+    return 'linux/' + architecture
+
+
 def pull_images(release):
+    platform = host_platform()
     for ref in release['images'].values():
+        if '@sha256:' in ref: run(DOCKER + ['pull', '--platform', platform, ref], timeout=900)
         try: run(DOCKER + ['image', 'inspect', ref])
         except Failure: run(DOCKER + ['pull', ref], timeout=900)
         info = json.loads(run(DOCKER + ['image', 'inspect', ref]))[0]
-        if info['Os'] != 'linux' or info['Architecture'] != 'amd64': raise Failure('linux_amd64_images_required')
+        if info['Os'] + '/' + info['Architecture'] != platform: raise Failure('host_image_architecture_mismatch')
 
 def transfer_volume(image, volume, project, archive, restore=False):
     name = project + '-archive-' + uuid.uuid4().hex[:12]
@@ -338,7 +346,7 @@ def storage_directory(root, create=False):
 
 def initialize(directory, release_path, port, development=False):
     if not 1024 <= port <= 65535: raise Failure('invalid_loopback_port')
-    if not sys.platform.startswith('linux') or os.uname().machine != 'x86_64': raise Failure('linux_amd64_host_required')
+    host_platform()
     if directory.exists(): raise Failure('installation_directory_already_exists')
     if directory.absolute() != directory.resolve(): raise Failure('installation_symlinks_not_allowed')
     if any(char in str(directory) for char in [',', '\n', '\r', '$', '#', "'", '"', '\\']): raise Failure('unsupported_installation_path')

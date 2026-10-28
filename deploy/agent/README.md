@@ -5,10 +5,10 @@
 ## 源码边界
 
 - 本仓库：浏览器协议、调度、隔离运行时与 `deploy/agent/` 安装工具。
-- 相邻 `librechat-agent` 仓库：定制聊天应用、账号、原生 Agent 工具与成本管理。
-- 协议定义在 `src/api/`；修改协议时用 `scripts/sync-browser-contract.mjs /path/to/librechat-agent` 同步，`--check` 核对。
+- `integrations/librechat/` 锁定上游源码及定制补丁：定制聊天应用、账号、原生 Agent 工具与成本管理。
+- 协议定义在 `src/api/`；修改协议时用 `scripts/sync-browser-contract.mjs /path/to/prepared-librechat` 同步，`--check` 核对。
 
-最终用户只需要 Python、Docker 和配置文件。开发源码需要 Node 24；构建工具需要 Python 3.12+、Docker/Buildx 和两个源码仓库，固定输出 Linux amd64 镜像。Mac 可使用 Docker Desktop 构建；Apple Silicon 依赖 amd64 模拟，当前未做 Mac 实机验收。完整操作见 [构建与发布](RELEASING.md)。
+最终用户只需要 Python、Docker 和配置文件。开发源码需要 Node 24；构建工具需要 Python 3.12+、Docker/Buildx 和本仓库，输出 Linux amd64 / arm64 镜像。Mac 与 Ubuntu 使用相同命令；源码准备和修改方式见 [LibreChat integration](../../integrations/librechat/README.md)。当前未做 Mac 实机或原生 ARM64 部署验收。完整操作见 [构建与发布](RELEASING.md)。
 
 ## 构建与测试
 

@@ -62,6 +62,24 @@ class Bundle(unittest.TestCase):
             (root / 'release.json').write_text(json.dumps(data)); self.sums(root)
             with self.assertRaisesRegex(ValueError, 'exact image'): bundle.verify(root)
 
+    def test_bundle_accepts_arm_but_rejects_mixed_platform_inventory(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder); self.fixture(root)
+            data = json.loads((root/'BUILD.json').read_text())
+            for image in data['images'].values(): image['platform'] = 'linux/arm64'
+            (root/'BUILD.json').write_text(json.dumps(data)); self.sums(root)
+            bundle.verify(root)
+            data['images']['mongo']['platform'] = 'linux/amd64'
+            (root/'BUILD.json').write_text(json.dumps(data)); self.sums(root)
+            with self.assertRaisesRegex(ValueError, 'mixed'): bundle.verify(root)
+
+    def test_installer_selects_native_linux_architecture(self):
+        from types import SimpleNamespace
+        for machine, expected in [('x86_64', 'linux/amd64'), ('aarch64', 'linux/arm64')]:
+            with patch.object(cli.sys, 'platform', 'linux'), patch.object(cli.os, 'uname', return_value=SimpleNamespace(machine=machine)):
+                self.assertEqual(cli.host_platform(), expected)
+        with patch.object(cli.sys, 'platform', 'darwin'), self.assertRaises(cli.Failure): cli.host_platform()
+
     def test_maintenance_module_is_required_even_with_valid_checksums(self):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder); self.fixture(root)
@@ -78,12 +96,13 @@ class Bundle(unittest.TestCase):
         for value in [{}, {'passed': True, 'sourceMode': 'working-tree'}, {'passed': True, 'sourceMode': 'committed', 'images': {'agent': {}}}]:
             with self.assertRaises(ValueError): package.validate_report(value)
 
-    def test_packager_only_fetches_missing_pinned_official_dependencies(self):
+    def test_packager_fetches_requested_platform_of_pinned_official_dependencies(self):
         error = subprocess.CalledProcessError(1, ['docker', 'inspect'])
         ref = package.INFRA['mongo']
-        with patch.object(package.subprocess, 'check_output', side_effect=[error, b'[{"Id":"fixture"}]']), patch.object(package.subprocess, 'run') as run:
-            self.assertEqual(package.inspect_image('mongo', ref)['Id'], 'fixture')
-            run.assert_called_once_with(['docker', 'pull', '--platform', 'linux/amd64', ref], check=True)
+        with patch.object(package.subprocess, 'check_output', return_value=b'[{"Id":"fixture"}]') as inspect, patch.object(package.subprocess, 'run') as run:
+            self.assertEqual(package.inspect_image('mongo', ref, 'linux/arm64')['Id'], 'fixture')
+            run.assert_called_once_with(['docker', 'pull', '--platform', 'linux/arm64', ref], check=True)
+            self.assertIn('linux/arm64', inspect.call_args.args[0])
         with patch.object(package.subprocess, 'check_output', side_effect=error), patch.object(package.subprocess, 'run') as run:
             with self.assertRaises(subprocess.CalledProcessError): package.inspect_image('agent', 'untrusted/image:latest')
             run.assert_not_called()

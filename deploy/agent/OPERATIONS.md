@@ -1,6 +1,6 @@
 # 私有 Agent 运维
 
-使用 `agentctl.py` 管理一个完整 Agent 实例，应用只在镜像里运行；宿主需要 Linux amd64、Python 3、Docker Engine 26+ 和 Compose v2/v5。当前 rc.6 已在测试服务器部署，完整 Agent 镜像尚未发布到 GHCR。每个安装目录对应独立的 Compose project；迁移已有站点需停写、导入数据、核对后再切换域名。
+使用 `agentctl.py` 管理一个完整 Agent 实例，应用只在镜像里运行；宿主需要与镜像架构匹配的 Linux、Python 3、Docker Engine 26+ 和 Compose v2/v5。当前 rc.6 已在测试服务器部署，完整 Agent 镜像尚未发布到 GHCR。每个安装目录对应独立的 Compose project；迁移已有站点需停写、导入数据、核对后再切换域名。
 
 ## 初始化与启动
 

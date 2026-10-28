@@ -25,42 +25,68 @@ assets = load('assets', 'scripts/build/fetch-runtime-assets.py')
 
 class Publishing(unittest.TestCase):
     def fixture(self):
-        prepared = {'version': 'v0.2.0-rc.6', 'images': {}, 'infrastructure': dict(publisher.package.INFRA)}
+        prepared = {'version': 'v0.2.0-rc.6', 'platforms': ['linux/amd64', 'linux/arm64'], 'images': {}, 'infrastructure': dict(publisher.package.INFRA)}
         images, remote, commands = {}, {}, []
         for name, character in zip(publisher.NAMES, 'abc'):
-            image_id = 'sha256:' + character * 64
-            prepared['images'][name] = {'id': image_id, 'target': 'ghcr.io/example/' + publisher.NAMES[name] + ':v0.2.0-rc.6'}
-            images[image_id] = {'Id': image_id, 'RepoDigests': []}
+            target = 'ghcr.io/example/' + publisher.NAMES[name] + ':v0.2.0-rc.6'
+            prepared['images'][name] = {'target': target, 'platforms': {}}
+            for i, platform in enumerate(prepared['platforms']):
+                image_id = 'sha256:' + character * 63 + str(i)
+                prepared['images'][name]['platforms'][platform] = {'id': image_id, 'target': target + '-' + platform.split('/')[1]}
+                images[image_id] = {'Id': image_id, 'RepoDigests': []}
         class Registry:
-            def manifest(self, repository, ref): return remote.get(repository)
+            def manifest(self, repository, ref): return remote.get((repository, ref))
         def docker(args, **kwargs):
             commands.append(args)
             if args[1] == 'push':
                 target = args[2]
-                item = next(i for i in prepared['images'].values() if i['target'] == target)
-                repo = target.removeprefix('ghcr.io/').split(':')[0]
-                digest = 'sha256:' + 'd' * 64
-                remote[repo] = (digest, {'config': {'digest': item['id']}})
+                item = next(i for image in prepared['images'].values() for i in image['platforms'].values() if i['target'] == target)
+                repo, tag = target.removeprefix('ghcr.io/').split(':')
+                digest = item['id']
+                remote[repo, tag] = remote[repo, digest] = (digest, {'config': {'digest': item['id']}})
                 images['ghcr.io/' + repo + '@' + digest] = images[item['id']]
+            if args[1:4] == ['buildx', 'imagetools', 'create']:
+                target = args[5]; repo, tag = target.removeprefix('ghcr.io/').split(':')
+                descriptors = [{'digest': ref.split('@')[1], 'platform': {'os': 'linux', 'architecture': p.split('/')[1]}}
+                    for ref, p in zip(args[6:], prepared['platforms'])]
+                remote[repo, tag] = ('sha256:' + 'd' * 64, {'manifests': descriptors})
         return prepared, images, remote, commands, Registry(), docker
 
     def test_conflicting_tag_aborts_before_any_push(self):
         prepared, images, remote, calls, registry, docker = self.fixture()
-        remote['example/agentic-browser-runtime'] = ('sha256:' + 'e' * 64, {'config': {'digest': 'sha256:' + 'f' * 64}})
+        remote['example/agentic-browser-runtime', prepared['version']] = ('sha256:' + 'e' * 64, {'config': {'digest': 'sha256:' + 'f' * 64}})
         with self.assertRaisesRegex(ValueError, 'another image'):
             publisher.publish(prepared, registry, docker, images.__getitem__)
         self.assertEqual(calls, [])
 
-    def test_publish_uses_three_exact_images_and_resumes_without_repush(self):
+    def test_publish_combines_six_exact_images_and_resumes_without_repush(self):
         prepared, images, remote, calls, registry, docker = self.fixture()
         release, receipt = publisher.publish(prepared, registry, docker, images.__getitem__)
         self.assertEqual(set(release['images']), {'agent', 'browser', 'runtime', 'gateway', 'mongo', 'redis'})
-        self.assertEqual(len([c for c in calls if c[1] == 'push']), 3)
+        self.assertEqual(len([c for c in calls if c[1] == 'push']), 6)
+        self.assertEqual(len([c for c in calls if c[1:4] == ['buildx', 'imagetools', 'create']]), 3)
+        self.assertEqual(release['platforms'], ['linux/amd64', 'linux/arm64'])
         self.assertTrue(receipt['published']); self.assertFalse(receipt['anonymousPullVerified'])
         calls.clear()
         second, _ = publisher.publish(prepared, registry, docker, images.__getitem__)
         self.assertEqual(second, release)
         self.assertFalse(any(c[1] in ('push', 'tag') for c in calls))
+
+    def test_missing_arm_or_conflicting_architecture_is_not_a_valid_release(self):
+        prepared, images, remote, calls, registry, docker = self.fixture()
+        publisher.publish(prepared, registry, docker, images.__getitem__)
+        remote['example/agentic-browser-agent', prepared['version']][1]['manifests'].pop()
+        calls.clear()
+        with self.assertRaisesRegex(ValueError, 'another image'):
+            publisher.publish(prepared, registry, docker, images.__getitem__)
+        self.assertEqual(calls, [])
+
+    def test_architecture_conflict_is_checked_before_any_upload(self):
+        prepared, images, remote, calls, registry, docker = self.fixture()
+        remote['example/agentic-browser-runtime', prepared['version'] + '-arm64'] = ('sha256:' + 'e'*64, {'config': {'digest': 'sha256:'+'f'*64}})
+        with self.assertRaisesRegex(ValueError, 'Architecture tag'):
+            publisher.publish(prepared, registry, docker, images.__getitem__)
+        self.assertEqual(calls, [])
 
     def test_changed_pulled_image_fails_publication(self):
         prepared, images, _, calls, registry, docker = self.fixture()

@@ -2,7 +2,7 @@
   "format": 1,
   "chrome": {
     "version": "155.0.8059.79-1",
-    "url": "https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb",
+    "url": "https://dl.google.com/linux/chrome/deb/pool/main/g/google-chrome-stable/google-chrome-stable_155.0.8059.79-1_amd64.deb",
     "sha256": "b7726070ca707965e9a17b38e4f15ba283bf6f65c339626c092862af7b19badc"
   },
   "extensions": [
@@ -41,7 +41,7 @@
   ],
   "chromeArm64": {
     "version": "155.0.8059.79-1",
-    "url": "https://dl.google.com/linux/direct/google-chrome-stable_current_arm64.deb",
+    "url": "https://dl.google.com/linux/chrome/deb/pool/main/g/google-chrome-stable/google-chrome-stable_155.0.8059.79-1_arm64.deb",
     "sha256": "245fa8da4a52c15bee7811d3e17892792cabd6361ac5b7e9c78ba6482ad18315"
   }
 }

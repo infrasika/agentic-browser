@@ -6,7 +6,7 @@
 
 | 目录 / 项目 | 职责 |
 | --- | --- |
-| `librechat-agent/`（独立源码仓库） | 聊天界面、本地账号、Turnstile、Qwen、原生工具、credits、全站预算、管理员入口和密码找回 |
+| `integrations/librechat/`（上游版本锁与定制补丁） | 聊天界面、本地账号、Turnstile、Qwen、原生工具、credits、全站预算、管理员入口和密码找回 |
 | `src/api/` | 内部浏览器协议与控制 API |
 | `src/scheduling/` | SQLite 队列、每用户配额、会话控制状态机、恢复事件和资源回收 |
 | `src/streaming/` | 一次性 viewer grant、画面与人工输入 WebSocket |

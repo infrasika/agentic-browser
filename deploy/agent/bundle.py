@@ -53,11 +53,13 @@ def verify(directory):
     for name, ref in release['images'].items():
         info = build['images'][name]
         if not re.fullmatch(r'sha256:[a-f0-9]{64}', info['id']): raise ValueError('invalid image identity')
-        if info.get('platform') != 'linux/amd64': raise ValueError('unsupported platform')
+        if info.get('platform') not in ['linux/amd64', 'linux/arm64']: raise ValueError('unsupported platform')
         if build.get('distribution') == 'offline-candidate':
             if ref != info['id']: raise ValueError('offline manifest must use exact image IDs')
         elif not re.fullmatch(r'[a-zA-Z0-9./:_-]+@sha256:[a-f0-9]{64}', ref):
             raise ValueError('registry digest required')
+    if len({image['platform'] for image in build['images'].values()}) != 1:
+        raise ValueError('mixed bundle architectures')
     return build
 
 

@@ -6,7 +6,7 @@
 
 ## 1. 准备环境与校验
 
-宿主需要 Python 3.10+、Docker Engine 26+、Docker Compose v2 或 v5，以及对 `/var/run/docker.sock` 的访问权限。仅支持 Linux amd64，CPU 需要支持 MongoDB 8 所需的 AVX。建议从 4 vCPU、8 GiB 内存、30 GiB 可用磁盘、一个浏览器开始；这不是十个并发的容量保证。外部网站和云模型仍需网络连接。
+宿主需要 Python 3.10+、Docker Engine 26+、Docker Compose v2 或 v5，以及对 `/var/run/docker.sock` 的访问权限。选择与服务器匹配的 Linux amd64 或 arm64 安装包；目前完整业务流程已验收 amd64，原生 arm64 验收待完成。amd64 CPU 需支持 AVX，arm64 需 ARMv8.2-A 或更高，见 [MongoDB 平台要求](https://www.mongodb.com/docs/manual/administration/production-notes/#platform-support)。建议从 4 vCPU、8 GiB 内存、30 GiB 可用磁盘、一个浏览器开始；这不是十个并发的容量保证。外部网站和云模型仍需网络连接。
 
 从可信渠道取得压缩包与外层 `SHA256SUMS` 后，在它们所在目录校验、解压：
 

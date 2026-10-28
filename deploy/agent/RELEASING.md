@@ -1,135 +1,106 @@
-# 完整 Agent：构建、GHCR 发布与部署交付
+# 从同一份源码构建、发布和部署完整 Agent
 
-当前完整 Agent 为 `v0.2.0-rc.6`、Linux amd64 候选版。按维护者要求，Ubuntu 测试服务器只准备源码、脚本和文档，**不在这里上传镜像或触发发布**。以下发布命令留待维护者在自己的 Mac 执行；这里的 GHCR 地址是计划目标，不代表已经发布。旧 MCP 产品的镜像与 `latest` 不应作为完整 Agent 的安装入口。
+Mac（Intel / Apple Silicon）和 Ubuntu 使用同一个仓库、同一套 Python/Buildx 命令。构建目标是 `linux/amd64` 与 `linux/arm64`，不是 macOS 镜像。源码移交包、相邻 LibreChat 仓库、服务器 `.deployment/` 和根目录 `.env` 都不属于构建依赖。
 
-## Mac 准备
+当前站点仍运行已经验收的 rc.6。新构建流程与新镜像的验证状态见 [进度](../../docs/plans/PROGRESS.md)。按维护者要求，Ubuntu 不执行 GHCR 上传或 Git push；以下发布操作由维护者执行。文中的 GHCR 地址不代表已经上线。
 
-需要 Git、Python 3.12+ 和运行中的 Docker Desktop（Linux containers、Buildx）。构建/打包/发布使用当前 Docker context，不强制连接 Ubuntu 的 socket 路径。代码测试另需 Node 24。构建器使用 2 CPU / 5 GiB；给 Docker VM 留出额外系统资源和磁盘空间。
+## 构建、发布、部署分别需要什么
 
-构建目标固定为 `linux/amd64`。Apple Silicon 上需要 amd64 模拟，构建可能明显较慢；**完整 Agent 在 Mac / arm64 的本地运行尚未验收**。当前安装器面向 Linux amd64，不能把“Mac 上构建成功”当成“Mac 本地部署受支持”。可以从 Mac 构建发布，再将安装包交给 Linux amd64 服务器部署。
+| 阶段 | 输入 | 不需要的配置 |
+| --- | --- | --- |
+| 构建 | Git 源码、锁定上游与公共下载、目标架构、镜像版本标签 | Qwen、Turnstile、SMTP、管理员账号和站点域名 |
+| 发布 GHCR | 完成构建的镜像及报告、版本号、GHCR namespace、Docker 已有登录 | 所有站点业务密钥 |
+| 部署实例 | 固定镜像清单、安装目录；`init` 生成 `config/` 后填写模型及站点配置 | 源码和构建缓存 |
 
-准备两个相邻仓库：
+例如，同一镜像可以部署在两个域名，分别配置不同 Qwen key、预算和数据库。换模型密钥不需要重建镜像；更改程序代码才需要重建。配置挂载细节见 [CONFIGURATION.md](CONFIGURATION.md)。
 
-```text
-workspace/
-  agentic-browser/       # Browser Service、runtime、构建/安装工具
-  librechat-agent/       # 定制 LibreChat，不是上游原版
-```
+## 一次 clone 即可构建
 
-**只 clone 上游 LibreChat 不够。** 当前定制仓库的 origin 仍指向上游，定制提交 `0d7ee88b4fa9259b5176772968f8a29925348a01` 只在本地；需取得包含该提交的私有 fork 或源码移交包。本轮准备的 `agent-mac-handoff.tar.gz` 含两个仓库的 Git 源码快照和已锁定浏览器资源（Browser 使用 Git bundle，浅克隆的 LibreChat 使用保留 shallow 边界的裸仓库）；它是私密源码交付，不是公开安装包。解压后先校验 `shasum -a 256 -c SHA256SUMS`，再执行包内 `README.md` 的 clone 命令。无需复制 Ubuntu 的 `.deployment`、业务配置或数据。Mac 构建后使用本次生成的报告，不沿用旧服务器的镜像报告。
+构建机需要 Git、Python 3.12+、Docker Engine 28+ 与 Buildx；Mac 使用运行中的 Docker Desktop。打包需要 Docker API 1.49+ 的按平台 inspect/save 能力。代码测试另需 Node 24。构建器默认限制为 2 CPU / 5 GiB，Docker VM 应留出额外内存和至少 30 GiB 可用空间。
 
-若通过 Git clone 获取源码，确认当前工作分支、安装工具提交和定制 LibreChat 提交都已在对应远端；本轮不会自动 push 到 GitHub。
-
-`.deployment/` 被 Git 忽略不会影响构建，源码根目录也不需要 `.env`。构建输入是这两个源码仓库、锁定的 Chrome/扩展资源以及 Docker 构建依赖；不读取服务器账号、数据库或 Qwen 密钥。安装到目标服务器后，`agentctl.py init` 才生成该实例的 `config/`，配置完成后再生成供 Compose 使用的 `.env`。不要为了在 Mac 构建而提交或复制服务器的部署配置。
-
-## 源码与镜像
-
-两个仓库分别保留提交历史。Agent 镜像由 LibreChat 提交加 Browser 仓库的 `deploy/agent/app` 构建，Browser Service 和 runtime 来自 Browser 仓库。先提交源码，再构建：
+先将所需源码提交推送到主仓库，再在 Mac 或 Ubuntu clone 同一分支。私有 Git 仓库的读取权限与 Docker 的 GHCR 发布权限分别管理。
 
 ```bash
-python3 scripts/build/fetch-runtime-assets.py --arch amd64
-python3 scripts/build/build-agent-images.py --run --committed --tag agent-v0.2.0-rc.6
+git clone --branch codex/librechat-integration https://github.com/infrasika/agentic-browser.git
+cd agentic-browser
+python3 scripts/build/build-agent-images.py --run --committed \
+  --platforms linux/amd64,linux/arm64 --tag v0.2.0-rc.7
 ```
 
-Mac 必须显式指定 `--arch amd64`，避免按照本机架构下载错误资源。资源读取只依赖 Python，无需 macOS 安装 `dpkg-deb`。移交包自带 `output/runtime/packages/` 缓存；上游滚动下载地址若已改变，将按 SHA-256 拒绝，不能用 `--refresh-lock` 绕过。浏览器资源更新应作为单独版本审核。
+版本号是示例，实际发布应使用新的固定版本。`--committed` 只读取 Git 对象；本地改动先提交。开发时可省略它，但工作区构建不能发布。
 
-一次完整构建生成 Agent、Browser Service 和 runtime 三个镜像，使用独立 2 CPU/5 GiB buildx builder。`--committed` 读取 Git 对象，不使用工作区修改、未跟踪文件或先前编译产物。Chrome/扩展资源复制前逐项核对已提交 lock 的 SHA-256。基础镜像按 digest 固定；APT/npm 上游仍是网络依赖，完整重建不等于字节级可复现构建。
+脚本自动完成：
 
-构建报告记录三镜像的本机 ID、两个源码提交及运行时资源摘要。只有 `passed: true`、`sourceMode: committed` 且三镜像完整的报告可以进入打包。镜像标签可变，验收和包内引用均使用固定 ID 或 registry digest。
+1. 读取 `integrations/librechat/source.lock.json`，获取固定的公开上游提交、应用仓库内补丁，校验补丁 SHA-256、完整 Git tree、许可证与浏览器协议。
+2. 从固定版本地址下载对应架构的 Chrome 与原始扩展包，核对 `runtime/assets.lock.json`；缓存位于 `output/runtime/packages/`。不需要从服务器复制缓存。
+3. 分别构建两种架构的 Agent、Browser Service、Chrome runtime，共六个镜像。每个目标平台独立安装原生 npm 依赖，逐个 `--load`，兼容 classic/containerd 镜像存储。
+4. 输出 `output/build/build-…/amd64/report.json`、`arm64/report.json` 和构建日志。报告记录平台、源码提交、定制 LibreChat tree、资源摘要及本机镜像 ID。
 
-**构建会生成新的 report.json。** 不要拿 Ubuntu 的镜像 ID 报告指认 Mac 上重新构建的镜像。若直接从 rc.6 离线包导入同一组镜像，应先运行包内校验和 `load-images`，并确认 Docker 29 containerd image store 与源端一致。
+只构建一种架构时传 `--platforms linux/amd64` 或 `linux/arm64`。Buildx 支持 QEMU 或多个原生构建节点；Mac Docker Desktop 默认提供模拟，Ubuntu 的官方 BuildKit 也包含模拟器。模拟原生模块/前端编译通常较慢，可用 `--builder NAME` 指向已配置的原生多节点构建器；工具不会删除传入的 builder。[Docker 多平台构建说明](https://docs.docker.com/build/building/multi-platform/)
 
-## 发布前验收
+基础镜像均锁定包含两种架构的 manifest index。Chrome 使用带版本号的官方 URL；扩展下载仍依赖商店提供锁定版本。若任何下载与锁定摘要不符，构建会停止，不能自动退回最新版本。资源升级需审核并更新 lock；APT/npm 等网络依赖仍存在，不承诺字节级可复现。
+
+## 发布前验证
 
 ```bash
 npm ci
 npm run check
 npm test
 npm run test:python
-node scripts/sync-browser-contract.mjs ../librechat-agent --check
 ```
 
-构建后生成离线候选包，在 Linux amd64 测试机按包内 `acceptance/verify.py` 完成安装、人机交接、备份恢复和错误升级验收。仅测试脚本和镜像构建通过不能代替完整验收。新构建重新验收；旧 rc.6 的报告不能直接证明另一台机器的新构建。
+每个架构的构建报告应为 `passed: true`，且三镜像完整。构建成功只证明镜像可以生成；完整运行验收需在对应架构的原生 Linux 主机完成，包含登录、模型调用、Chrome 沙箱、扩展和接管恢复。Mac 可作为构建机，当前安装器仍面向 Linux 主机。
 
-## GHCR 上传：使用 Mac 已有登录
+## 使用 Docker 已有授权发布 GHCR
 
-| 组件 | 计划镜像仓库 |
+| 组件 | 镜像仓库 |
 | --- | --- |
 | Agent | `ghcr.io/infrasika/agentic-browser-agent` |
 | Browser Service | `ghcr.io/infrasika/agentic-browser-service` |
 | Chrome runtime | `ghcr.io/infrasika/agentic-browser-runtime` |
-| Gateway / Mongo / Redis | 官方仓库，固定 digest，不复制发布 |
+| Nginx / MongoDB / Redis | 官方多平台 digest，不复制发布 |
 
-发布脚本读取 Docker 的既有 `credHelpers` / `credsStore`，支持 Docker Desktop / `osxkeychain`；只请求 `ghcr.io` 凭据，Token 留在内存，不创建 `publish.env` 或修改凭据存储。Git 的 Keychain 登录与 Docker GHCR 登录不是同一项；若 Docker 尚未登录，需要先完成 GHCR 的 Docker 登录。不要把 Git OAuth 令牌当作 GHCR PAT。GitHub Actions 则可使用仓库 `GITHUB_TOKEN`，不必在服务器保存个人发布 Token。[GitHub 官方认证说明](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry#authenticating-to-the-container-registry)
+发布工具使用 Docker 的 `credHelpers` / `credsStore`，支持 Mac Docker Desktop / Keychain；不创建 `publish.env`。已有 Git Keychain 权限不一定包含 Docker GHCR 登录。必要时先执行 `docker login ghcr.io`，凭据交给 Docker 的存储管理；CI 可使用 `GITHUB_TOKEN`。[GitHub GHCR 认证说明](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry#authenticating-to-the-container-registry)
 
-先在 Mac 只读预检，使用**本次构建输出的报告路径**：
-
-```bash
-python3 scripts/build/publish-agent-images.py \
-  --build-report output/build/BUILD_DIRECTORY/report.json \
-  --version v0.2.0-rc.6 --namespace infrasika
-```
-
-未加 `--run` 时不访问凭据、不登录、不拉取或推送镜像。确认本次候选验收通过后，在 Mac 显式上传：
+先预检（替换为本次构建目录，不读取凭据、不访问 registry）：
 
 ```bash
 python3 scripts/build/publish-agent-images.py \
-  --build-report output/build/BUILD_DIRECTORY/report.json \
-  --version v0.2.0-rc.6 --namespace infrasika \
-  --run --output output/agent/ghcr/v0.2.0-rc.6
+  --build-report output/build/build-EXAMPLE/amd64/report.json output/build/build-EXAMPLE/arm64/report.json \
+  --version v0.2.0-rc.7 --namespace infrasika
 ```
 
-同一 namespace 同时只运行一次发布。脚本检查三个目标标签：已指向相同镜像时可恢复执行，指向不同内容时拒绝；认证/网络错误不会被当成标签空缺。每个镜像上传后按 digest 拉回并核对本机身份，全部成功才写 `release.json` 与 `publication.json`。跨仓库推送不是事务；中途失败可能已有部分镜像上传，可用原构建重试，不能重建后覆盖同版本。新内容使用新版本号。本候选流程不移动 `latest`。
+验收后上传，在上面命令末尾加：
 
-新 GHCR package 默认私有。在 GitHub Packages 设置中按需要将这三个镜像设为 Public，源码仓库仍保持私有；Agent 与 Service 若缺少仓库关联，可在 package 设置关联源仓库。之后验证匿名访问：
+```text
+--run --output output/agent/ghcr/v0.2.0-rc.7
+```
+
+工具要求两平台来自同一源码，检查镜像标签和身份，先上传带 `-amd64` / `-arm64` 的固定架构标签，再生成同一个 `v0.2.0-rc.7` 多平台标签。逐一校验实际上传的镜像与最终 index，成功后生成含六个固定 digest 的 `release.json` 及发布回执。部署时 Docker 按主机架构选取对应子镜像。
+
+已有版本指向不同内容时拒绝覆盖；相同内容可重试。跨仓库发布不是事务，同一 namespace 同时只允许一个发布进程。不会移动 `latest`。部分成功后请使用原镜像和报告重试，不要重建后覆盖同版本。
+
+新 package 默认私有。需要公开分发时在 GitHub Packages 设置可见性，再验证两种架构的匿名拉取：
 
 ```bash
 python3 scripts/build/publish-agent-images.py \
-  --verify-public output/agent/ghcr/v0.2.0-rc.6/release.json \
-  > output/agent/ghcr/v0.2.0-rc.6/anonymous-pull.json
+  --verify-public output/agent/ghcr/v0.2.0-rc.7/release.json
 ```
 
-此命令使用空 Docker 凭据配置，保留当前本机 Docker socket，检查实际匿名 pull 权限。已缓存层不等于全新主机下载验收；独立主机检查仍需单独完成。[Package 可见性说明](https://docs.github.com/en/packages/learn-github-packages/configuring-a-packages-access-control-and-visibility)
+## 生成安装包与部署
 
-## 生成可部署的安装包
-
-先提交安装工具与文档，再打包；打包器同样从 Git HEAD 的固定白名单读取，不从整个工作目录复制：
+安装包按目标架构生成，使用对应的报告；同一个 registry 版本标签包含两种架构。
 
 ```bash
 python3 scripts/build/package-agent.py \
-  --build-report output/build/BUILD_DIRECTORY/report.json \
-  --version v0.2.0-rc.6 \
-  --output output/agent/releases/v0.2.0-rc.6
+  --build-report output/build/build-EXAMPLE/amd64/report.json \
+  --version v0.2.0-rc.7 \
+  --release output/agent/ghcr/v0.2.0-rc.7/release.json \
+  --output output/agent/releases/v0.2.0-rc.7-amd64
 ```
 
-默认生成带六个镜像的离线候选包，以及外层/内层 SHA256SUMS、源码/工具提交清单、安装器、运维/安装手册、纯 Python 验收脚本和许可。镜像 archive 使用本机 image ID，导入后显式 `--development` 安装；不会将 ID 冒充 registry digest。包内 Mongo/Redis 也固定 ID，不依赖目标机已有仓库缓存。
+ARM 包改用 `arm64/report.json` 与另一输出目录。不传 `--release` 则生成包含六镜像归档的离线候选包；传入时生成轻量包、固定清单和安装工具。所有工具/文档来自 Git HEAD 白名单，不包含任何部署目录。打包不发布镜像或更改站点。
 
-新构建机缺少 gateway/Mongo/Redis 时，打包器按固定的官方 digest 拉取这三个依赖；应用镜像缺失会直接失败，必须先完成构建或导入已验收镜像。
+将匹配架构的安装包放到 Linux 服务器，按 [INSTALL.md](INSTALL.md) 校验、`init`、填写 `config/settings.json` 与 `config/secrets.env`、`up`、`doctor`。宿主数据位于安装目录 `data/`；生成的 `.env` 只用于 Compose 插值。升级和备份见 [OPERATIONS.md](OPERATIONS.md)。
 
-已发布镜像后生成不含镜像归档的轻量包：
-
-```bash
-python3 scripts/build/package-agent.py \
-  --build-report output/build/BUILD_DIRECTORY/report.json \
-  --version v0.2.0-rc.6 \
-  --release output/agent/ghcr/v0.2.0-rc.6/release.json \
-  --output output/agent/registry-releases/v0.2.0-rc.6
-```
-
-清单必须有 version 与 agent/browser/runtime/gateway/mongo/redis 六个不可变 registry digest；本机检查实际镜像身份与构建报告一致。打包器不上传镜像、创建 Git tag、发布 GitHub Release 或更改当前站点。`BUILD.json` 的 `published: false` 表示安装包本身尚未上传，镜像发布证据另见 `publication.json`。
-
-将轻量包和外层 SHA256SUMS 交给 Linux amd64 部署者，依次校验、解压、`init`、填写配置、`up`、`doctor`；完整命令见 [INSTALL.md](INSTALL.md)，字段含义见 [CONFIGURATION.md](CONFIGURATION.md)。后续升级使用新包的工具与固定清单，见 [OPERATIONS.md](OPERATIONS.md)。公开镜像不自动使私有仓库的 Release 附件公开，安装包下载渠道需要单独安排。
-
-`BUILD.json` 的应用源码提交与安装工具提交允许不同：安装工具/Compose/文档不烘焙进应用镜像。更改 `deploy/agent/app`、应用或 runtime 后必须重新构建对应完整镜像组，不能仅更新工具提交来掩盖陈旧镜像。
-
-## 验收与发布门槛
-
-1. 配置、运维和包边界测试通过；安装包文件校验通过。
-2. 解压后的包独立完成安装、普通用户/credits、真实 Chrome、接管/自动继续、定时备份/新实例恢复、升级程序演练和资源清理；强杀备份进程及注入错误升级镜像，验证自动恢复与备份回退。模拟模型不产生真实供应商费用，也不证明供应商兼容性。
-3. 在独立干净 Linux amd64 机器重复上述验收，记录机器来源、Docker/Compose/Python 版本、六镜像身份及清理结果。现有宿主的新 Compose project 不能算新机器。
-4. 对实际前后两个发行版本做升级/恢复验收；同一镜像的版本号演练只能证明操作流程。
-5. 确定公开镜像仓库、固定版本标签及安装包的可下载位置后发布；匿名拉取/下载后重新校验。当前源码仓库私有，GitHub Release 附件不能被当作匿名下载入口。
-
-候选包可以先交给测试机验收。未完成门槛时保持 candidate 状态，不把未发布的地址写成可用下载链接。
-
-可选 `.github/workflows/accept-agent-bundle.yml` 在 GitHub 的全新 Ubuntu runner 执行同一验收，输入可信 HTTPS 候选包地址与 SHA-256；不 checkout 源码、不 setup Node、不构建镜像。测试 PATH 只提供 Python/Docker，报告单独记录 runner 来源。该 workflow 已准备但尚未推送或执行；需先提供测试机可下载的候选包位置，不能把“已写 workflow”当作通过证据。
+独立新服务器、原生 ARM64 全流程、真实版本升级/恢复、匿名下载与拉取均应记录到版本验收结果；已有 amd64 rc.6 验收不能代替新构建的证据。可用 `.github/workflows/accept-agent-bundle.yml` 在干净 runner 验收可信候选包，工作流准备好不代表已经执行。

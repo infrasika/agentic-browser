@@ -31,6 +31,7 @@ FILES = {
     'acceptance/model-fixture.mjs': 'test/acceptance/fixtures/model-fixture.mjs',
     'LICENSES/DISTRIBUTION-NOTICES.md': 'runtime/DISTRIBUTION-NOTICES.md',
     'LICENSES/PLAYWRIGHT-LICENSE': 'runtime/PLAYWRIGHT-LICENSE',
+    'LICENSES/LibreChat.txt': 'integrations/librechat/LICENSE',
 }
 
 
@@ -50,6 +51,10 @@ def validate_report(report):
         raise ValueError('a completed build from committed sources is required')
     if set(report.get('images', {})) != {'agent', 'browser', 'runtime'}:
         raise ValueError('a complete three-image build is required')
+    if report.get('platform') not in ['linux/amd64', 'linux/arm64']:
+        raise ValueError('explicit supported build platform required')
+    if not re.fullmatch(r'[a-f0-9]{40}', report.get('librechatTree', '')):
+        raise ValueError('verified LibreChat source tree required')
     for revision in report['sourceCommits'].values():
         if not re.fullmatch(r'[a-f0-9]{40}', revision): raise ValueError('invalid source revision')
     for image in report['images'].values():
@@ -58,7 +63,7 @@ def validate_report(report):
 
 def validate_image_sources(source_commit, package_commit):
     paths = ['deploy/agent/app', 'deploy/agent/agent.Dockerfile', 'deploy/agent/browser.Dockerfile',
-             'src', 'runtime', 'package-lock.json', 'tsconfig.json']
+             'src', 'runtime', 'integrations/librechat', 'package-lock.json', 'tsconfig.json']
     changed = subprocess.check_output(['git', 'diff', '--name-only', source_commit, package_commit, '--', *paths], cwd=ROOT)
     if changed.strip(): raise ValueError('application/image inputs changed since the recorded build; rebuild first')
     before = json.loads(git_bytes(ROOT, source_commit, 'package.json'))
@@ -69,16 +74,11 @@ def validate_image_sources(source_commit, package_commit):
     if before != after: raise ValueError('application package manifest changed; rebuild first')
 
 
-def inspect_image(name, ref):
-    try:
-        raw = subprocess.check_output(DOCKER + ['image', 'inspect', ref], stderr=subprocess.DEVNULL)
-    except subprocess.CalledProcessError:
-        # A new build workstation only has the three application images.
-        # Fetch missing official dependencies by the pinned reference; never
-        # replace a missing application build with an arbitrary registry pull.
-        if INFRA.get(name) != ref: raise
-        subprocess.run(DOCKER + ['pull', '--platform', 'linux/amd64', ref], check=True)
-        raw = subprocess.check_output(DOCKER + ['image', 'inspect', ref])
+def inspect_image(name, ref, platform='linux/amd64'):
+    if INFRA.get(name) == ref:
+        # A multi-platform index can be cached for the other architecture.
+        subprocess.run(DOCKER + ['pull', '--platform', platform, ref], check=True)
+    raw = subprocess.check_output(DOCKER + ['image', 'inspect', '--platform', platform, ref], stderr=subprocess.DEVNULL)
     return json.loads(raw)[0]
 
 
@@ -87,7 +87,6 @@ def main():
     parser.add_argument('--build-report', type=Path, required=True)
     parser.add_argument('--version', required=True)
     parser.add_argument('--output', type=Path, required=True)
-    parser.add_argument('--librechat', type=Path, default=ROOT.parent / 'librechat-agent')
     parser.add_argument('--release', type=Path, help='Published six-image digest manifest; omit for offline candidate')
     args = parser.parse_args()
     if not re.fullmatch(r'v\d+\.\d+\.\d+(?:-[a-z0-9.-]+)?', args.version): raise ValueError('invalid version')
@@ -104,10 +103,17 @@ def main():
         refs = release['images']; distribution = 'registry-candidate'
     inventory = {}
     for name, ref in refs.items():
-        info = inspect_image(name, ref)
-        if info['Os'] != 'linux' or info['Architecture'] != 'amd64': raise ValueError('linux/amd64 required')
+        if args.release and name in report['images']:
+            index = json.loads(subprocess.check_output(['docker', 'buildx', 'imagetools', 'inspect', '--raw', ref]))
+            children = [d for d in index.get('manifests', []) if
+                d.get('platform', {}).get('os', '') + '/' + d.get('platform', {}).get('architecture', '') == report['platform']]
+            if len(children) != 1: raise ValueError('release index missing unique build platform')
+            ref = ref.split('@')[0] + '@' + children[0]['digest']
+            subprocess.run(DOCKER + ['pull', '--platform', report['platform'], ref], check=True)
+        info = inspect_image(name, ref, report['platform'])
+        if info['Os'] + '/' + info['Architecture'] != report['platform']: raise ValueError('bundle/build platform mismatch')
         if name in report['images'] and info['Id'] != report['images'][name]['id']: raise ValueError('build/image mismatch')
-        inventory[name] = {'id': info['Id'], 'platform': 'linux/amd64'}
+        inventory[name] = {'id': info['Id'], 'platform': report['platform']}
     if not args.release: refs = {k: v['id'] for k, v in inventory.items()}
     args.output.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix='.agent-package-', dir=args.output.parent) as folder:
@@ -117,7 +123,6 @@ def main():
             data = git_bytes(ROOT, package_commit, source)
             if name == 'README.md': data = re.sub(rb'v[0-9]+\.[0-9]+\.[0-9]+(?:-[a-z0-9.-]+)?', args.version.encode(), data)
             file.write_bytes(data); file.chmod(0o644)
-        (bundle / 'LICENSES/LibreChat.txt').write_bytes(git_bytes(args.librechat, report['sourceCommits']['librechat'], 'LICENSE'))
         (bundle / 'release.json').write_text(json.dumps({'version': args.version, 'images': refs}, indent=2) + '\n')
         build = {'version': args.version, 'distribution': distribution, 'published': False,
                  'sourceCommits': report['sourceCommits'], 'packageCommit': package_commit,
@@ -126,7 +131,7 @@ def main():
         (bundle / 'BUILD.json').write_text(json.dumps(build, indent=2) + '\n')
         if not args.release:
             with (bundle / 'images.tar.gz').open('wb') as target, gzip.GzipFile(filename='', mode='wb', fileobj=target, mtime=0, compresslevel=1) as compressed:
-                proc = subprocess.Popen(DOCKER + ['save', *dict.fromkeys(refs.values())], stdout=subprocess.PIPE)
+                proc = subprocess.Popen(DOCKER + ['save', '--platform', report['platform'], *dict.fromkeys(refs.values())], stdout=subprocess.PIPE)
                 try:
                     shutil.copyfileobj(proc.stdout, compressed, 1024 * 1024)
                     if proc.wait() != 0: raise ValueError('image export failed')

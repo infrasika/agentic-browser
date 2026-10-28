@@ -1,6 +1,6 @@
 # 当前进度
 
-更新时间：2026-10-28（北京时间）。架构见 [ARCHITECTURE.md](../ARCHITECTURE.md)，下一步见 [开发计划](DEVELOPMENT.md)，站点操作见 [DEPLOYMENT.md](../DEPLOYMENT.md)。
+更新时间：2026-10-29（北京时间）。架构见 [ARCHITECTURE.md](../ARCHITECTURE.md)，下一步见 [开发计划](DEVELOPMENT.md)，站点操作见 [DEPLOYMENT.md](../DEPLOYMENT.md)。
 
 ## 正在运行
 
@@ -29,21 +29,19 @@
 
 删除重复的 `accept-browser-service.ts`；完整 Agent 验收与 `accept-browser-soak.ts` 继续覆盖导航、画面、排队、接管和清理。保留当前单元测试、隔离测试及备份恢复测试。发行说明已修正移除 MCP SDK 后的依赖清单，以及 noVNC 现在属于 LibreChat 前端的路径。
 
-本地清理删除 1,603 个旧文件，包含被 rc.6 替代的四版软件安装包及解压副本，释放约 9.7 GiB。历史数据库及配置备份保留，不参与运行；当前配置、数据、定时备份和 rc.6 候选包保留。Mac 源码移交包同步本轮清理，精确提交记录在包内 `HANDOFF.json`；已有 rc.6 镜像包保持原校验值。
+本地清理删除 1,603 个旧文件，包含被 rc.6 替代的四版软件安装包及解压副本，释放约 9.7 GiB。历史数据库及配置备份保留，不参与运行；当前配置、数据、定时备份和 rc.6 候选包保留。已有 rc.6 镜像包保持原校验值。
 
 清理后 TypeScript、24 项 Node、38 项 Python、协议同步和 42 个文档链接检查通过；当前 10 份配置/安装文件摘要和所有运行容器 ID 不变，站点健康，未重启或发布。
 
 目录进一步按职责整理：构建发布工具在 `scripts/build/`，验收脚本和夹具在 `test/acceptance/`，构建记录移到 `output/build/`，以后临时验收安装只写入 `output/tests/`。删除 178 份 `.playwright-cli/` 旧测试记录、过期 Python 字节码和空目录；历史备份、迁移快照及退役部署集中到 `.deployment/archive/`，1,506 个归档文件摘要一致。按维护者只保留当前站点数据卷的要求，共移除 10 个退役容器和 12 个已确认归属的旧卷，当前站点 7 个卷保留。旧 UI 预览已停止，根目录旧 MCP `.env` 已删除。当前安装路径及密钥不变；`runtime/` 保留 Chrome 镜像的必要构建输入。
 
-## Mac 移交准备
+## 单仓库与双架构构建
 
-按维护者最新决定，GHCR 上传留待 Mac 执行，Ubuntu 不发布、不 push、不升级站点。新增发布工具默认只做本地预检，显式 `--run` 才使用 Docker 已有凭据助手上传三个自有镜像；官方基础服务只保留 digest 引用。拒绝覆盖不同内容的同版本标签，上传后拉回核对，另有匿名拉取验证。当前只完成模拟保护测试与本地 dry-run，未执行真实上传或 Mac 实机验证。
+按维护者要求，构建改为 Mac / Ubuntu 共用同一份 Git 源码，不再使用移交包或要求相邻 LibreChat 仓库。`integrations/librechat/` 保存公开上游 `6189220`、定制补丁 SHA-256、最终源码树与许可证；已经从公网重新获取上游、应用补丁，完整源码树与原定制版一致。构建和部署配置分离，不读取 `.deployment/` 或根目录 `.env`。
 
-构建/打包使用当前 Docker context；浏览器资源元数据改为 Python 读取，不再要求 Mac 安装 `dpkg-deb`。构建、GHCR、配置传递与部署文档已补充。定制 LibreChat 的 origin 仍是上游，所需定制提交未推送，因此准备包含Browser Git bundle、保留 shallow 边界的 LibreChat 裸仓库与锁定资源的私密源码移交包；它不包含部署密钥或用户数据，不是公开安装包。
+基础镜像和三个官方服务的固定 digest 均已确认包含 amd64 / arm64。Chrome 改用版本化的官方 URL；两种 Chrome 与扩展均已从空缓存实际下载并通过锁定摘要校验。Browser Service 已在 Ubuntu 上分别构建 amd64 / arm64 镜像，证据在 `output/build/build-y8onpr8i/`；完整三组件构建仍在验收中。
 
-38 项 Python 测试、锁定资源校验与 DEB 元数据对照通过。清理后的源码需要在 Mac 重新构建，移交包已移除旧服务器构建报告，且实际验证了发布工具拒绝混用旧镜像。`output/agent/mac-preparation/publish-plan.json` 记录 `rebuild_required`、`published: false`、`credentialsRead: false`。发布命令留在文档供 Mac 操作，当前完整 Agent 的 GHCR 上传仍未执行。
-
-从移交包重新克隆两个仓库，不复制根目录 `.env` 或 `.deployment/`，使用实际构建函数成功准备三个镜像上下文并校验锁定资源。证据：`output/agent/mac-preparation/config-independent-build.json`。这验证构建输入独立于运行配置，未执行新的镜像编译或 Mac 实机构建。
+构建输出每个架构独立报告，发布工具将六个自有镜像合并为三个多平台 GHCR 标签，检查来源一致、平台完整、版本冲突和拉回身份。打包按目标架构选择官方依赖与发布 index 的子镜像；Linux 安装器匹配主机架构。45 项 Python 测试已通过。真实 GHCR 上传、匿名拉取、Mac 实机与原生 ARM64 全流程尚未执行；Ubuntu 不上传、不 push、不升级站点。
 
 ## 尚未完成
 

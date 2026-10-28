@@ -5,7 +5,7 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const checkout = resolve(process.argv[2] ?? resolve(root, '../librechat-agent'));
+const checkout = resolve(process.argv[2] ?? resolve(root, 'output/sources/librechat'));
 const target = resolve(checkout, 'packages/data-provider/src/browser');
 const require = createRequire(resolve(checkout, 'package.json'));
 const prettier = require('prettier');
