@@ -66,7 +66,9 @@ try {
   report.checks.push('native_ordinary_user_creation_is_idempotent_and_gives_initial_credits_once','operator_password_recovery_revokes_old_token_without_changing_balance');
   report.stage='smtp';assert.equal((await call('/api/config')).emailEnabled,false);
   const accepted=await cli(['mail-test','--to','capture@example.test']);assert.equal(accepted.accepted,true);
-  await cli(['apply']);
+  // Configuration changes use the installed operator. Release upgrades below
+  // explicitly use the new bundle's operator and replace its Compose template.
+  await command('python3',[directory+'/agentctl.py','--directory',directory,'apply']);
   assert.equal((await call('/api/config')).emailEnabled,true);
   await call('/api/auth/requestPasswordReset',{body:{email:user.email}});
   const captured=JSON.parse(await compose(['exec','-T','agent','node','-e',"fetch('http://fixture:9001').then(r=>r.text()).then(console.log)"]));

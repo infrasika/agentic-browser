@@ -4,7 +4,7 @@
 
 ## 正在运行
 
-<https://agentic-browser.zkpass.org> 已由完整 Compose Agent 提供，安装目录 `.deployment/agent-site`、回环端口 3351，全部六类数据持久化到安装目录的 `data/`。每用户一个浏览器、实际并发 5、硬上限 10；扩容暂停。个人初始额度 200,000 credits，全站日预算默认 20,000,000 credits，管理页面保存的设置优先。
+<https://agentic-browser.zkpass.org> 已运行完整 Compose Agent `v0.2.0-rc.6`，安装目录 `.deployment/agent-site`、回环端口 3351，全部六类数据持久化到安装目录的 `data/`。每用户一个浏览器、实际并发 5、硬上限 10；扩容暂停。个人初始额度 200,000 credits，全站日预算默认 20,000,000 credits，管理页面保存的设置优先。
 
 聊天/浏览器同屏、排队、接管归还自动继续、本地账号、管理员入口、Turnstile、SMTP 找回及每日空闲备份已交付。GitHub 私有仓库名称和数量、邮件到达均由用户核对过。
 
@@ -14,7 +14,20 @@
 
 退役宿主 systemd 配置、旧 `private.env` 工具链及对应验收已删除；服务只读取明确配置的环境变量和密钥文件，测试不再依赖旧站点数据库或端口。旧历史阶段记录已从当前文档移除，完整历史可在 Git 查阅；迁移回退数据继续保存在私密目录。
 
-正在从清理后的提交重建 `v0.2.0-rc.6` 完整候选包，并执行最终包验收。当前在线版本为 rc.5；最终包、升级与验收结果完成后更新本节。
+清理及后续修正已完成。发行镜像由 Browser 仓库 `a17ea73`、LibreChat 仓库 `0d7ee88` 完整重建；安装器与包内文档来自 `ad65b08`。离线候选包位于 `output/agent/releases/v0.2.0-rc.6/`，包含六镜像、内外层校验清单、安装/运维工具、Nginx 示例及验收脚本；文件校验与镜像导入均通过，尚未公开发布。
+
+迁移核心验收时发现并修复了流式响应结束后的上游连接复用 400，以及配置接口过早被当成聊天就绪信号的问题。普通 HTTP 请求清空 `Connection` 头，WebSocket 保持 Upgrade；容器健康检查改为 LibreChat `/readyz`。版本升级在备份后同步新包的 Compose 模板，日常配置应用使用已安装的管理工具。
+
+| 验收 | 结果与证据 |
+| --- | --- |
+| 类型、单元与文档 | TypeScript、24 项 Node、26 项 Python、协议同步和 10 份 Markdown 的相对链接通过 |
+| 最终镜像业务流程 | 12 项通过，含预算阻断、幂等加额度、跨账号隔离、排队、接管恢复、退出清理；`output/agent/compose-latest.json` |
+| 运维流程 | 10 项通过，含测试 TLS 邮件、找回密码、备份恢复、模板更新和错误升级保护；`output/agent/operations-latest.json` |
+| 最终离线包 | 9 项通过，PATH 只含 Python/Docker，含强杀备份后恢复及错误镜像回退；`output/agent/bundle-rc6.json` |
+| 独立浏览器脚本 | 1 浏览器持续 30 秒通过，页面操作 P95 30ms、画面间隔 P95 765ms；`output/agent/browser-soak-1.json`。未调整站点容量 |
+| 原域名实际升级 | rc.5 → rc.6 通过，六类核心集合、凭据及持久化目录摘要一致；`output/agent/rc6-site-upgrade.json` |
+
+最终包各组验收均使用模拟模型，临时容器与测试数据已清理。原域名升级前备份 `20261028T141742Z-4e045fa5` 已校验；入口、注册、Turnstile、邮件功能标志及定时器正常，MCP 和内部控制路径继续返回 404。
 
 ## 尚未完成
 

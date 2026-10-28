@@ -1,6 +1,6 @@
 # 当前服务器：原域名完整 Agent 部署
 
-2026-10-28（北京时间），按用户授权在原域名就地迁移。当前网站由完整 Docker Compose Agent 提供，宿主只负责 Nginx、Docker 和 Python 运维工具。
+2026-10-28（北京时间），按用户授权在原域名就地迁移并升级至 `v0.2.0-rc.6`。当前网站由完整 Docker Compose Agent 提供，宿主只负责 Nginx、Docker 和 Python 运维工具。
 
 ## 入口与配置
 
@@ -53,4 +53,8 @@ systemctl list-timers agentic-backup-agent-75a6bb6859e4.timer
 
 这些旧快照只代表切换时的数据。网站产生新记录后，应从新实例最新备份恢复，不能直接切回旧库而丢弃后续写入。恢复演练不重启整机；其他项目的 PostgreSQL、Bifrost 和预览服务未改动。
 
-当前安装使用本机构建的 `v0.2.0-rc.5` 镜像清单：Agent 来自 Browser 仓库 `49f48b1` / LibreChat `0d7ee88`，Browser Service 与 Chrome runtime 复用已验证的固定镜像，运维工具来自 `185e4a2`。清理后的 rc.6 完整候选包正在构建验收。验收报告见 `output/agent/in-place-deployment.json`。
+当前安装为已验收的 `v0.2.0-rc.6` 六镜像清单：三个应用镜像完整构建于 Browser 仓库 `a17ea73` / LibreChat `0d7ee88`，包内安装器来自 `ad65b08`。完整候选包保存在 `output/agent/releases/v0.2.0-rc.6/`，并已用仅含 Python/Docker 的 PATH 通过安装与故障恢复验收。
+
+rc.5 → rc.6 升级前备份为 `20261028T141742Z-4e045fa5`，完整性校验通过。账号、余额、账期预算、交易、聊天和消息共六类集合的摘要，以及配置/凭据文件和六个数据目录均保持一致；运行镜像与候选包完全匹配。升级同时应用新版 Compose 模板，Agent 使用 `/readyz` 健康检查，网关修复流式响应结束后的连接复用问题。日常配置用安装目录的 `agentctl.py ... apply`；版本升级从新包运行 `agentctl.py ... upgrade`。
+
+迁移证据见 `output/agent/in-place-deployment.json`，本次实际升级证据见 `output/agent/rc6-site-upgrade.json`，各项验收状态统一见 [PROGRESS.md](plans/PROGRESS.md)。
