@@ -9,26 +9,26 @@ import { promisify } from 'node:util';
 import { setTimeout as delay } from 'node:timers/promises';
 import type { AddressInfo } from 'node:net';
 import { WebSocket } from 'ws';
-import { DockerEngine } from '../src/docker-runtime.js';
-import { BrowserService } from '../src/scheduling/service.js';
-import { SchedulerStore, type Lease } from '../src/scheduling/store.js';
-import { ViewerGrants } from '../src/streaming/grants.js';
-import { createDataServer } from '../src/streaming/server.js';
+import { DockerEngine } from '../../src/docker-runtime.js';
+import { BrowserService } from '../../src/scheduling/service.js';
+import { SchedulerStore, type Lease } from '../../src/scheduling/store.js';
+import { ViewerGrants } from '../../src/streaming/grants.js';
+import { createDataServer } from '../../src/streaming/server.js';
 
 // Isolated load test with its own service, ledger, listener and runtime identity.
 // Run only on a host with spare capacity; no deployed installation is required.
 if (!process.argv.includes('--run')) {
-  console.log('Usage: BROWSER_RUNTIME_IMAGE=sha256:... node --import tsx scripts/accept-browser-soak.ts --run [--capacity=1] [--hold-seconds=300]');
+  console.log('Usage: BROWSER_RUNTIME_IMAGE=sha256:... node --import tsx test/acceptance/accept-browser-soak.ts --run [--capacity=1] [--hold-seconds=300]');
   process.exit(0);
 }
 const holdSeconds = Number(process.argv.find(arg => arg.startsWith('--hold-seconds='))?.split('=')[1] ?? 300);
 assert.ok(Number.isInteger(holdSeconds) && holdSeconds >= 30 && holdSeconds <= 300, 'Hold must be 30–300 seconds');
 const capacity = Number(process.argv.find(arg => arg.startsWith('--capacity='))?.split('=')[1] ?? 1);
 assert.ok(Number.isInteger(capacity) && capacity >= 1 && capacity <= 10, 'Capacity must be 1–10');
-const image = process.env.BROWSER_RUNTIME_IMAGE;
-assert.match(image ?? '', /^sha256:[a-f0-9]{64}$/, 'Use a verified local runtime image ID');
+const image = process.env.BROWSER_RUNTIME_IMAGE ?? '';
+assert.match(image, /^sha256:[a-f0-9]{64}$/, 'Use a verified local runtime image ID');
 const exec = promisify(execFile);
-const root = resolve(import.meta.dirname, '..');
+const root = resolve(import.meta.dirname, '../..');
 const available = async () => Number(/MemAvailable:\s+(\d+)/.exec(await readFile('/proc/meminfo', 'utf8'))?.[1] ?? 0) / 1024;
 assert.ok(await available() >= 8192, 'At least 8 GiB available memory is required before starting');
 const directory = await mkdtemp(join(tmpdir(), 'browser-soak-'));

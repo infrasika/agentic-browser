@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { acceptanceRelease } from './agent/release-fixture.mjs';
+import { acceptanceRelease } from './fixtures/release-fixture.mjs';
 import { randomUUID } from 'node:crypto';
 import { readFile, writeFile, mkdir, cp, rm, stat } from 'node:fs/promises';
 import { resolve } from 'node:path';
@@ -9,10 +9,10 @@ import { setTimeout as delay } from 'node:timers/promises';
 import { once } from 'node:events';
 import { WebSocket } from 'ws';
 
-if (!process.argv.includes('--run')) { console.log('Usage: node scripts/accept-agent-compose.mjs --run --release release.json [--hold]'); process.exit(0); }
-const root = resolve(import.meta.dirname, '..');
+if (!process.argv.includes('--run')) { console.log('Usage: node test/acceptance/accept-agent-compose.mjs --run --release release.json [--hold]'); process.exit(0); }
+const root = resolve(import.meta.dirname, '../..');
 const exec = promisify(execFile), runId = randomUUID(), project = 'agent-test-' + runId.slice(0, 8);
-const directory = resolve(root, '.deployment/agent-acceptance', runId);
+const directory = resolve(root, 'output/tests/compose', runId);
 const origin = 'http://127.0.0.1:3334';
 const report = { runId, project, passed: false, stage: 'preflight', checks: [], callsPaidModel: false };
 let instance, socket, interrupted = false;
@@ -67,7 +67,7 @@ async function start(account) {
 }
 try {
   await guard();
-  for(const [source,target] of [['deploy/agent/compose.yaml','compose.yaml'],['scripts/agent/model-fixture.mjs','model-fixture.mjs'],['scripts/agent/users-fixture.cjs','users-fixture.cjs']]) await cp(resolve(root,source),resolve(directory,target));
+  for(const [source,target] of [['deploy/agent/compose.yaml','compose.yaml'],['test/acceptance/fixtures/model-fixture.mjs','model-fixture.mjs'],['test/acceptance/fixtures/users-fixture.cjs','users-fixture.cjs']]) await cp(resolve(root,source),resolve(directory,target));
   const {images}=await acceptanceRelease();
   report.images=images;
   const uid=process.getuid(),gid=process.getgid(),socketGroup=(await stat('/var/run/docker.sock')).gid;

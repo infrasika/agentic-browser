@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
-cd "$(dirname "$0")/.."
+cd "$(dirname "$0")/../.."
 task_root="$PWD"
 task_image="${BROWSER_RUNTIME_IMAGE:?Set BROWSER_RUNTIME_IMAGE to the runtime image being verified}"
 task_name="agentic-browser-extension-test-$$"

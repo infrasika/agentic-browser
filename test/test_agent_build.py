@@ -5,7 +5,7 @@ import subprocess
 import tempfile
 import unittest
 
-spec = importlib.util.spec_from_file_location('builder', Path(__file__).resolve().parents[1] / 'scripts/build-agent-images.py')
+spec = importlib.util.spec_from_file_location('builder', Path(__file__).resolve().parents[1] / 'scripts/build/build-agent-images.py')
 builder = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(builder)
 

@@ -1,13 +1,13 @@
 import assert from 'node:assert/strict';
-import { acceptanceRelease } from './agent/release-fixture.mjs';
+import { acceptanceRelease } from './fixtures/release-fixture.mjs';
 import { readFile, writeFile, mkdir, cp, rm } from 'node:fs/promises';
 import { execFile } from 'node:child_process';
 import { promisify, parseEnv } from 'node:util';
 import { randomUUID } from 'node:crypto';
 import { resolve } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
-if(!process.argv.includes('--run')) { console.log('Usage: node scripts/accept-agent-operations.mjs --run --release release.json [--hold]');process.exit(0); }
-const root=resolve(import.meta.dirname,'..'), id=randomUUID(), work=resolve(root,'.deployment/agent-operations',id), directory=work+'/install', restored=work+'/restored';
+if(!process.argv.includes('--run')) { console.log('Usage: node test/acceptance/accept-agent-operations.mjs --run --release release.json [--hold]');process.exit(0); }
+const root=resolve(import.meta.dirname,'../..'), id=randomUUID(), work=resolve(root,'output/tests/operations',id), directory=work+'/install', restored=work+'/restored';
 const report={id,passed:false,stage:'preflight',checks:[],callsPaidModel:false}, exec=promisify(execFile);
 const command=async(cmd,args,options={})=>(await exec(cmd,args,{cwd:root,timeout:300000,maxBuffer:6*1024*1024,...options})).stdout.trim();
 const cliPath=resolve(root,'deploy/agent/agentctl.py');
@@ -45,7 +45,7 @@ try {
   // Render before starting the fixture on the install-owned network.
   await command('python3',['-c',`import importlib.util;from pathlib import Path;s=importlib.util.spec_from_file_location('ctl',${JSON.stringify(cliPath)});m=importlib.util.module_from_spec(s);s.loader.exec_module(m);m.Installation(Path(${JSON.stringify(directory)})).render()`]);
   await compose(['create']);
-  for(const name of ['model-fixture.mjs','mail-fixture.mjs'])await cp(resolve(root,'scripts/agent',name),work+'/'+name);
+  for(const name of ['model-fixture.mjs','mail-fixture.mjs'])await cp(resolve(root,'test/acceptance/fixtures',name),work+'/'+name);
   await writeFile(work+'/fixture.mjs',"import './model-fixture.mjs'; import './mail-fixture.mjs';\n",{mode:0o600});
   await command('docker',['run','-d','--name',project+'-fixture','--network',project+'_front','--network-alias','fixture','--read-only','--user',`${process.getuid()}:${process.getgid()}`,'--cap-drop=ALL','--security-opt=no-new-privileges','--memory=192m','--cpus=.5','-v',work+':/fixtures:ro','--entrypoint=node',images.agent,'/fixtures/fixture.mjs']);
   await cli(['up']);instance=await compose(['exec','-T','browser','cat','/data/runtimes/instance-id']);

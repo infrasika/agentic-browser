@@ -14,7 +14,9 @@
 | `src/runtime-worker.ts`、`src/desktop.ts`、`src/browser.ts` | 容器内 Chrome、扩展、CDP 和 VNC 生命周期 |
 | `src/egress-*` | 公网出口代理与目标地址限制 |
 | `deploy/agent/` | 完整 Agent 的 Compose 安装、配置、备份、恢复和升级 |
-| `scripts/agent/` | 独立安装包的模拟模型、测试账号及验收工具 |
+| `runtime/` | Chrome 镜像构建、扩展版本锁定、沙箱规则及分发声明 |
+| `scripts/build/` | 资源下载、镜像构建、发行打包与 GHCR 发布 |
+| `test/acceptance/` | 完整 Agent、运维和浏览器验收；`fixtures/` 保存模拟模型、邮件和测试账号工具 |
 
 ## 请求与身份
 
@@ -39,5 +41,7 @@ MongoDB 保存 LibreChat 账号、密码摘要、聊天、个人 credits、全�
 ## 部署
 
 原域名站点与用户私有部署统一使用完整 Agent Compose，见 [安装](../deploy/agent/INSTALL.md)。宿主 Nginx 将域名转到 gateway 的回环端口；Mongo、Redis、浏览器状态与应用文件绑定安装目录的 `data/`，重建容器保留数据。配置和密钥只保存在安装目录的 `config/`，运维统一由 `agentctl.py` 执行。当前测试服务器路径与备份策略见 [DEPLOYMENT.md](DEPLOYMENT.md)。
+
+`deploy/` 是版本控制中的部署源码，`.deployment/` 是不提交的本地安装状态。构建日志和报告在 `output/build/`，临时验收安装在 `output/tests/`；测试不再把临时目录写进 `.deployment/`。历史恢复资料归到 `.deployment/archive/`，当前站点仍使用 `.deployment/agent-site/`。
 
 发行清单必须明确包含 Agent、Browser Service、Chrome runtime、gateway、MongoDB、Redis 六个不可变镜像。当前仅验收 Linux amd64；公开发行和独立新服务器验证的状态见 [进度](plans/PROGRESS.md)。

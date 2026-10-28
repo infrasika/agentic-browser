@@ -18,8 +18,8 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
-ROOT = Path(__file__).resolve().parents[1]
-spec = importlib.util.spec_from_file_location('package_agent', ROOT / 'scripts/package-agent.py')
+ROOT = Path(__file__).resolve().parents[2]
+spec = importlib.util.spec_from_file_location('package_agent', ROOT / 'scripts/build/package-agent.py')
 package = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(package)
 NAMES = {'agent': 'agentic-browser-agent', 'browser': 'agentic-browser-service', 'runtime': 'agentic-browser-runtime'}

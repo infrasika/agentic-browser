@@ -19,8 +19,8 @@ def load(name, path):
     return module
 
 
-publisher = load('publisher', 'scripts/publish-agent-images.py')
-assets = load('assets', 'scripts/fetch-runtime-assets.py')
+publisher = load('publisher', 'scripts/build/publish-agent-images.py')
+assets = load('assets', 'scripts/build/fetch-runtime-assets.py')
 
 
 class Publishing(unittest.TestCase):

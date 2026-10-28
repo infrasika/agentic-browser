@@ -12,7 +12,7 @@ import urllib.parse
 import urllib.request
 import zipfile
 
-ROOT = Path(__file__).resolve().parent.parent
+ROOT = Path(__file__).resolve().parents[2]
 ASSETS = ROOT / 'output/runtime/packages'
 LOCK = ROOT / 'runtime/assets.lock.json'
 EXTENSIONS = {

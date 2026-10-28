@@ -15,7 +15,7 @@ import tempfile
 import tarfile
 import uuid
 
-ROOT = Path(__file__).resolve().parent.parent
+ROOT = Path(__file__).resolve().parents[2]
 
 def run(args, **kwargs):
     return subprocess.run(args, cwd=ROOT, check=True, **kwargs)
@@ -88,7 +88,7 @@ def main():
         if revision and (not args.committed or not re.fullmatch(r'[a-f0-9]{40}', revision)):
             raise ValueError('Commit overrides require --committed and an exact SHA')
     os.umask(0o077)
-    parent = ROOT / '.deployment/agent-build'
+    parent = ROOT / 'output/build'
     parent.mkdir(parents=True, exist_ok=True)
     work = Path(tempfile.mkdtemp(prefix='build-', dir=parent))
     builder = 'agent-build-' + uuid.uuid4().hex[:10]

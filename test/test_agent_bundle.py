@@ -17,8 +17,8 @@ def module(name, relative):
 
 
 bundle = module('bundle', 'deploy/agent/bundle.py')
-package = module('package_agent', 'scripts/package-agent.py')
-builder = module('build_agent', 'scripts/build-agent-images.py')
+package = module('package_agent', 'scripts/build/package-agent.py')
+builder = module('build_agent', 'scripts/build/build-agent-images.py')
 cli = module('agentctl', 'deploy/agent/agentctl.py')
 
 

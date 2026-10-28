@@ -11,7 +11,7 @@ import subprocess
 import tarfile
 import tempfile
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 # Build/package tools use the operator's Docker context (including macOS
 # Docker Desktop). The Linux deployment CLI owns its separate host socket.
 DOCKER = ['docker']
@@ -27,8 +27,8 @@ FILES = {
     'nginx.host.conf': 'deploy/agent/nginx.host.conf',
     'bundle.py': 'deploy/agent/bundle.py', 'README.md': 'deploy/agent/INSTALL.md',
     'CONFIGURATION.md': 'deploy/agent/CONFIGURATION.md',
-    'OPERATIONS.md': 'deploy/agent/OPERATIONS.md', 'acceptance/verify.py': 'scripts/agent/verify-bundle.py',
-    'acceptance/model-fixture.mjs': 'scripts/agent/model-fixture.mjs',
+    'OPERATIONS.md': 'deploy/agent/OPERATIONS.md', 'acceptance/verify.py': 'test/acceptance/verify-bundle.py',
+    'acceptance/model-fixture.mjs': 'test/acceptance/fixtures/model-fixture.mjs',
     'LICENSES/DISTRIBUTION-NOTICES.md': 'runtime/DISTRIBUTION-NOTICES.md',
     'LICENSES/PLAYWRIGHT-LICENSE': 'runtime/PLAYWRIGHT-LICENSE',
 }

@@ -45,6 +45,24 @@ The deployment administrator controls the host and stored data. The configured c
 
 [Architecture](docs/ARCHITECTURE.md) and [development plan](docs/plans/DEVELOPMENT.md) describe the implementation and acceptance boundaries. Build and test commands are in [deploy/agent/README.md](deploy/agent/README.md). End users do not need the source checkouts or host Node.js.
 
+## Repository layout
+
+| Directory | Purpose |
+| --- | --- |
+| `src/` | Browser Service and browser runtime application code |
+| `runtime/` | Chrome image Dockerfile, extension installer, locked versions and sandbox policy; these are build inputs |
+| `deploy/agent/` | Complete Agent Compose template, application startup configuration and installation/operations tools |
+| `scripts/build/` | Fetch browser assets, build images, package releases and publish to GHCR |
+| `scripts/sync-browser-contract.mjs` | Keep the private browser protocol synchronized with the LibreChat checkout |
+| `test/` | Unit and integration tests; `test/acceptance/` holds end-to-end runners and fixtures |
+| `docs/` | Architecture, server runbook, development plan and progress |
+| `output/` | Untracked build work, downloaded packages, acceptance results and release artifacts |
+| `.deployment/` | Untracked local installations, private settings, persistent data and recovery archives |
+
+`deploy/` contains reusable source templates; `.deployment/` contains this server's installations. The active site is `.deployment/agent-site/`, with configuration in `config/` and persistent data in `data/`. Historical recovery material is grouped under `.deployment/archive/`. Do not delete an installation as if it were a build cache.
+
+Build logs and reports go to `output/build/`; temporary acceptance installations go to `output/tests/`. `.playwright-cli/`, when created by browser debugging tools, contains local snapshots and console logs and is not an application dependency.
+
 ## Distribution notices
 
 Chrome and the zkPass extensions are locked in [runtime/assets.lock.json](runtime/assets.lock.json). Preserve the [third-party distribution notices](runtime/DISTRIBUTION-NOTICES.md), [Playwright license](runtime/PLAYWRIGHT-LICENSE), LibreChat MIT license and dependency licenses when distributing images. The installation bundle includes the applicable top-level notices. No website login profile or deployment secrets belong in a release.

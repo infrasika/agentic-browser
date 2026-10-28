@@ -25,8 +25,8 @@ workspace/
 两个仓库分别保留提交历史。Agent 镜像由 LibreChat 提交加 Browser 仓库的 `deploy/agent/app` 构建，Browser Service 和 runtime 来自 Browser 仓库。先提交源码，再构建：
 
 ```bash
-python3 scripts/fetch-runtime-assets.py --arch amd64
-python3 scripts/build-agent-images.py --run --committed --tag agent-v0.2.0-rc.6
+python3 scripts/build/fetch-runtime-assets.py --arch amd64
+python3 scripts/build/build-agent-images.py --run --committed --tag agent-v0.2.0-rc.6
 ```
 
 Mac 必须显式指定 `--arch amd64`，避免按照本机架构下载错误资源。资源读取只依赖 Python，无需 macOS 安装 `dpkg-deb`。移交包自带 `output/runtime/packages/` 缓存；上游滚动下载地址若已改变，将按 SHA-256 拒绝，不能用 `--refresh-lock` 绕过。浏览器资源更新应作为单独版本审核。
@@ -63,16 +63,16 @@ node scripts/sync-browser-contract.mjs ../librechat-agent --check
 先在 Mac 只读预检，使用**本次构建输出的报告路径**：
 
 ```bash
-python3 scripts/publish-agent-images.py \
-  --build-report .deployment/agent-build/BUILD_DIRECTORY/report.json \
+python3 scripts/build/publish-agent-images.py \
+  --build-report output/build/BUILD_DIRECTORY/report.json \
   --version v0.2.0-rc.6 --namespace infrasika
 ```
 
 未加 `--run` 时不访问凭据、不登录、不拉取或推送镜像。确认本次候选验收通过后，在 Mac 显式上传：
 
 ```bash
-python3 scripts/publish-agent-images.py \
-  --build-report .deployment/agent-build/BUILD_DIRECTORY/report.json \
+python3 scripts/build/publish-agent-images.py \
+  --build-report output/build/BUILD_DIRECTORY/report.json \
   --version v0.2.0-rc.6 --namespace infrasika \
   --run --output output/agent/ghcr/v0.2.0-rc.6
 ```
@@ -82,7 +82,7 @@ python3 scripts/publish-agent-images.py \
 新 GHCR package 默认私有。在 GitHub Packages 设置中按需要将这三个镜像设为 Public，源码仓库仍保持私有；Agent 与 Service 若缺少仓库关联，可在 package 设置关联源仓库。之后验证匿名访问：
 
 ```bash
-python3 scripts/publish-agent-images.py \
+python3 scripts/build/publish-agent-images.py \
   --verify-public output/agent/ghcr/v0.2.0-rc.6/release.json \
   > output/agent/ghcr/v0.2.0-rc.6/anonymous-pull.json
 ```
@@ -94,8 +94,8 @@ python3 scripts/publish-agent-images.py \
 先提交安装工具与文档，再打包；打包器同样从 Git HEAD 的固定白名单读取，不从整个工作目录复制：
 
 ```bash
-python3 scripts/package-agent.py \
-  --build-report .deployment/agent-build/BUILD_DIRECTORY/report.json \
+python3 scripts/build/package-agent.py \
+  --build-report output/build/BUILD_DIRECTORY/report.json \
   --version v0.2.0-rc.6 \
   --output output/agent/releases/v0.2.0-rc.6
 ```
@@ -107,8 +107,8 @@ python3 scripts/package-agent.py \
 已发布镜像后生成不含镜像归档的轻量包：
 
 ```bash
-python3 scripts/package-agent.py \
-  --build-report .deployment/agent-build/BUILD_DIRECTORY/report.json \
+python3 scripts/build/package-agent.py \
+  --build-report output/build/BUILD_DIRECTORY/report.json \
   --version v0.2.0-rc.6 \
   --release output/agent/ghcr/v0.2.0-rc.6/release.json \
   --output output/agent/registry-releases/v0.2.0-rc.6

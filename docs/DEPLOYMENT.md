@@ -24,6 +24,8 @@
 
 配置文件权限 0600，目录权限 0700。比如 `.env` 中 `AGENT_PORT=3351` 让 Compose 把端口占位符替换为 3351；Qwen、登录和 SMTP 密钥通过单独的 secret 文件挂载。完整字段与说明见 [CONFIGURATION.md](../deploy/agent/CONFIGURATION.md)。
 
+`deploy/agent/` 是源码模板，当前实例位于 `.deployment/agent-site/`。旧配置备份及切换快照已归档至 `.deployment/archive/`，逐文件校验保持一致，不作为当前配置入口。构建记录在 `output/build/`，临时验收目录在 `output/tests/`。
+
 ## 本机持久化
 
 所有业务数据位于安装目录的 `data/`：

@@ -16,21 +16,21 @@
 npm run check
 npm test
 npm run test:python
-python3 scripts/build-agent-images.py --run --committed --tag agent-v0.2.0-rc.6
+python3 scripts/build/build-agent-images.py --run --committed --tag agent-v0.2.0-rc.6
 ```
 
-构建从固定 Git 提交与已校验的 Chrome/扩展资源创建三个镜像，限制 2 CPU / 5 GiB，不读取本机账号、聊天或私密配置。输出报告位于 `.deployment/agent-build/`，不会自动发布或切换站点。
+构建从固定 Git 提交与已校验的 Chrome/扩展资源创建三个镜像，限制 2 CPU / 5 GiB，不读取本机账号、聊天或私密配置。输出报告位于 `output/build/`，不会自动发布或切换站点。
 
 ```bash
-node scripts/accept-agent-compose.mjs --run --release /path/to/release.json
-node scripts/accept-agent-operations.mjs --run --release /path/to/release.json
+node test/acceptance/accept-agent-compose.mjs --run --release /path/to/release.json
+node test/acceptance/accept-agent-operations.mjs --run --release /path/to/release.json
 ```
 
-上述测试创建独立 Compose project、本机数据目录和模拟模型，真实 Chrome 访问 HTTP 测试页。浏览器验收使用 3334，运维验收使用 3335/3336；端口必须空闲。覆盖双账号权限、初始 credits、幂等加额度、预算耗尽、排队、WebSocket、接管继续、退出释放、SMTP 找回、备份、恢复与升级失败。无需已有站点、宿主 systemd 或私密业务配置。成功后清理本次数据，失败诊断留在 `.deployment/`，公开报告只含汇总。
+上述测试创建独立 Compose project、本机数据目录和模拟模型，真实 Chrome 访问 HTTP 测试页。浏览器验收使用 3334，运维验收使用 3335/3336；端口必须空闲。覆盖双账号权限、初始 credits、幂等加额度、预算耗尽、排队、WebSocket、接管继续、退出释放、SMTP 找回、备份、恢复与升级失败。无需已有站点、宿主 systemd 或私密业务配置。成功后清理本次数据，失败诊断留在私密的 `output/tests/` 子目录，公开报告只含汇总。
 
 `--hold` 可在通过后保留测试实例检查界面，收到 SIGTERM 后清理。完整发行包还有独立的 Python/Docker 验收，见 [安装说明](INSTALL.md)。
 
-可选 `node --import tsx scripts/accept-browser-soak.ts --run --capacity=1 --hold-seconds=300` 在有足够空闲资源的测试机执行浏览器持续负载、排队与接管验收。通过 `BROWSER_RUNTIME_IMAGE` 指定固定镜像 ID，使用独立账本和容器，不修改站点容量。
+可选 `node --import tsx test/acceptance/accept-browser-soak.ts --run --capacity=1 --hold-seconds=300` 在有足够空闲资源的测试机执行浏览器持续负载、排队与接管验收。通过 `BROWSER_RUNTIME_IMAGE` 指定固定镜像 ID，使用独立账本和容器，不修改站点容量。
 
 ## 配置与持久化
 
