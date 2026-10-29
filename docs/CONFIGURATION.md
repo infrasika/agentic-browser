@@ -4,7 +4,7 @@
 
 源码仓库根目录不需要 `.env`。管理工具只读取所选安装目录中的 `.env`；本机 `.deployment/` 不进入 Git 或镜像，Mac 构建也不依赖它。
 
-构建时只需要版本、目标架构和公共依赖；发布时使用独立的 Docker/GHCR 登录。Qwen key、模型名称、域名和邮件设置在目标机器执行 `init` 后填写。同一组镜像可以供多个部署者使用各自的配置，无需为每个 key 重新 build。Mac 与 Ubuntu 的统一命令见源码仓库的 `BUILD.md`；部署发行包不包含维护者构建工具。
+构建时只需要版本、目标架构和公共依赖；发布时使用独立的 Docker/GHCR 登录。Qwen key、模型名称、域名和邮件设置在目标机器执行 `init` 后填写。同一组镜像可以供多个部署者使用各自的配置，无需为每个 key 重新 build。Mac 与 Ubuntu 的统一命令见源码仓库的 `docs/BUILD.md`；部署发行包不包含维护者构建工具。
 
 例如安装到 `/srv/my-agent`，文件位置如下：
 
@@ -25,7 +25,7 @@
 | `config/settings.json` | 只读挂载为 `/config/settings.json`；启动时生成临时 LibreChat 配置 | Agent |
 | `config/secrets.env` | Compose 的 `secrets.agent.file`，挂载为 `/run/secrets/agent`；启动程序读取后注入应用进程环境 | Agent |
 | `config/browser-token` | Compose secret，挂载为 `/run/secrets/browser_token` | Agent、Browser Service |
-| `release.json`、实例信息与部分 settings | `agentctl render` 生成安装目录 `.env`，供 `compose.yaml` 的 `${…}` 插值 | Compose |
+| `release.json`、实例信息与部分 settings | `agentctl.mjs` 在启动或应用配置时生成安装目录 `.env`，供 `compose.yaml` 的 `${…}` 插值 | Compose |
 | `config/nginx.conf` | 根据 origin、代理信任地址生成，只读挂载 | Gateway |
 
 生成的 `.env` 包含六个镜像地址、实例名、UID/GID、Docker socket GID、入口端口、origin、数据目录和浏览器并发；不包含 Qwen key、管理员密码、JWT 或 SMTP 密码。Compose 只记录 secret 文件路径，应用启动后才读取这些值。
@@ -85,7 +85,7 @@ Git/GHCR 的发布授权独立于以上文件。构建无需业务密钥，发�
 
 ## Cloudflare 配置边界
 
-官方公网安装流程统一使用 Cloudflare DNS/代理、Full (strict) 和 Turnstile，逐步设置见安装指南（源码中为 `INSTALL.md`，发行包中为 `README.md`）。这是受支持的公网入口路径，不新增另一套应用或 Compose。
+官方公网安装流程统一使用 Cloudflare DNS/代理、Full (strict) 和 Turnstile，逐步设置见安装指南（源码中为 `docs/DEPLOYMENT.md`，发行包中为 `README.md`）。这是受支持的公网入口路径，不新增另一套应用或 Compose。
 
 | Cloudflare 配置 | 保存在哪里 |
 | --- | --- |

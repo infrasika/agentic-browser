@@ -6,6 +6,8 @@
 !src/**
 !runtime/
 !runtime/**
+!docs/
+!docs/DISTRIBUTION-NOTICES.md
 !output/
 !output/runtime/
 !output/runtime/packages/

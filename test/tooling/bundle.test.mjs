@@ -55,7 +55,7 @@ test('compiled release tools run outside the repository with no npm dependencies
   const notices = fs.readFileSync(path.join(root,'LICENSES/TOOLS.txt'),'utf8');
   for (const name of ['tar', '@isaacs/fs-minipass', 'minipass', 'minizlib', 'chownr', 'yallist']) assert.ok(notices.includes(name + '@'), 'Missing runtime dependency notice: ' + name);
   assert.ok(!fs.existsSync(path.join(root,'node_modules')));
-  assert.equal(FILES['README.md'],'deploy/agent/INSTALL.md');
+  assert.equal(FILES['README.md'],'docs/DEPLOYMENT.md');
 }));
 test('status polling only retries the explicit generation-persistence response', () => {
   const route = '/api/agents/chat/status/conversation', body = JSON.stringify({ code: 'SERVER_NOT_READY' });

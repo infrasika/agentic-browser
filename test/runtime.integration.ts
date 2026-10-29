@@ -23,7 +23,7 @@ test('Docker volume subpaths: only the authorised proxy directory is mounted', {
   await exec('docker', ['volume', 'create', '--driver', 'local', '--opt', 'type=none', '--opt', 'o=bind', '--opt', `device=${root}`, volumeName]);
   const engine = new DockerEngine({ image, dataDirectory: root, volume: { name: volumeName, root }, network: 'public' });
   t.after(async () => { await engine.close(); await exec('docker', ['volume', 'rm', volumeName]); await rm(root, { recursive: true, force: true }); });
-  const alice = randomUUID(), bob = randomUUID();
+  const alice = randomUUID();
   const workspace = await engine.create({ ownerId: alice });
   const details = JSON.parse((await exec('docker', ['inspect', workspace.record.name])).stdout)[0];
   assert.deepEqual(details.Mounts.filter((mount: any) => mount.Type === 'volume').map((mount: any) => mount.Destination).sort(), ['/egress']);

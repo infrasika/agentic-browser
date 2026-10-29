@@ -17,7 +17,7 @@ export class BrowserSession {
     private workspace: BrowserWorkspace,
     private ttlMs: number,
     private now = Date.now,
-    private maxLifetimeMs = Infinity,
+    maxLifetimeMs = Infinity,
   ) {
     this.createdAt = now();
     this.deadline = this.createdAt + Math.min(ttlMs, maxLifetimeMs);

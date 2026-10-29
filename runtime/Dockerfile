@@ -17,7 +17,7 @@ COPY output/runtime/packages/*.crx /opt/agentic-browser/extensions/
 RUN node runtime/install-extensions.mjs && mkdir -p /data /app/output/playwright && chown node:node /data /app/output/playwright
 COPY tsconfig.json ./
 COPY src/ ./src/
-COPY runtime/DISTRIBUTION-NOTICES.md runtime/PLAYWRIGHT-LICENSE ./runtime/
+COPY docs/DISTRIBUTION-NOTICES.md runtime/PLAYWRIGHT-LICENSE ./runtime/
 ARG AB_VERSION=development
 ARG AB_REVISION=unknown
 LABEL org.opencontainers.image.source="https://github.com/infrasika/agentic-browser" \

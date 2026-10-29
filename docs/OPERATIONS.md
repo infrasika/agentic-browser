@@ -1,28 +1,28 @@
 # 私有 Agent 运维
 
-使用 `agentctl.mjs` 管理一个完整 Agent 实例，应用只在镜像里运行；宿主需要与镜像架构匹配的 Linux、Node.js 24+、flock（util-linux）、Docker Engine 26+ 和 Compose v2/v5。当前 rc.6 已在测试服务器部署，完整 Agent 镜像尚未发布到 GHCR。每个安装目录对应独立的 Compose project；迁移已有站点需停写、导入数据、核对后再切换域名。
+使用 `agentctl.mjs` 管理一个完整 Agent 实例，应用只在镜像里运行；宿主需要与镜像架构匹配的 Linux、Node.js 24+、flock（util-linux）、Docker Engine 26+ 和 Compose v2/v5。每个安装目录对应独立的 Compose project。
 
 ## 安装后的配置与数据
 
-首次部署按安装指南执行（源码中为 `INSTALL.md`，发行包中为 `README.md`），其中集中维护软件准备、Cloudflare、初始化、密钥填写和公网验收步骤。本手册以 `/srv/my-agent` 为示例安装目录，使用时换成自己选择的路径，例如 `$HOME/my-agent`。
+首次部署按安装指南执行（源码中为 `docs/DEPLOYMENT.md`，发行包中为 `README.md`），其中集中维护软件准备、Cloudflare、初始化、密钥填写和公网验收步骤。本手册以 `/srv/my-agent` 为示例安装目录，使用时换成自己选择的路径，例如 `$HOME/my-agent`。
 
-版本清单固定六个镜像，普通模式只接受 registry digest。默认入口仅监听 `127.0.0.1:3333`，数据库、Browser 控制 API 和 MCP 不发布公网。配置字段及挂载关系见 [CONFIGURATION.md](CONFIGURATION.md)。
+版本清单固定六个镜像，普通模式只接受 registry digest。默认入口仅监听 `127.0.0.1:3333`，数据库和 Browser 控制 API 不发布公网。配置字段及挂载关系见 [CONFIGURATION.md](CONFIGURATION.md)。
 
 数据明确保存在安装目录的 `data/`：`mongo-data`、`redis-data`、`browser-data`、`uploads`、`images`、`logs`。Compose 使用绑定这些目录的本地数据卷，浏览器仍能按会话子目录隔离挂载。容器删除或重建不会删除这些文件；删除安装目录则会丢失数据。Mongo/Redis 子目录由容器内数据库用户持有，不要递归修改权限。启动会拒绝缺失或符号链接数据目录，不会偷偷创建空库。
 
-外层代理模板 `nginx.host.conf` 使用 `agent.example.com`、回环端口 3333 和源站 TLS，需填写自己的域名和证书，配合 Cloudflare Full (strict)。它不是当前测试服务器配置的副本。外层代理覆盖 `X-Real-IP`，内层 gateway 仅信任 `settings.json` 的 `trustedProxyIPs` 中明确列出的代理源 IP，默认不信任任何转发 IP。宿主 Nginx 经 Docker 回环端口进入时，该源 IP 通常是 `front` 网络的 Gateway，必须实际检查；若删除重建网络导致地址变化，应重新配置。不要填写网段或公网访客地址。该设置只信任客户端地址，用户身份仍由 LibreChat 登录验证。
+外层代理模板 `nginx.host.conf` 使用 `agent.example.com`、回环端口 3333 和源站 TLS，需填写自己的域名和证书，配合 Cloudflare Full (strict)。外层代理覆盖 `X-Real-IP`，内层 gateway 仅信任 `settings.json` 的 `trustedProxyIPs` 中明确列出的代理源 IP，默认不信任任何转发 IP。宿主 Nginx 经 Docker 回环端口进入时，该源 IP 通常是 `front` 网络的 Gateway，必须实际检查；若删除重建网络导致地址变化，应重新配置。不要填写网段或公网访客地址。该设置只信任客户端地址，用户身份仍由 LibreChat 登录验证。
 
 `.env` 由工具从 settings 自动生成，不需要手动同步 origin/容量。修改运行中的 settings 或 secrets 后，等待任务空闲并运行 `apply`：先备份、停止写入，再加载新配置；不会重置已有密码或发放 credits。管理面板内保存的日预算优先于首次 YAML 默认值。
 
 ```bash
-node agentctl.mjs --directory /srv/my-agent apply
+node /srv/my-agent/agentctl.mjs --directory /srv/my-agent apply
 ```
 
 ## 普通账号与密码恢复
 
 ```bash
-node agentctl.mjs --directory /srv/my-agent user-create
-node agentctl.mjs --directory /srv/my-agent user-reset
+node /srv/my-agent/agentctl.mjs --directory /srv/my-agent user-create
+node /srv/my-agent/agentctl.mjs --directory /srv/my-agent user-reset
 ```
 
 命令交互输入邮箱，创建时还输入显示名/用户名；密码使用隐藏输入且要求重复确认。重复创建返回 `already_exists`，不修改原密码和余额。新账号始终是普通用户，使用原生注册路径领取一次初始额度。
@@ -46,8 +46,8 @@ node agentctl.mjs --directory /srv/my-agent user-reset
 在 `secrets.env` 填写 `SMTP_PASSWORD`。支持隐式 TLS 或强制 STARTTLS（通常为 587）；验证服务端证书，不提供关闭证书验证的开关。用户名/密码必须成对提供；受控无认证 SMTP 可同时留空。发信域名认证仍由邮件供应商管理。
 
 ```bash
-node agentctl.mjs --directory /srv/my-agent mail-test --to your-address@example.org
-node agentctl.mjs --directory /srv/my-agent apply
+node /srv/my-agent/agentctl.mjs --directory /srv/my-agent mail-test --to your-address@example.org
+node /srv/my-agent/agentctl.mjs --directory /srv/my-agent apply
 ```
 
 `mail-test` 只向指定地址发送一封配置测试邮件；SMTP 接受后保存与域名、SMTP 配置和凭据绑定的验证收据，`apply` 后启用原生 Forgot Password。修改这些配置后旧收据失效，找回入口关闭，需重新测试。SMTP 接受不等于到达收件箱，部署者仍需核对收件。未配置邮件时可使用服务器侧恢复命令。
@@ -55,13 +55,13 @@ node agentctl.mjs --directory /srv/my-agent apply
 ## 备份与恢复
 
 ```bash
-node agentctl.mjs --directory /srv/my-agent backup
-node agentctl.mjs --directory /srv/my-agent verify-backup /srv/my-agent/backups/BACKUP_NAME
+node /srv/my-agent/agentctl.mjs --directory /srv/my-agent backup
+node /srv/my-agent/agentctl.mjs --directory /srv/my-agent verify-backup /srv/my-agent/backups/BACKUP_NAME
 ```
 
 有运行、排队、人工接管、未确认事件或未清理 runtime 时会延后，不终止用户任务。空闲时入口进入维护状态并排空已进入应用的请求，再停止 Agent、Browser、Redis 和 Mongo 写入。归档包括六个数据卷、配置/密钥、Compose 和固定镜像清单；每个文件有 SHA-256，完整验证后才去掉 `.pending` 标记。备份结束先恢复健康，再解除维护。
 
-这是停写后的完整数据卷快照，恢复要求相同数值 UID/GID、匹配的固定镜像及 Compose v1 拓扑；不支持跨 Mongo 大版本转换。归档包含密钥、账号和聊天，目录/文件权限为 0700/0600，应使用受控存储。镜像本身、外层 HTTPS 代理/证书、手工额外挂载文件不在备份内；公开镜像未发布前需另外保留对应本机镜像（候选包的 images.tar.gz 包含六个安装镜像）。
+这是停写后的完整数据卷快照，恢复要求相同数值 UID/GID、匹配的固定镜像及安装格式 v1 的 Compose 拓扑；不支持跨 Mongo 大版本转换。归档包含密钥、账号和聊天，目录/文件权限为 0700/0600，应使用受控存储。镜像本身、外层 HTTPS 代理/证书、手工额外挂载文件不在备份内；使用本机镜像时需另外保留对应镜像（候选包的 images.tar.gz 包含六个安装镜像）。
 
 ## 定时备份与中断恢复
 
@@ -84,14 +84,14 @@ node /srv/my-agent/agentctl.mjs --directory /srv/my-agent maintenance-status
 
 可加 `--copy-to /mnt/backup/agent-copies`，将每份备份校验后原子复制到另一个预先创建的 0700 目录，再轮转；复制失败只重试同一份快照，不重复停服务。路径可指向受控的加密磁盘或远程挂载目录，目录所有者须与实例一致。工具不会自动配置存储账号、加密或挂载；远程挂载应由宿主保证可用并禁止掉线后写入本地挂载点。本机目录副本不构成异地灾备。未提供目标时只有本地备份。
 
-备份包含调度策略供审计，但恢复出的新实例不会继承定时器、复制目标或自动开启备份；验收后重新执行 `schedule`。升级时从新候选包运行 `agentctl.mjs ... upgrade`，成功后更新安装目录的管理工具；当前 Node 定时器会使用新工具；若从旧版管理工具升级，或 Node 安装路径变化，需重新执行 `schedule` 并重新加载 systemd 单元。
+备份包含调度策略供审计，但恢复出的新实例不会继承定时器、复制目标或自动开启备份；验收后重新执行 `schedule`。升级时从新候选包运行 `agentctl.mjs ... upgrade`，成功后更新安装目录的管理工具；定时器会使用安装目录的新工具；Node 安装路径变化后需重新执行 `schedule` 并重新加载 systemd 单元。
 
 恢复**只允许新的安装目录和新 project/数据卷**：
 
 ```bash
-node agentctl.mjs --directory /srv/restored-agent restore /srv/my-agent/backups/BACKUP_NAME --port 3334
+node /srv/my-agent/agentctl.mjs --directory /srv/restored-agent restore /srv/my-agent/backups/BACKUP_NAME --port 3334
 # 查看恢复配置后启动
-node agentctl.mjs --directory /srv/restored-agent recover
+node /srv/restored-agent/agentctl.mjs --directory /srv/restored-agent recover
 ```
 
 恢复采用当前安装器的目录挂载模板，目标数据只落在新目录；不会复用源目录或源代理信任地址。恢复先验证摘要、路径与条目类型，拒绝符号链接及活跃 runtime 记录。保留账号/密码/聊天/credits/预算，生成新的 Browser instance ID，避免接管原实例容器。默认改为新回环 origin、关闭注册和 Turnstile，旧邮件收据因 origin 改变而失效；先停在未运行状态供核对配置，不自动重放网页操作。切换回正式域名及验证 SMTP 后再开放访问。
@@ -99,7 +99,7 @@ node agentctl.mjs --directory /srv/restored-agent recover
 ## 升级与中断处理
 
 ```bash
-node agentctl.mjs --directory /srv/my-agent upgrade --release next-release.json
+node /path/to/next-bundle/agentctl.mjs --directory /srv/my-agent upgrade --release /path/to/next-bundle/release.json
 ```
 
 当前支持相同 Compose 拓扑的版本升级。先检查并准备固定镜像，空闲时生成升级前备份，再同步新版包的 Compose 模板并启动新版本，健康通过后解除维护；保留账号、配置和密钥。`compose.yaml` 由发行包管理，直接修改会在升级时被替换，旧副本保存在升级前备份中。升级失败保留维护状态与备份路径，不自动把旧程序连接到可能已迁移的新数据库。用升级前备份恢复到一个新实例，验收后再切换入口。

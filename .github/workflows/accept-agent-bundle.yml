@@ -62,7 +62,7 @@ jobs:
           fs.renameSync('extracted/' + [...roots][0], 'candidate');
           NODE
           node candidate/bundle.mjs verify
-      - name: Import fixed images and verify without Python or npm dependencies
+      - name: Import fixed images and verify with bundled Node tools
         run: |
           node candidate/bundle.mjs load-images
           mkdir host-tools
@@ -77,7 +77,7 @@ jobs:
           const evidence = {
             host: 'GitHub-hosted ubuntu-24.04 fresh job', runId: process.env.GITHUB_RUN_ID,
             runAttempt: process.env.GITHUB_RUN_ATTEMPT, machine: os.machine(),
-            sourceCheckout: false, npmDependencyInstall: false, pythonRequired: false,
+            sourceCheckout: false, npmDependencyInstall: false,
             node: process.version, archiveSha256: process.env.CANDIDATE_SHA256,
           };
           fs.writeFileSync('host-evidence.json', JSON.stringify(evidence, null, 2) + '\n');

@@ -2,6 +2,23 @@
 
 当前产品是完整 LibreChat Agent：用户在聊天旁查看独立 Chrome，人工接管完成登录或验证，归还控制后任务自动继续。浏览器能力通过原生 Agent tools 调用私有 HTTP 服务。
 
+```mermaid
+flowchart LR
+  User[用户浏览器] --> CF[Cloudflare]
+  CF --> Host[宿主 HTTPS Nginx]
+  Host --> Gateway[Compose gateway / loopback]
+  Gateway --> Agent[LibreChat Agent]
+  Gateway -->|授权画面和输入 WebSocket| Browser[Browser Service]
+  Agent -->|私有 API / 服务凭据| Browser
+  Agent --> Model[配置的 LLM API]
+  Agent --> Mongo[(MongoDB)]
+  Agent --> Redis[(Redis)]
+  Browser --> Ledger[(SQLite 调度账本)]
+  Browser -->|Docker / 每会话创建| Chrome[隔离 Chrome]
+  Chrome --> Egress[每会话出口代理]
+  Egress --> Website[公网网站]
+```
+
 ## 项目边界
 
 | 目录 / 项目 | 职责 |
@@ -14,7 +31,7 @@
 | `src/runtime-worker.ts`、`src/desktop.ts`、`src/browser.ts` | 容器内 Chrome、扩展、CDP 和 VNC 生命周期 |
 | `src/egress-*` | 公网出口代理与目标地址限制 |
 | `deploy/agent/` | 完整 Agent 的 Compose 安装、配置、备份、恢复和升级 |
-| `runtime/` | Chrome 镜像构建、扩展版本锁定、沙箱规则及分发声明 |
+| `runtime/` | Chrome 镜像构建、扩展版本锁定、沙箱规则及许可证 |
 | `scripts/build/` | 资源下载、镜像构建、发行打包与 GHCR 发布 |
 | `test/acceptance/` | 完整 Agent、运维和浏览器验收；`fixtures/` 保存模拟模型、邮件和测试账号工具 |
 
@@ -26,9 +43,9 @@
 
 ## 会话与资源
 
-每用户最多一个未结束的 lease，包括排队、启动、运行和等待清理。SQLite 事务保证全局容量和 FIFO 队列；只有确认容器消失后才释放名额。硬上限 10；公网实际放行量为 5，私有部署默认 1。默认会话 5 分钟、绝对上限 10 分钟，排队最多 10 分钟。已确认的结束记录默认保留 24 小时，未确认事件保留以供恢复。
+每用户最多一个未结束的 lease，包括排队、启动、运行和等待清理。SQLite 事务保证全局容量和 FIFO 队列；只有确认容器消失后才释放名额。全局硬上限 10，部署默认 1，实际放行量由配置决定。默认会话 5 分钟、绝对上限 10 分钟，排队最多 10 分钟。已确认的结束记录默认保留 24 小时，未确认事件保留以供恢复。
 
-每个 lease 使用一次性 Chrome 容器及临时用户目录。网站登录、扩展存储在同一次接管前后保留，会话销毁后不保留。没有跨会话浏览器档案、独立成员账号或外部 Agent token。
+每个 lease 使用一次性 Chrome 容器及临时用户目录。网站登录、扩展存储在同一次接管前后保留，会话销毁后不保留。浏览器服务复用 LibreChat 的用户身份，不另设账号系统或跨会话浏览器档案。
 
 Chrome 无 Docker socket、模型密钥或数据库卷，根文件系统只读、无直连网络、无公开 CDP/VNC 端口。只有本会话出口 socket 子目录以只读方式挂入 Chrome。出口代理拒绝私网、loopback、云元数据和站点自身地址；不内置可绕过代理的 Demo 网页。
 
@@ -40,12 +57,12 @@ MongoDB 保存 LibreChat 账号、密码摘要、聊天、个人 credits、全�
 
 ## 部署
 
-原域名站点与用户私有部署统一使用完整 Agent Compose，见 [安装](../deploy/agent/INSTALL.md)。宿主 Nginx 将域名转到 gateway 的回环端口；Mongo、Redis、浏览器状态与应用文件绑定安装目录的 `data/`，重建容器保留数据。配置和密钥只保存在安装目录的 `config/`，运维统一由 `agentctl.mjs` 执行。当前测试服务器路径与备份策略见 [DEPLOYMENT.md](DEPLOYMENT.md)。
+所有部署使用同一套完整 Agent Compose，见 [部署指南](DEPLOYMENT.md)。宿主 Nginx 将域名转到 gateway 的回环端口；Mongo、Redis、浏览器状态与应用文件绑定安装目录的 `data/`，重建容器保留数据。配置和密钥保存在安装目录的 `config/`，通过 secret 或只读文件挂载；`agentctl.mjs` 生成 Compose 插值文件并管理生命周期。对应关系见 [配置](CONFIGURATION.md)，备份恢复见 [运维](OPERATIONS.md)。
 
 官方公网安装路径统一为 Cloudflare DNS/代理 → 宿主 HTTPS Nginx（Full strict）→ Compose gateway，公开注册使用 Turnstile。这样统一入口模板和验收，不给应用增加 Cloudflare DNS/证书管理 SDK、Tunnel 服务或另一套 Compose。关闭注册只是本地账号系统的策略开关，保留自用和隔离验收能力。
 
-密码找回仍共用一套 TLS SMTP 实现，官方指南提供 Cloudflare Email Sending 配置；发信服务不是核心启动的硬依赖。Email Sending 的开通及费用门槛与 Turnstile 不同，故不通过强制 Cloudflare 发信来删除通用 SMTP。源站证书归宿主，模型与应用密钥归安装目录，构建和发布均不依赖这些部署参数。
+密码找回共用一套 TLS SMTP 实现，官方指南提供 Cloudflare Email Sending 配置；发信服务不是核心启动的硬依赖。源站证书归宿主，模型与应用密钥归安装目录，构建和发布均不依赖这些部署参数。
 
-`deploy/` 是版本控制中的部署源码，`.deployment/` 是不提交的本地安装状态。构建日志和报告在 `output/build/`，临时验收安装在 `output/tests/`；测试不再把临时目录写进 `.deployment/`。历史恢复资料归到 `.deployment/archive/`，当前站点仍使用 `.deployment/agent-site/`。
+`deploy/` 是版本控制中的部署源码，`.deployment/` 是不提交的本地安装状态。构建日志和报告在 `output/build/`，临时验收安装在 `output/tests/`。完整目录约定见 [文档导航](README.md)。
 
-发行清单必须明确包含 Agent、Browser Service、Chrome runtime、gateway、MongoDB、Redis 六个不可变镜像。当前仅验收 Linux amd64；公开发行和独立新服务器验证的状态见 [进度](plans/PROGRESS.md)。
+发行清单包含 Agent、Browser Service、Chrome runtime、gateway、MongoDB、Redis 六个不可变镜像。Chrome runtime 由 Browser Service 按会话启动，并非常驻 Compose 服务。源码工具将管理 CLI 及其依赖编译为独立 Node 文件；源码准备、镜像构建、GHCR 上传和安装包制作分别见 [开发](DEVELOPMENT.md)、[构建](BUILD.md) 和 [发布](RELEASING.md)。已验收平台和剩余工作见 [当前状态](STATUS.md)。
