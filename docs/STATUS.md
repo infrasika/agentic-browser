@@ -28,9 +28,11 @@
 
 `https://agentic-browser.zkpass.org` 运行 rc.6 镜像，运行目录为 `.deployment/agent-site/`，真实配置位于仓库根目录 `config/local/`。数据和备份仍保存在运行目录的 `data/`、`backups/`。每用户一个浏览器，实际放行 5、硬上限 10；新用户 200,000 credits、默认全站日预算 20,000,000 credits，管理页面保存的预算优先。
 
-本站已切换为 Node 管理工具和备份定时器，在仓库根目录执行 `node .deployment/agent-site/agentctl.mjs --directory .deployment/agent-site` 管理；旧 Python 工具仅保留在私密恢复归档。应用镜像没有随此次配置搬迁升级。外层 Nginx 仍沿用 HTTP 源站入口，尚未应用新部署指南的 Full (strict) HTTPS 模板。恢复包、配置和数据不作为构建缓存清理。
+本站已切换为 Node 管理工具和备份定时器，在仓库根目录执行 `node .deployment/agent-site/agentctl.mjs --directory .deployment/agent-site` 管理；旧 Python 工具及不再使用的迁移、测试归档已清理。应用镜像没有随此次配置搬迁升级。外层 Nginx 仍沿用 HTTP 源站入口，尚未应用新部署指南的 Full (strict) HTTPS 模板。当前配置、数据和有效完整备份不作为构建缓存清理。
 
 迁移前完整备份并停写，配置路径切换后显式重建容器以刷新 secret 挂载。配置及密钥内容、业务数据库、数据卷和备份策略均已核对保持一致；健康检查和 Node 定时器运行通过，记录为 `output/build/config-directory-site-relocation.json`。旧运行目录内的 `config/` 已移除。新 clone 的部署流程支持独立配置，不依赖本站的任何运行文件或归档。
+
+备份清理保留了 2 份定时器管理的备份和最近一次迁移前完整备份，三份均通过校验；自动保留 7 份的规则不变。旧 `.deployment/archive/` 和 3 份多余手工备份已删除，释放约 502 MiB；清理记录为 `output/build/backup-cleanup.json`。
 
 ## 下一步
 
