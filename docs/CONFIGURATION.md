@@ -69,7 +69,7 @@ npm run agent -- --directory "$AGENT_DIR" doctor
 
 普通 Compose secrets 使用文件挂载，不是宿主磁盘加密服务。安装目录为 0700，配置文件为 0600；宿主管理员仍能读取文件和进程。不要公开配置目录、备份或进程环境。[Docker Compose secrets 说明](https://docs.docker.com/compose/how-tos/use-secrets/)
 
-运行目录中的 `installation.json` 记录实例实际使用的配置位置。现有实例变更路径时，必须同步元数据、Compose 挂载和定时器，不能只移动文件或用符号链接替代。新部署直接用 `--config-directory` 选定位置即可。
+运行目录中的 `installation.json` 记录实例实际使用的配置位置。现有实例变更路径时，需要先完整备份并停写，同步元数据、Compose 挂载和定时器，再显式重建容器；仅改变 secret 的源文件路径，Compose 可能复用仍指向旧路径的容器。不能只移动文件或用符号链接替代。新部署直接用 `--config-directory` 选定位置即可。
 
 ## settings.json：普通设置
 
