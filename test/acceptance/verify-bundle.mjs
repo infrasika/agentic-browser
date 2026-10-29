@@ -7,6 +7,10 @@ import { randomUUID } from 'node:crypto';
 import { spawn } from 'node:child_process';
 import { argumentsFor, atomic, cli, exists, Failure, json, mainModule, run, sleep } from '../../deploy/agent/lib/system.mjs';
 const DOCKER = ['docker', '--host', 'unix:///var/run/docker.sock'];
+export function generationPending(route, response, body) {
+  if (!/^\/api\/agents\/chat\/status\/[^/?]+$/.test(route) || response.status !== 503 || response.headers.has('x-agent-maintenance') || response.headers.get('retry-after') !== '1') return false;
+  try { return JSON.parse(body).code === 'SERVER_NOT_READY'; } catch { return false; }
+}
 export async function main() {
   process.umask(0o077);
   const { values: args, positionals } = argumentsFor({ bundle: { type: 'string', default: path.resolve(import.meta.dirname, '..') }, work: { type: 'string' }, port: { type: 'string', default: '3340' } });
@@ -29,7 +33,12 @@ export async function main() {
   async function request(route, { token, body, target = port, expected = 200 } = {}) {
     const base = 'http://127.0.0.1:' + target;
     const response = await fetch(base + route, { method: body === undefined ? 'GET' : 'POST', headers: { origin: base, 'content-type': 'application/json', 'user-agent': 'Mozilla/5.0 Chrome/130.0.0.0 Safari/537.36', 'x-librechat-generation-protocol': '2', ...(token ? { authorization: 'Bearer ' + token } : {}) }, body: body === undefined ? undefined : JSON.stringify(body), signal: AbortSignal.timeout(20_000) });
-    assert.equal(response.status, expected, 'Unexpected HTTP status in ' + report.stage); const raw = await response.text(); return expected === 200 && raw ? JSON.parse(raw) : null;
+    const raw = await response.text();
+    // The generation protocol deliberately returns this response while a
+    // terminal checkpoint is being persisted. The caller's 120s poll bounds
+    // the retry; maintenance responses and other errors still fail.
+    if (body === undefined && expected === 200 && generationPending(route, response, raw)) { report.generationStatusRetries = (report.generationStatusRetries ?? 0) + 1; return { active: true }; }
+    assert.equal(response.status, expected, 'Unexpected HTTP status in ' + report.stage + ': ' + route); return expected === 200 && raw ? JSON.parse(raw) : null;
   }
   const login = async (user, target) => (await request('/api/auth/login', { body: { email: user.email, password: user.password }, target })).token;
   const snapshot = async directory => JSON.parse(await compose(directory, 'exec', '-T', 'mongo', 'mongosh', '--quiet', '--eval', "JSON.stringify(['users','balances','sitebudgets','transactions','conversations','messages'].map(name=>({name,rows:db.getSiblingDB('AgenticBrowser').getCollection(name).find({},{updatedAt:0}).sort({_id:1}).toArray()})))"));

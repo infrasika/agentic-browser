@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { generationPending } from '../acceptance/verify-bundle.mjs';
 import test from 'node:test';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -56,3 +57,16 @@ test('compiled release tools run outside the repository with no npm dependencies
   assert.ok(!fs.existsSync(path.join(root,'node_modules')));
   assert.equal(FILES['README.md'],'deploy/agent/INSTALL.md');
 }));
+test('status polling only retries the explicit generation-persistence response', () => {
+  const route = '/api/agents/chat/status/conversation', body = JSON.stringify({ code: 'SERVER_NOT_READY' });
+  const response = (status = 503, headers = { 'retry-after': '1' }) => new Response(body, { status, headers });
+  assert.equal(generationPending(route, response(), body), true);
+  for (const [url, reply, content] of [
+    ['/api/config', response(), body],
+    [route, response(503, { 'retry-after': '1', 'x-agent-maintenance': '1' }), body],
+    [route, response(503, {}), body],
+    [route, response(502), body],
+    [route, response(), '{"code":"OTHER_FAILURE"}'],
+    [route, response(), 'not json'],
+  ]) assert.equal(generationPending(url, reply, content), false);
+});
