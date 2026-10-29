@@ -27,6 +27,7 @@ Agentic Browser 是包含聊天、远程浏览器、本地账号和额度管理�
 | `integrations/librechat/` | 固定上游提交、定制补丁和上游许可证 | 是 |
 | `runtime/` | Chrome Dockerfile、扩展安装器、资源锁、沙箱及许可证 | 是 |
 | `deploy/agent/` | Compose / Nginx 模板、应用启动配置、Node 运维工具 | 是 |
+| `config/*.example.*` | 公开配置字段示例，不填写真实密钥；实际文件由安装器生成 | 是 |
 | `scripts/build/` | 源码准备、下载、镜像构建、发布和打包 | 是 |
 | `scripts/sync-browser-contract.mjs` | 同步两端浏览器 API 协议 | 是 |
 | `test/` | 单元测试；`tooling/` 验证工具，`acceptance/` 执行完整验收 | 是 |

@@ -6,7 +6,7 @@
 
 聊天与浏览器同屏、本地账号、每用户一个会话、排队、人工接管归还后继续、credits、全站日预算、管理员入口、Turnstile 和可选 SMTP 找回已实现。完整 Compose 支持本机目录持久化、一次填写配置、账号管理、停写备份、定时轮转、新实例恢复及失败升级保护。GitHub 私有仓库数量/名称和邮件到达已由用户核对。
 
-源码、构建、发布、打包和运维共用 Node.js 24+。安装包包含独立工具与依赖许可证，不需源码或 npm 安装。Mac / Ubuntu 使用同一源码和双架构构建入口，站点密钥仅在部署时填写。
+源码、构建、发布、打包和运维共用 Node.js 24+。安装包包含独立工具与依赖许可证，不需源码或 npm 安装。Mac / Ubuntu 使用同一源码和双架构构建入口，站点密钥仅在部署时填写。源码与新发行包均提供 `config/settings.example.json`、`config/secrets.env.example`；实际配置和独立密钥由 `init` 生成。
 
 ## 已验证的候选版本
 
@@ -22,7 +22,7 @@
 
 总记录为 `output/build/node-toolchain-verification.json`。记录和候选包属于本机未跟踪产物，新 clone 不包含它们；按 [构建](BUILD.md)、[发布](RELEASING.md) 重新生成自己的证据。
 
-当前源码已通过 69 项回归和包含未使用变量检查的 TypeScript 检查。12 份文档的 53 个源码相对链接、5 个包内链接和 34 个 Bash 代码块检查通过；Docker amd64 / arm64 最小构建验证了分发声明的新路径和原始内容。记录为 `output/build/docs-cleanup-verification.json`，这不等于重新构建完整应用或生成新发行包。
+当前源码已通过 69 项回归和 TypeScript 检查。12 份文档的 57 个源码相对链接、6 个包内链接和 35 个 Bash 代码块检查通过；公开示例与初始化字段一致、密钥独立生成、私密文件忽略和安装包示例校验均通过，记录为 `output/build/config-examples-verification.json`。此前 Docker amd64 / arm64 最小构建验证了分发声明的新路径和原始内容，记录为 `output/build/docs-cleanup-verification.json`。这些检查不等于重新构建完整应用或生成新发行包。
 
 ## 当前测试站
 

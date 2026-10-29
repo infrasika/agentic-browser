@@ -9,3 +9,7 @@ output/
 .data/
 .deployment/
 logs/
+# Only public configuration examples belong in the source checkout.
+/config/*
+!/config/settings.example.json
+!/config/secrets.env.example

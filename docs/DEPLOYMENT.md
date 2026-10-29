@@ -4,6 +4,8 @@
 
 **分发状态：当前仍是安装候选版本，完整 Agent 镜像和安装包尚未公开发布。** 以下使用已取得的可信发行包；`vX.Y.Z`、`agent.example.com` 和邮箱必须换成自己的值。不要直接拉取未发布的 GHCR 地址。自行构建见源码仓库的 `docs/BUILD.md`，Mac 和 Ubuntu 共用同一套构建命令，部署不依赖构建机密钥。目前完整流程已在 Linux amd64 验收，原生 arm64 和独立新服务器验收待完成。
 
+源码和新发行包的 `config/settings.example.json`、`config/secrets.env.example` 提供公开参数清单，可在安装前查看。第 3 步 `init` 会在你选择的安装目录生成真实配置及独立密钥，第 4 步再填写；无需取得本项目服务器的 `.deployment/` 或配置文件。字段与源码 clone 后的操作见 [配置指南](CONFIGURATION.md)。
+
 ## 1. 准备服务器、域名与账号
 
 官方公网安装路径统一为：

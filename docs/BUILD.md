@@ -14,6 +14,8 @@ Mac（Intel / Apple Silicon）和 Ubuntu 使用同一个仓库、同一套 Node.
 
 例如，同一镜像可以部署在两个域名，分别配置不同 Qwen key、预算和数据库。换模型密钥不需要重建镜像；更改程序代码才需要重建。配置挂载细节见 [CONFIGURATION.md](CONFIGURATION.md)。
 
+clone 后的 `config/settings.example.json` 和 `config/secrets.env.example` 可用于查看部署参数；构建时保持示例原样即可。真实文件由部署时的 `init` 生成，不从构建机传入镜像。
+
 ## 一次 clone 即可构建
 
 构建机需要 Node.js 24+（含 npm）、Git、系统 tar、Docker Engine 28+ 与 Buildx；Mac 使用运行中的 Docker Desktop。打包需要 Docker API 1.49+ 的按平台 inspect/save 能力。无需在宿主安装 Python；开发、构建、发布和验收共用 Node.js。构建器默认限制为 2 CPU / 5 GiB，Docker VM 应留出额外内存和至少 30 GiB 可用空间。

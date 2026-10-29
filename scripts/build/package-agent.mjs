@@ -17,6 +17,7 @@ export const INFRA = {
 export const FILES = {
   'compose.yaml': 'deploy/agent/compose.yaml', 'nginx.host.conf': 'deploy/agent/nginx.host.conf',
   'README.md': 'docs/DEPLOYMENT.md', 'CONFIGURATION.md': 'docs/CONFIGURATION.md', 'OPERATIONS.md': 'docs/OPERATIONS.md',
+  'config/settings.example.json': 'config/settings.example.json', 'config/secrets.env.example': 'config/secrets.env.example',
   'acceptance/model-fixture.mjs': 'test/acceptance/fixtures/model-fixture.mjs',
   'LICENSES/DISTRIBUTION-NOTICES.md': 'docs/DISTRIBUTION-NOTICES.md', 'LICENSES/PLAYWRIGHT-LICENSE': 'runtime/PLAYWRIGHT-LICENSE', 'LICENSES/LibreChat.txt': 'integrations/librechat/LICENSE',
 };

@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "name": "Agentic Browser",
+  "origin": "http://127.0.0.1:3333",
+  "adminEmail": "admin@example.invalid",
+  "registration": "closed",
+  "turnstileSiteKey": "",
+  "model": {
+    "name": "",
+    "baseURL": "",
+    "promptRate": null,
+    "completionRate": null
+  },
+  "credits": {
+    "initial": 200000,
+    "daily": 20000000,
+    "timeZone": "Asia/Shanghai"
+  },
+  "browser": {
+    "maximum": 1
+  }
+}

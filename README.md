@@ -12,6 +12,8 @@ The [GitHub demo](docs/AGENT_DEMO.md) asks you to sign in inside the remote brow
 
 Deploy a versioned installation bundle on Linux with Node.js 24+, Docker and flock. The [deployment guide](docs/DEPLOYMENT.md) covers Cloudflare, HTTPS, model settings, secrets, first login and acceptance. MongoDB, Redis and browser control remain private; persistent data and configuration live in the installation directory.
 
+New clones include public examples in [config/settings.example.json](config/settings.example.json) and [config/secrets.env.example](config/secrets.env.example). Review them to see which settings and keys you need. At deployment, `agentctl init` generates private configuration and unique application keys in your chosen installation directory; edit those generated files using the [configuration guide](docs/CONFIGURATION.md). Building images requires no model or Cloudflare keys.
+
 **Status: installation candidate; Agent images and bundles have not been publicly published.** Linux amd64 has passed local installation and recovery acceptance. Native ARM64, Mac execution and independent-host acceptance remain pending. See [current status](docs/STATUS.md) for the exact scope.
 
 ## Build and contribute

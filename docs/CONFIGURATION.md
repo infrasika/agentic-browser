@@ -6,6 +6,35 @@
 
 构建时只需要版本、目标架构和公共依赖；发布时使用独立的 Docker/GHCR 登录。Qwen key、模型名称、域名和邮件设置在目标机器执行 `init` 后填写。同一组镜像可以供多个部署者使用各自的配置，无需为每个 key 重新 build。Mac 与 Ubuntu 的统一命令见源码仓库的 `docs/BUILD.md`；部署发行包不包含维护者构建工具。
 
+## 新 clone 后从哪里开始
+
+源码根目录和新发行包均提供以下公开示例；它们不包含本站的配置值，也不被应用直接加载：
+
+| 示例文件 | 可以提前确认的内容 |
+| --- | --- |
+| `config/settings.example.json` | 模型、费率、域名、管理员邮箱、注册策略、额度和容量的字段及默认值 |
+| `config/secrets.env.example` | 需要填写的 API key、可选服务凭据，以及由安装器自动生成的密钥 |
+
+只在 Mac 或 Ubuntu **构建、发布镜像**时，执行构建文档中的 npm 命令即可，无需填写示例或复制 `.deployment/`。**部署**时，在目标 Linux 上取得固定的 `release.json` 和镜像，运行安装包的 `agentctl.mjs ... init`。从源码使用相同入口则是：
+
+```bash
+npm ci
+AGENT_DIR="$HOME/my-agent"
+npm run agent -- --directory "$AGENT_DIR" init --release /absolute/path/to/release.json
+nano "$AGENT_DIR/config/settings.json"
+nano "$AGENT_DIR/config/secrets.env"
+npm run agent -- --directory "$AGENT_DIR" up
+npm run agent -- --directory "$AGENT_DIR" doctor
+```
+
+`release.json` 来自构建后的安装包或发布回执，不是手写空文件；本机 image ID 离线包先导入镜像，并给 `init` 加 `--development`。安装目录必须不存在，首次安装的完整前置条件和 HTTPS 步骤见部署指南（源码 `docs/DEPLOYMENT.md`、包内 `README.md`）。
+
+`init` 生成真实 `settings.json`、`secrets.env` 和 `browser-token`，权限为目录 0700、文件 0600。**编辑生成的文件，不用空示例覆盖它们**，否则会丢掉自动生成的管理员密码和登录/加密密钥。新建安装使用自己的密钥；运行中的实例升级保留原密钥。
+
+必须由你填写的是模型 API key、模型名称/地址/费率和管理员邮箱；公网部署还需域名和 Turnstile 公私钥，启用 SMTP 时填写发信参数与凭据。管理员初始密码、JWT、加密密钥和内部浏览器 token 自动生成，下面的字段表说明每项用途。
+
+`.deployment/` 只是这台开发服务器选择的私密安装位置，用户也可安装到 `$HOME/my-agent` 或 `/srv/my-agent`。仓库 `config/` 只提交两份示例，其他文件默认被 Git 忽略；安装包的示例也保持原样，实例数据与配置放在单独的安装目录。根目录无需额外 `.env.example`，因为根 `.env` 不会作为此部署的业务配置加载。
+
 例如安装到 `/srv/my-agent`，文件位置如下：
 
 ```text
