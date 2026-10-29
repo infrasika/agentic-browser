@@ -8,7 +8,23 @@
 
 聊天/浏览器同屏、排队、接管归还自动继续、本地账号、管理员入口、Turnstile、SMTP 找回及每日空闲备份已交付。GitHub 私有仓库名称和数量、邮件到达均由用户核对过。
 
-## 已验收版本
+## Node 工具链与 npm 入口
+
+开发、构建、发布、部署和验收统一使用 Node.js 24+。删除 14 个项目自有 Python 脚本及测试和对应字节码缓存；构建阶段上游 node-gyp 所需的 Python 仍由 Docker 自动安装，不要求宿主准备 Python。`scripts/build/` 负责构建发行，`deploy/agent/` 负责安装运维，`test/tooling/` 负责工具回归。命令、参数传递、Mac / Ubuntu 与双架构流程集中在根目录 [BUILD.md](../../BUILD.md)，原重复发行文档已整合。
+
+发行包的 `agentctl.mjs`、`bundle.mjs` 和验收入口已编译为独立文件，包含所需依赖和六份依赖许可声明；部署无需 npm install。Linux 使用内核 flock 串行化维护操作，强杀进程会释放锁。Mac 构建不依赖 flock，两项 Linux 锁测试只在 Linux 执行。安装、运维、配置说明及独立 runner 工作流全部更新为 Node 入口。当前 rc.6 站点的已安装工具和定时器保持原状，未升级站点。
+
+最终应用与工具回归 69 项通过，TypeScript 检查通过。Node 下载器从空缓存下载 Chrome 与两个扩展并通过锁定摘要和元数据校验；Mac Intel / Apple Silicon、Linux amd64 / arm64 的宿主编译器依赖均已锁定。交互密码不回显、CI 正常归档及四种恶意归档拒绝、文档链接和命令语法均已检查。
+
+Ubuntu amd64 上通过 npm 完整构建 `linux/amd64` 和 `linux/arm64` 的三组件，共六个 `v0.2.0-rc.7` 镜像；ARM64 使用 QEMU。源码为 `2e74e62`，报告在 `output/build/build-KkQwb1/{amd64,arm64}/report.json`。双架构发布预检通过，凭据助手探针确认没有读取真实凭据，未上传 GHCR。
+
+10 项真实运维验收通过，包含本地账号、TLS SMTP 找回、空闲备份、恢复、升级及错误升级保护。独立包验收发现聊天状态接口在持久化期间可按协议返回 `SERVER_NOT_READY`；已增加仅针对该明确响应的有界轮询，维护和未知错误继续失败。修正后 9 项完整包验收全部通过，包括真实 Chrome、接管继续、定时备份/副本、强杀恢复和错误升级回退。验收从 `/tmp` 运行，PATH 仅含 Node/Docker/flock；管理工具、Compose 和镜像清单与运维验收版本逐字节一致。
+
+最终 amd64 离线候选包位于 `output/agent/releases/v0.2.0-rc.7-amd64/`，包工具来自 `db5ad7f`，已校验、导入和验收。总记录为 `output/build/node-toolchain-verification.json`，详细运维与包记录为 `node-operations-verification.json` 和 `node-bundle-verification.json`。所有验收使用临时实例和模拟模型，不读取站点密钥，不调用付费模型或发送真实邮件。测试容器、卷、测试数据、临时构建器、重复候选包与一次性驱动已清理。rc.6 站点健康、入口 HTTP 200，未升级或重启。
+
+本轮仅本地 Git 提交，未 push 或发布 GHCR。Mac 实机、原生 ARM64 Linux、独立主机与真实匿名拉取仍待验证；双架构构建通过不代替这些运行验收。
+
+## 当前站点 rc.6 验收记录
 
 发行镜像由 Browser 仓库 `a17ea73`、LibreChat 仓库 `0d7ee88` 完整重建；安装器与包内文档来自 `ad65b08`。离线候选包位于 `output/agent/releases/v0.2.0-rc.6/`，包含六镜像、内外层校验清单、安装/运维工具、Nginx 示例及验收脚本；文件校验与镜像导入均通过，尚未公开发布。
 
@@ -16,7 +32,7 @@
 | --- | --- |
 | 类型、单元与文档 | TypeScript、24 项 Node、26 项 Python、协议同步和 10 份 Markdown 的相对链接通过 |
 | 最终镜像业务流程 | 12 项通过，含预算阻断、幂等加额度、跨账号隔离、排队、接管恢复、退出清理；`output/agent/compose-latest.json` |
-| 运维流程 | 10 项通过，含测试 TLS 邮件、找回密码、备份恢复、模板更新和错误升级保护；`output/agent/operations-latest.json` |
+| 运维流程 | 10 项通过，含测试 TLS 邮件、找回密码、备份恢复、模板更新和错误升级保护；`output/agent/operations-e406548a-582b-4a97-b414-fb94bfbbb909.json` |
 | 最终离线包 | 9 项通过，PATH 只含 Python/Docker，含强杀备份后恢复及错误镜像回退；`output/agent/bundle-rc6.json` |
 | 独立浏览器脚本 | 1 浏览器持续 30 秒通过，页面操作 P95 30ms、画面间隔 P95 765ms；`output/agent/browser-soak-1.json`。未调整站点容量 |
 | 原域名实际升级 | rc.5 → rc.6 通过，六类核心集合、凭据及持久化目录摘要一致；`output/agent/rc6-site-upgrade.json` |
