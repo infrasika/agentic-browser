@@ -5,7 +5,7 @@ import { gzipSync } from 'node:zlib';
 import { Header } from 'tar';
 import { atomic, digest, KIND, VOLUMES } from '../../deploy/agent/agentctl.mjs';
 export async function temporary(action) {
-  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'agent-tools-'));
+  const directory = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'agent-tools-')));
   try { return await action(directory); } finally { fs.rmSync(directory, { recursive: true, force: true }); }
 }
 export function archive(file, name = 'safe', type = 'File') {

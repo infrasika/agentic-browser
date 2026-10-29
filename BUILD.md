@@ -28,7 +28,7 @@ npm run build:agent -- --committed \
   --platforms linux/amd64,linux/arm64 --tag v0.2.0-rc.7
 ```
 
-`npm run <命令> -- <参数>` 中的 `--` 把后面的参数传给脚本。`build:agent` 已包含 `--run`，无需再写一次；`publish:agent` 默认只预检，上传仍需显式 `--run`。
+`npm run <命令> -- <参数>` 中的 `--` 把后面的参数传给脚本，见 [npm 参数说明](https://docs.npmjs.com/cli/v11/commands/npm-run/)。`build:agent` 已包含 `--run`，无需再写一次；`publish:agent` 默认只预检，上传仍需显式 `--run`。
 
 版本号是示例，实际发布应使用新的固定版本。`--committed` 只读取 Git 对象；本地改动先提交。开发时可省略它，但工作区构建不能发布。
 
@@ -52,6 +52,8 @@ npm test
 ```
 
 每个架构的构建报告应为 `passed: true`，且三镜像完整。构建成功只证明镜像可以生成；完整运行验收需在对应架构的原生 Linux 主机完成，包含登录、模型调用、Chrome 沙箱、扩展和接管恢复。Mac 可作为构建机，当前安装器仍面向 Linux 主机。
+
+`npm test` 在 Mac 上跳过两项 Linux `flock` 运维锁测试；它们在 Linux 上必须通过。镜像构建和发布不使用 `flock`，Mac 不必安装该工具。
 
 ## 使用 Docker 已有授权发布 GHCR
 

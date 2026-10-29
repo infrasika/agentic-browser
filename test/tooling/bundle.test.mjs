@@ -51,6 +51,8 @@ test('installer accepts native Linux amd64/arm64 and refuses desktop or unsuppor
 test('compiled release tools run outside the repository with no npm dependencies',()=>temporary(async root=>{
   await bundleTools(root);
   for(const file of ['agentctl.mjs','bundle.mjs','acceptance/verify.mjs']) assert.ok((await run([process.execPath,path.join(root,file),'--help'],{cwd:root,env:{PATH:'/nonexistent'}})).length);
-  assert.match(fs.readFileSync(path.join(root,'LICENSES/TOOLS.txt'),'utf8'),/tar@/);assert.ok(!fs.existsSync(path.join(root,'node_modules')));
+  const notices = fs.readFileSync(path.join(root,'LICENSES/TOOLS.txt'),'utf8');
+  for (const name of ['tar', '@isaacs/fs-minipass', 'minipass', 'minizlib', 'chownr', 'yallist']) assert.ok(notices.includes(name + '@'), 'Missing runtime dependency notice: ' + name);
+  assert.ok(!fs.existsSync(path.join(root,'node_modules')));
   assert.equal(FILES['README.md'],'deploy/agent/INSTALL.md');
 }));

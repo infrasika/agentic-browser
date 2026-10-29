@@ -50,11 +50,11 @@ test('incomplete restore or upgrade never restarts services', () => temporary(as
   const job = Object.assign(Object.create(ctl.Installation.prototype), fakeInstall(root)); job.compose = () => assert.fail('compose called');
   for (const phase of ['upgrading','upgrade_failed','restoring','restore_failed']) { ctl.atomic(job.intent, { kind: ctl.KIND, phase }); await assert.rejects(job.recover()); }
 }));
-test('operation lock excludes concurrent maintenance and is released normally', () => temporary(async root => {
+test('operation lock excludes concurrent maintenance and is released normally', { skip: process.platform !== 'linux' && 'Linux deployment lock' }, () => temporary(async root => {
   const lock = path.join(root, 'lock'), unlock = await ctl.operationLock(lock);
   await assert.rejects(ctl.operationLock(lock), /operation_in_progress/); await unlock(); await (await ctl.operationLock(lock))();
 }));
-test('killing an operator releases its kernel lock without deleting a lock file', () => temporary(async root => {
+test('killing an operator releases its kernel lock without deleting a lock file', { skip: process.platform !== 'linux' && 'Linux deployment lock' }, () => temporary(async root => {
   const module = pathToFileURL(path.resolve('deploy/agent/lib/system.mjs')).href, lock = path.join(root, 'lock');
   const child = spawn(process.execPath, ['--input-type=module','-e',`import {operationLock} from ${JSON.stringify(module)}; await operationLock(${JSON.stringify(lock)}); console.log('ready'); await new Promise(r=>setTimeout(r,60000));`], { stdio: ['ignore','pipe','pipe'] }); child.stderr.resume();
   const done = new Promise(r => child.once('close', r));

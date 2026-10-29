@@ -77,3 +77,17 @@ test('anonymous verification refuses extra services and replaced infrastructure'
   const refs={...Object.fromEntries(Object.keys(publisher.NAMES).map(n=>[n,'ghcr.io/example/image@sha256:'+'a'.repeat(64)])),...INFRA};
   for(const images of [{...refs,extra:'untrusted:latest'},{...refs,mongo:'untrusted:latest'}])await assert.rejects(publisher.verifyPublic({images}));
 });
+test('anonymous verification pulls all six images on both platforms with an empty Docker config', async () => {
+  const images = { ...Object.fromEntries(Object.keys(publisher.NAMES).map(n => [n, 'ghcr.io/example/' + n + '@sha256:' + 'a'.repeat(64)])), ...INFRA };
+  const calls = []; let config;
+  const before = process.env.DOCKER_HOST; process.env.DOCKER_HOST = 'unix:///var/run/docker.sock';
+  try {
+    const result = await publisher.verifyPublic({ version: 'v1.0.0', platforms: ['linux/amd64', 'linux/arm64'], images }, async args => {
+      calls.push(args); config = args[2]; assert.equal(args[1], '--config');
+      assert.deepEqual(fs.readdirSync(config), []); assert.deepEqual(args.slice(3, 6), ['--host', 'unix:///var/run/docker.sock', 'pull']);
+    }, { manifest: async (repository, digest) => [digest, {}] });
+    assert.equal(result.anonymousPullVerified, true); assert.equal(calls.length, 12);
+    for (const ref of Object.values(images)) assert.deepEqual(calls.filter(c => c.at(-1) === ref).map(c => c.at(-2)), ['linux/amd64', 'linux/arm64']);
+    assert.ok(!fs.existsSync(config));
+  } finally { if (before === undefined) delete process.env.DOCKER_HOST; else process.env.DOCKER_HOST = before; }
+});
