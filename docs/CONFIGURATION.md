@@ -116,6 +116,8 @@ node /srv/my-agent/agentctl.mjs --directory /srv/my-agent doctor
 
 `apply` 先备份，再重建容器加载配置。不要手改生成的 `.env`、`nginx.conf` 或容器内 `/tmp/agent/librechat.yaml`；它们会重新生成。SMTP 配置需通过 `mail-test` 后启用找回密码，见 [运维](OPERATIONS.md)。
 
+当前版本的 `model.name` 用于首次创建 Agent；已有实例的启动检查要求它与数据库中 Agent 的模型一致，直接修改会导致初始化失败。现阶段可以轮换 API key 或更新同一模型的 API 地址，但尚未提供已有实例切换模型的管理流程。部署前确定模型名称；误改后恢复原名称再应用配置，不要删除数据库绕过检查。
+
 Git/GHCR 的发布授权独立于以上文件。构建无需业务密钥，发布使用 Docker 已有登录；CI 可用 `GITHUB_TOKEN` 登录 Docker。不要把发布 Token 加入 `secrets.env` 或安装包。
 
 ## Cloudflare 配置边界
