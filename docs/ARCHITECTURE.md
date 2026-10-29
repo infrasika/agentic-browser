@@ -40,7 +40,7 @@ MongoDB 保存 LibreChat 账号、密码摘要、聊天、个人 credits、全�
 
 ## 部署
 
-原域名站点与用户私有部署统一使用完整 Agent Compose，见 [安装](../deploy/agent/INSTALL.md)。宿主 Nginx 将域名转到 gateway 的回环端口；Mongo、Redis、浏览器状态与应用文件绑定安装目录的 `data/`，重建容器保留数据。配置和密钥只保存在安装目录的 `config/`，运维统一由 `agentctl.py` 执行。当前测试服务器路径与备份策略见 [DEPLOYMENT.md](DEPLOYMENT.md)。
+原域名站点与用户私有部署统一使用完整 Agent Compose，见 [安装](../deploy/agent/INSTALL.md)。宿主 Nginx 将域名转到 gateway 的回环端口；Mongo、Redis、浏览器状态与应用文件绑定安装目录的 `data/`，重建容器保留数据。配置和密钥只保存在安装目录的 `config/`，运维统一由 `agentctl.mjs` 执行。当前测试服务器路径与备份策略见 [DEPLOYMENT.md](DEPLOYMENT.md)。
 
 官方公网安装路径统一为 Cloudflare DNS/代理 → 宿主 HTTPS Nginx（Full strict）→ Compose gateway，公开注册使用 Turnstile。这样统一入口模板和验收，不给应用增加 Cloudflare DNS/证书管理 SDK、Tunnel 服务或另一套 Compose。关闭注册只是本地账号系统的策略开关，保留自用和隔离验收能力。
 

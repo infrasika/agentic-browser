@@ -1,10 +1,10 @@
 # 配置文件与容器的对应关系
 
-配置在**部署时**读取，不在构建时写入镜像。安装目录由 `agentctl.py --directory` 指定，日常维护其中的 `config/settings.json` 与 `config/secrets.env`。
+配置在**部署时**读取，不在构建时写入镜像。安装目录由 `agentctl.mjs --directory` 指定，日常维护其中的 `config/settings.json` 与 `config/secrets.env`。
 
 源码仓库根目录不需要 `.env`。管理工具只读取所选安装目录中的 `.env`；本机 `.deployment/` 不进入 Git 或镜像，Mac 构建也不依赖它。
 
-构建时只需要版本、目标架构和公共依赖；发布时使用独立的 Docker/GHCR 登录。Qwen key、模型名称、域名和邮件设置在目标机器执行 `init` 后填写。同一组镜像可以供多个部署者使用各自的配置，无需为每个 key 重新 build。Mac 与 Ubuntu 的统一命令见源码仓库的 `deploy/agent/RELEASING.md`；部署发行包不包含维护者构建工具。
+构建时只需要版本、目标架构和公共依赖；发布时使用独立的 Docker/GHCR 登录。Qwen key、模型名称、域名和邮件设置在目标机器执行 `init` 后填写。同一组镜像可以供多个部署者使用各自的配置，无需为每个 key 重新 build。Mac 与 Ubuntu 的统一命令见源码仓库的 `BUILD.md`；部署发行包不包含维护者构建工具。
 
 例如安装到 `/srv/my-agent`，文件位置如下：
 
@@ -75,8 +75,8 @@
 编辑配置文件后，在任务空闲时执行已安装的管理工具：
 
 ```bash
-python3 /srv/my-agent/agentctl.py --directory /srv/my-agent apply
-python3 /srv/my-agent/agentctl.py --directory /srv/my-agent doctor
+node /srv/my-agent/agentctl.mjs --directory /srv/my-agent apply
+node /srv/my-agent/agentctl.mjs --directory /srv/my-agent doctor
 ```
 
 `apply` 先备份，再重建容器加载配置。不要手改生成的 `.env`、`nginx.conf` 或容器内 `/tmp/agent/librechat.yaml`；它们会重新生成。SMTP 配置需通过 `mail-test` 后启用找回密码，见 [运维](OPERATIONS.md)。

@@ -11,7 +11,8 @@ No private fork, sibling checkout or source handoff archive is required. The bui
 To work on LibreChat, prepare a new development checkout:
 
 ```bash
-python3 scripts/build/prepare-librechat.py --output output/sources/librechat
+npm ci
+npm run source:prepare -- --output output/sources/librechat
 cd output/sources/librechat
 npm ci
 ```
@@ -21,22 +22,23 @@ The upstream commit is HEAD; our patch is staged. Make and test changes in that 
 Record the complete customization against the pinned upstream after staging changes:
 
 ```bash
-python3 - <<'PY'
-import hashlib, json, subprocess
-from pathlib import Path
-integration = Path('integrations/librechat')
-source = Path('output/sources/librechat')
-lock = json.loads((integration / 'source.lock.json').read_text())
-def git(*args):
-    return subprocess.check_output(['git', '-C', str(source), *args])
-assert git('rev-parse', 'HEAD').decode().strip() == lock['commit']
-assert not git('diff', '--name-only'), 'Stage reviewed changes first'
-patch = git('diff', '--cached', '--binary', '--full-index', 'HEAD')
-(integration / 'customizations.patch').write_bytes(patch)
-lock['patchSha256'] = hashlib.sha256(patch).hexdigest()
-lock['tree'] = git('write-tree').decode().strip()
-(integration / 'source.lock.json').write_text(json.dumps(lock, indent=2) + '\n')
-PY
+node --input-type=module <<'NODE'
+import fs from 'node:fs';
+import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
+const integration = 'integrations/librechat';
+const source = 'output/sources/librechat';
+const lock = JSON.parse(fs.readFileSync(`${integration}/source.lock.json`, 'utf8'));
+const git = (...args) => execFileSync('git', ['-C', source, ...args], { maxBuffer: 64 * 1024 * 1024 });
+assert.equal(git('rev-parse', 'HEAD').toString().trim(), lock.commit);
+assert.equal(git('diff', '--name-only').toString(), '', 'Stage reviewed changes first');
+const patch = git('diff', '--cached', '--binary', '--full-index', 'HEAD');
+fs.writeFileSync(`${integration}/customizations.patch`, patch);
+lock.patchSha256 = createHash('sha256').update(patch).digest('hex');
+lock.tree = git('write-tree').toString().trim();
+fs.writeFileSync(`${integration}/source.lock.json`, JSON.stringify(lock, null, 2) + '\n');
+NODE
 ```
 
 Review the resulting main-repository diff, verify it by preparing another fresh checkout, then commit the patch and lock together. Do not add `.env`, deployment config, logs or generated frontend output. Upstream upgrades must explicitly change the base commit and revalidate the patch, license, API contract and application tests.

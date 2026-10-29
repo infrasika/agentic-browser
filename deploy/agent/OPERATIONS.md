@@ -1,6 +1,6 @@
 # 私有 Agent 运维
 
-使用 `agentctl.py` 管理一个完整 Agent 实例，应用只在镜像里运行；宿主需要与镜像架构匹配的 Linux、Python 3、Docker Engine 26+ 和 Compose v2/v5。当前 rc.6 已在测试服务器部署，完整 Agent 镜像尚未发布到 GHCR。每个安装目录对应独立的 Compose project；迁移已有站点需停写、导入数据、核对后再切换域名。
+使用 `agentctl.mjs` 管理一个完整 Agent 实例，应用只在镜像里运行；宿主需要与镜像架构匹配的 Linux、Node.js 24+、flock（util-linux）、Docker Engine 26+ 和 Compose v2/v5。当前 rc.6 已在测试服务器部署，完整 Agent 镜像尚未发布到 GHCR。每个安装目录对应独立的 Compose project；迁移已有站点需停写、导入数据、核对后再切换域名。
 
 ## 安装后的配置与数据
 
@@ -15,14 +15,14 @@
 `.env` 由工具从 settings 自动生成，不需要手动同步 origin/容量。修改运行中的 settings 或 secrets 后，等待任务空闲并运行 `apply`：先备份、停止写入，再加载新配置；不会重置已有密码或发放 credits。管理面板内保存的日预算优先于首次 YAML 默认值。
 
 ```bash
-python3 agentctl.py --directory /srv/my-agent apply
+node agentctl.mjs --directory /srv/my-agent apply
 ```
 
 ## 普通账号与密码恢复
 
 ```bash
-python3 agentctl.py --directory /srv/my-agent user-create
-python3 agentctl.py --directory /srv/my-agent user-reset
+node agentctl.mjs --directory /srv/my-agent user-create
+node agentctl.mjs --directory /srv/my-agent user-reset
 ```
 
 命令交互输入邮箱，创建时还输入显示名/用户名；密码使用隐藏输入且要求重复确认。重复创建返回 `already_exists`，不修改原密码和余额。新账号始终是普通用户，使用原生注册路径领取一次初始额度。
@@ -46,8 +46,8 @@ python3 agentctl.py --directory /srv/my-agent user-reset
 在 `secrets.env` 填写 `SMTP_PASSWORD`。支持隐式 TLS 或强制 STARTTLS（通常为 587）；验证服务端证书，不提供关闭证书验证的开关。用户名/密码必须成对提供；受控无认证 SMTP 可同时留空。发信域名认证仍由邮件供应商管理。
 
 ```bash
-python3 agentctl.py --directory /srv/my-agent mail-test --to your-address@example.org
-python3 agentctl.py --directory /srv/my-agent apply
+node agentctl.mjs --directory /srv/my-agent mail-test --to your-address@example.org
+node agentctl.mjs --directory /srv/my-agent apply
 ```
 
 `mail-test` 只向指定地址发送一封配置测试邮件；SMTP 接受后保存与域名、SMTP 配置和凭据绑定的验证收据，`apply` 后启用原生 Forgot Password。修改这些配置后旧收据失效，找回入口关闭，需重新测试。SMTP 接受不等于到达收件箱，部署者仍需核对收件。未配置邮件时可使用服务器侧恢复命令。
@@ -55,8 +55,8 @@ python3 agentctl.py --directory /srv/my-agent apply
 ## 备份与恢复
 
 ```bash
-python3 agentctl.py --directory /srv/my-agent backup
-python3 agentctl.py --directory /srv/my-agent verify-backup /srv/my-agent/backups/BACKUP_NAME
+node agentctl.mjs --directory /srv/my-agent backup
+node agentctl.mjs --directory /srv/my-agent verify-backup /srv/my-agent/backups/BACKUP_NAME
 ```
 
 有运行、排队、人工接管、未确认事件或未清理 runtime 时会延后，不终止用户任务。空闲时入口进入维护状态并排空已进入应用的请求，再停止 Agent、Browser、Redis 和 Mongo 写入。归档包括六个数据卷、配置/密钥、Compose 和固定镜像清单；每个文件有 SHA-256，完整验证后才去掉 `.pending` 标记。备份结束先恢复健康，再解除维护。
@@ -68,14 +68,14 @@ python3 agentctl.py --directory /srv/my-agent verify-backup /srv/my-agent/backup
 以安装目录的所有者运行（不要用 root 替代该用户）：
 
 ```bash
-python3 /srv/my-agent/agentctl.py --directory /srv/my-agent schedule --timezone Asia/Shanghai --hour 4 --keep 7 --retry-minutes 60
+node /srv/my-agent/agentctl.mjs --directory /srv/my-agent schedule --timezone Asia/Shanghai --hour 4 --keep 7 --retry-minutes 60
 ```
 
 命令生成私密的 `config/backup.json` 和 `state/systemd/` 下的两个 systemd unit，不修改其他实例。由服务器管理员将输出目录内的 `.service` 和 `.timer` 用 `sudo systemctl link` 链接，再 `sudo systemctl enable --now TIMER_NAME` 启用。服务显式以安装目录所属 UID/GID 运行，备份进程不使用 root，且该用户本身须有 Docker 访问权限。系统定时器不依赖 SSH 登录或用户服务管理器缓存的组列表，开机后会继续检查；不支持 systemd 的宿主可由自己的调度器每分钟调用 `maintain`。
 
 ```bash
-python3 /srv/my-agent/agentctl.py --directory /srv/my-agent maintain
-python3 /srv/my-agent/agentctl.py --directory /srv/my-agent maintenance-status
+node /srv/my-agent/agentctl.mjs --directory /srv/my-agent maintain
+node /srv/my-agent/agentctl.mjs --directory /srv/my-agent maintenance-status
 ```
 
 定时器每分钟检查中断恢复；每天按指定时区从设定小时开始尝试备份。任务运行或人工接管期间延后，按 `retry-minutes` 重试；成功后同一个当地日期不重复备份。系统错过运行时间后会在下一次检查补做。所有维护操作共用实例锁，互不并行。
@@ -84,14 +84,14 @@ python3 /srv/my-agent/agentctl.py --directory /srv/my-agent maintenance-status
 
 可加 `--copy-to /mnt/backup/agent-copies`，将每份备份校验后原子复制到另一个预先创建的 0700 目录，再轮转；复制失败只重试同一份快照，不重复停服务。路径可指向受控的加密磁盘或远程挂载目录，目录所有者须与实例一致。工具不会自动配置存储账号、加密或挂载；远程挂载应由宿主保证可用并禁止掉线后写入本地挂载点。本机目录副本不构成异地灾备。未提供目标时只有本地备份。
 
-备份包含调度策略供审计，但恢复出的新实例不会继承定时器、复制目标或自动开启备份；验收后重新执行 `schedule`。升级时从新候选包运行 `agentctl.py ... upgrade`，成功后更新安装目录的管理工具；现有定时器会使用新工具。
+备份包含调度策略供审计，但恢复出的新实例不会继承定时器、复制目标或自动开启备份；验收后重新执行 `schedule`。升级时从新候选包运行 `agentctl.mjs ... upgrade`，成功后更新安装目录的管理工具；当前 Node 定时器会使用新工具；若从旧版管理工具升级，或 Node 安装路径变化，需重新执行 `schedule` 并重新加载 systemd 单元。
 
 恢复**只允许新的安装目录和新 project/数据卷**：
 
 ```bash
-python3 agentctl.py --directory /srv/restored-agent restore /srv/my-agent/backups/BACKUP_NAME --port 3334
+node agentctl.mjs --directory /srv/restored-agent restore /srv/my-agent/backups/BACKUP_NAME --port 3334
 # 查看恢复配置后启动
-python3 agentctl.py --directory /srv/restored-agent recover
+node agentctl.mjs --directory /srv/restored-agent recover
 ```
 
 恢复采用当前安装器的目录挂载模板，目标数据只落在新目录；不会复用源目录或源代理信任地址。恢复先验证摘要、路径与条目类型，拒绝符号链接及活跃 runtime 记录。保留账号/密码/聊天/credits/预算，生成新的 Browser instance ID，避免接管原实例容器。默认改为新回环 origin、关闭注册和 Turnstile，旧邮件收据因 origin 改变而失效；先停在未运行状态供核对配置，不自动重放网页操作。切换回正式域名及验证 SMTP 后再开放访问。
@@ -99,11 +99,11 @@ python3 agentctl.py --directory /srv/restored-agent recover
 ## 升级与中断处理
 
 ```bash
-python3 agentctl.py --directory /srv/my-agent upgrade --release next-release.json
+node agentctl.mjs --directory /srv/my-agent upgrade --release next-release.json
 ```
 
 当前支持相同 Compose 拓扑的版本升级。先检查并准备固定镜像，空闲时生成升级前备份，再同步新版包的 Compose 模板并启动新版本，健康通过后解除维护；保留账号、配置和密钥。`compose.yaml` 由发行包管理，直接修改会在升级时被替换，旧副本保存在升级前备份中。升级失败保留维护状态与备份路径，不自动把旧程序连接到可能已迁移的新数据库。用升级前备份恢复到一个新实例，验收后再切换入口。
 
-普通备份被中断时，`state/operation.json` 保留恢复意图；执行 `recover` 恢复服务。未完成的 restore 或失败升级会拒绝直接解除维护。`SIGTERM` 尽力恢复普通备份；进程被强杀或宿主断电后，已启用的定时器会尝试恢复普通备份，否则手动 `recover`。升级失败必须从升级前备份恢复到新实例，不要手工删除维护标记来绕过失败状态。
+普通备份被中断时，`state/operation.json` 保留恢复意图；执行 `recover` 恢复服务。未完成的 restore 或失败升级会拒绝直接解除维护。进程被终止、强杀或宿主断电后，已启用的定时器会尝试恢复普通备份，否则手动 `recover`。升级失败必须从升级前备份恢复到新实例，不要手工删除维护标记来绕过失败状态。
 
 诊断仅输出状态和汇总。必要时在安装目录运行 `docker compose ps` / `docker compose logs` 查看本机详情；日志和备份不应上传公共 issue。当前没有一键销毁或覆盖恢复命令。

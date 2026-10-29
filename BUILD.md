@@ -1,8 +1,8 @@
 # 从同一份源码构建、发布和部署完整 Agent
 
-Mac（Intel / Apple Silicon）和 Ubuntu 使用同一个仓库、同一套 Python/Buildx 命令。构建目标是 `linux/amd64` 与 `linux/arm64`，不是 macOS 镜像。源码移交包、相邻 LibreChat 仓库、服务器 `.deployment/` 和根目录 `.env` 都不属于构建依赖。
+Mac（Intel / Apple Silicon）和 Ubuntu 使用同一个仓库、同一套 Node.js/npm/Buildx 命令。构建目标是 `linux/amd64` 与 `linux/arm64`，不是 macOS 镜像。源码移交包、相邻 LibreChat 仓库、服务器 `.deployment/` 和根目录 `.env` 都不属于构建依赖。
 
-当前站点仍运行已经验收的 rc.6。新构建流程与新镜像的验证状态见 [进度](../../docs/plans/PROGRESS.md)。按维护者要求，Ubuntu 不执行 GHCR 上传或 Git push；以下发布操作由维护者执行。文中的 GHCR 地址不代表已经上线。
+当前站点仍运行已经验收的 rc.6。新构建流程与新镜像的验证状态见 [进度](docs/plans/PROGRESS.md)。按维护者要求，Ubuntu 不执行 GHCR 上传或 Git push；以下发布操作由维护者执行。文中的 GHCR 地址不代表已经上线。
 
 ## 构建、发布、部署分别需要什么
 
@@ -12,20 +12,23 @@ Mac（Intel / Apple Silicon）和 Ubuntu 使用同一个仓库、同一套 Pytho
 | 发布 GHCR | 完成构建的镜像及报告、版本号、GHCR namespace、Docker 已有登录 | 所有站点业务密钥 |
 | 部署实例 | 固定镜像清单、安装目录；`init` 生成 `config/` 后填写模型及站点配置 | 源码和构建缓存 |
 
-例如，同一镜像可以部署在两个域名，分别配置不同 Qwen key、预算和数据库。换模型密钥不需要重建镜像；更改程序代码才需要重建。配置挂载细节见 [CONFIGURATION.md](CONFIGURATION.md)。
+例如，同一镜像可以部署在两个域名，分别配置不同 Qwen key、预算和数据库。换模型密钥不需要重建镜像；更改程序代码才需要重建。配置挂载细节见 [CONFIGURATION.md](deploy/agent/CONFIGURATION.md)。
 
 ## 一次 clone 即可构建
 
-构建机需要 Git、Python 3.12+、Docker Engine 28+ 与 Buildx；Mac 使用运行中的 Docker Desktop。打包需要 Docker API 1.49+ 的按平台 inspect/save 能力。代码测试另需 Node 24。构建器默认限制为 2 CPU / 5 GiB，Docker VM 应留出额外内存和至少 30 GiB 可用空间。
+构建机需要 Node.js 24+（含 npm）、Git、系统 tar、Docker Engine 28+ 与 Buildx；Mac 使用运行中的 Docker Desktop。打包需要 Docker API 1.49+ 的按平台 inspect/save 能力。无需在宿主安装 Python；开发、构建、发布和验收共用 Node.js。构建器默认限制为 2 CPU / 5 GiB，Docker VM 应留出额外内存和至少 30 GiB 可用空间。
 
-先将所需源码提交推送到主仓库，再在 Mac 或 Ubuntu clone 同一分支。私有 Git 仓库的读取权限与 Docker 的 GHCR 发布权限分别管理。
+先将所需源码提交并同步到主仓库，再在 Mac 或 Ubuntu clone 同一分支。私有 Git 仓库的读取权限与 Docker 的 GHCR 发布权限分别管理。
 
 ```bash
 git clone --branch codex/librechat-integration https://github.com/infrasika/agentic-browser.git
 cd agentic-browser
-python3 scripts/build/build-agent-images.py --run --committed \
+npm ci
+npm run build:agent -- --committed \
   --platforms linux/amd64,linux/arm64 --tag v0.2.0-rc.7
 ```
+
+`npm run <命令> -- <参数>` 中的 `--` 把后面的参数传给脚本。`build:agent` 已包含 `--run`，无需再写一次；`publish:agent` 默认只预检，上传仍需显式 `--run`。
 
 版本号是示例，实际发布应使用新的固定版本。`--committed` 只读取 Git 对象；本地改动先提交。开发时可省略它，但工作区构建不能发布。
 
@@ -46,7 +49,6 @@ python3 scripts/build/build-agent-images.py --run --committed \
 npm ci
 npm run check
 npm test
-npm run test:python
 ```
 
 每个架构的构建报告应为 `passed: true`，且三镜像完整。构建成功只证明镜像可以生成；完整运行验收需在对应架构的原生 Linux 主机完成，包含登录、模型调用、Chrome 沙箱、扩展和接管恢复。Mac 可作为构建机，当前安装器仍面向 Linux 主机。
@@ -65,8 +67,9 @@ npm run test:python
 先预检（替换为本次构建目录，不读取凭据、不访问 registry）：
 
 ```bash
-python3 scripts/build/publish-agent-images.py \
-  --build-report output/build/build-EXAMPLE/amd64/report.json output/build/build-EXAMPLE/arm64/report.json \
+npm run publish:agent -- \
+  --build-report output/build/build-EXAMPLE/amd64/report.json \
+  --build-report output/build/build-EXAMPLE/arm64/report.json \
   --version v0.2.0-rc.7 --namespace infrasika
 ```
 
@@ -83,7 +86,7 @@ python3 scripts/build/publish-agent-images.py \
 新 package 默认私有。需要公开分发时在 GitHub Packages 设置可见性，再验证两种架构的匿名拉取：
 
 ```bash
-python3 scripts/build/publish-agent-images.py \
+npm run publish:agent -- \
   --verify-public output/agent/ghcr/v0.2.0-rc.7/release.json
 ```
 
@@ -92,15 +95,34 @@ python3 scripts/build/publish-agent-images.py \
 安装包按目标架构生成，使用对应的报告；同一个 registry 版本标签包含两种架构。
 
 ```bash
-python3 scripts/build/package-agent.py \
+npm run package:agent -- \
   --build-report output/build/build-EXAMPLE/amd64/report.json \
   --version v0.2.0-rc.7 \
   --release output/agent/ghcr/v0.2.0-rc.7/release.json \
   --output output/agent/releases/v0.2.0-rc.7-amd64
 ```
 
-ARM 包改用 `arm64/report.json` 与另一输出目录。不传 `--release` 则生成包含六镜像归档的离线候选包；传入时生成轻量包、固定清单和安装工具。所有工具/文档来自 Git HEAD 白名单，不包含任何部署目录。打包不发布镜像或更改站点。
+ARM 包改用 `arm64/report.json` 与另一输出目录。不传 `--release` 则生成包含六镜像归档的离线候选包；传入时生成轻量包、固定清单和安装工具。Node 管理工具与依赖编译成独立文件，并附带 `LICENSES/TOOLS.txt`；部署者无需源码或 `npm install`。所有工具/文档来自 Git HEAD 白名单，不包含任何部署目录。打包不发布镜像或更改站点。
 
-将匹配架构的安装包放到 Linux 服务器，按 [INSTALL.md](INSTALL.md) 校验、`init`、填写 `config/settings.json` 与 `config/secrets.env`、`up`、`doctor`。宿主数据位于安装目录 `data/`；生成的 `.env` 只用于 Compose 插值。升级和备份见 [OPERATIONS.md](OPERATIONS.md)。
+将匹配架构的安装包放到 Linux 服务器，按 [INSTALL.md](deploy/agent/INSTALL.md) 校验、`init`、填写 `config/settings.json` 与 `config/secrets.env`、`up`、`doctor`。宿主数据位于安装目录 `data/`；生成的 `.env` 只用于 Compose 插值。升级和备份见 [OPERATIONS.md](deploy/agent/OPERATIONS.md)。
 
 独立新服务器、原生 ARM64 全流程、真实版本升级/恢复、匿名下载与拉取均应记录到版本验收结果；已有 amd64 rc.6 验收不能代替新构建的证据。可用 `.github/workflows/accept-agent-bundle.yml` 在干净 runner 验收可信候选包，工作流准备好不代表已经执行。
+
+## npm 命令与工具职责
+
+第一次 clone 或锁文件更新后执行 `npm ci`；不要在 Mac 与 Ubuntu 之间复制 `node_modules`。依赖版本固定在同一份 `package-lock.json`。
+
+| 命令 | 用途及额外参数示例 |
+| --- | --- |
+| `npm run source:prepare -- --output output/sources/librechat` | 获取并验证上游与补丁，供修改 LibreChat；完整镜像构建会自动执行 |
+| `npm run runtime:fetch -- --arch arm64` | 下载并核对该架构的 Chrome、扩展；无需 dpkg |
+| `npm run build:agent -- --committed --platforms linux/amd64 --tag v0.2.0-rc.7` | 构建完整三镜像；可用 `--component agent` 单独调试组件，部分报告不能发布 |
+| `npm run publish:agent -- --help` | 双架构预检、GHCR 发布与匿名拉取验证 |
+| `npm run package:agent -- --help` | 从已提交源码编译管理工具，打包已构建镜像，不重建应用 |
+| `npm run agent -- --help` | 在源码环境使用安装、配置、账号、备份和恢复工具；管理实际实例需传 `--directory` |
+| `npm run accept:bundle -- --bundle /absolute/bundle --work /absolute/new-test-directory` | 只使用发行包验收临时实例，不使用真实模型 |
+| `npm run check` / `npm test` | TypeScript 检查、应用及工具链回归测试；`npm run test:tools` 可单跑工具测试 |
+
+`scripts/build/*.mjs` 是源码准备、资源下载、镜像构建/发布和打包工具；`deploy/agent/*.mjs` 是部署运维工具；`test/tooling/*.test.mjs` 验证这些行为，`test/acceptance/` 做真实 Docker/浏览器验收。`bundle-tools.mjs` 是发行打包器内部的 esbuild 入口，无需单独运行。项目已移除自有 Python 脚本和 Python 测试。
+
+`deploy/agent/agent.Dockerfile` 的 builder 阶段仍安装 Python、make 和 g++，用于上游 npm 原生依赖的 node-gyp 编译，由 Docker 自动准备。它不构成宿主 Python 环境或第二套项目脚本。部署宿主使用 Node.js 24+、Docker 和 Linux 自带的 `flock`；定时备份记录 Node 可执行文件的绝对路径，升级 Node 后如路径改变需重新生成并加载调度单元。

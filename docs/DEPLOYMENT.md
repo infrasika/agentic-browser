@@ -61,6 +61,8 @@ systemctl list-timers agentic-backup-agent-75a6bb6859e4.timer
 
 当前安装为已验收的 `v0.2.0-rc.6` 六镜像清单：三个应用镜像完整构建于 Browser 仓库 `a17ea73` / LibreChat `0d7ee88`，包内安装器来自 `ad65b08`。完整候选包保存在 `output/agent/releases/v0.2.0-rc.6/`，并已用仅含 Python/Docker 的 PATH 通过安装与故障恢复验收。
 
-日常配置用安装目录的 `agentctl.py ... apply`；版本升级从新包运行 `agentctl.py ... upgrade`。故障恢复使用当前安装的备份，不使用退役站点的数据库快照。
+当前 rc.6 安装目录仍携带当时的 Python 管理工具，以上命令仅适用于该已运行实例；本轮未升级或重启它。源码和新发行包已经统一为 Node.js 24+，入口为 `agentctl.mjs`，见 [构建说明](../BUILD.md)。升级到新包后使用 Node 入口，并重新生成、加载备份定时器。
+
+当前站点日常配置仍用安装目录的 `agentctl.py ... apply`。故障恢复使用当前安装的备份，不使用退役站点的数据库快照。
 
 实际升级证据见 `output/agent/rc6-site-upgrade.json`，各项验收状态统一见 [PROGRESS.md](plans/PROGRESS.md)。

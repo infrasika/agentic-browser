@@ -14,7 +14,7 @@ The public site includes the Agent and model. You do not need an external MCP cl
 
 ## Deploy the complete Agent
 
-The self-hosting target is a versioned bundle and prebuilt images, with only Python and Docker on the host. It includes:
+The self-hosting target is a versioned bundle and prebuilt images, with Node.js 24+, Docker and Linux flock on the host. It includes:
 
 - LibreChat: chat, local accounts, native Agent tools, credits and a site budget.
 - Browser Service: per-user sessions, queueing, live display, control handoff and Chrome lifecycle.
@@ -24,13 +24,13 @@ The [self-hosting guide](deploy/agent/INSTALL.md) walks through server prerequis
 
 Registration stays closed until you enable it. Local users, credits and browser isolation use the same application in both modes; there is no second deployment stack. SMTP password recovery is optional, with Cloudflare Email Sending documented as one provider. Closed registration and local SSH testing remain available without Cloudflare or OAuth.
 
-**Current status: Linux amd64 installation candidate.** Same-host installation, real-browser and recovery checks have been established with no host Node on PATH; source changes must pass those checks again before a new candidate is accepted. Independent new-server acceptance and public Agent image publication are pending. Candidate bundles can include all six fixed images for transfer to a test server.
+**Current status: Linux amd64 installation candidate.** Same-host installation, real-browser and recovery checks have been established using packaged management tools; source changes must pass those checks again before a new candidate is accepted. Independent new-server acceptance and public Agent image publication are pending. Candidate bundles can include all six fixed images for transfer to a test server.
 
 Data lives in the installation’s `data/` directories, mounted into the database and application containers. The current test domain runs this complete Compose layout; its operator runbook is [here](docs/DEPLOYMENT.md).
 
-See [installation](deploy/agent/INSTALL.md), [operations](deploy/agent/OPERATIONS.md), and [release preparation](deploy/agent/RELEASING.md). Start with one browser and validate capacity on your own host. Linux amd64 is the supported target.
+See [installation](deploy/agent/INSTALL.md), [operations](deploy/agent/OPERATIONS.md), and [release preparation](BUILD.md). Start with one browser and validate capacity on your own host. Linux amd64 is the supported target.
 
-Maintainers can build Linux amd64 and arm64 images from this one repository on Mac or Ubuntu. The [build and GHCR guide](deploy/agent/RELEASING.md) covers pinned LibreChat source, locked browser assets, Docker/Keychain credentials and multi-platform GHCR tags. Native ARM64 deployment and Mac execution require separate acceptance. [Configuration](deploy/agent/CONFIGURATION.md) explains the installation's `config/` directory, Compose secrets and generated `.env`.
+Maintainers can build Linux amd64 and arm64 images from this one repository on Mac or Ubuntu. The [build and GHCR guide](BUILD.md) covers pinned LibreChat source, locked browser assets, Docker/Keychain credentials and multi-platform GHCR tags. Native ARM64 deployment and Mac execution require separate acceptance. [Configuration](deploy/agent/CONFIGURATION.md) explains the installation's `config/` directory, Compose secrets and generated `.env`.
 
 ## Project boundaries
 
@@ -45,7 +45,7 @@ The Agent calls Browser Service over a private authenticated interface. Browser 
 
 The deployment administrator controls the host and stored data. The configured cloud model receives prompts and tool results. During human control, Agent browser actions and observation are suspended; after you return control the Agent can read the signed-in page.
 
-[Architecture](docs/ARCHITECTURE.md) and [development plan](docs/plans/DEVELOPMENT.md) describe the implementation and acceptance boundaries. Build and test commands are in [deploy/agent/README.md](deploy/agent/README.md). End users do not need the source checkouts or host Node.js.
+[Architecture](docs/ARCHITECTURE.md) and [development plan](docs/plans/DEVELOPMENT.md) describe the implementation and acceptance boundaries. Build and test commands are in [deploy/agent/README.md](deploy/agent/README.md). Deployers need Node.js 24+ and Docker, but no source checkout, Python or npm dependency installation.
 
 ## Repository layout
 

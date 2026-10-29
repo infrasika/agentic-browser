@@ -1,8 +1,8 @@
 # 在自己的服务器上部署 Agentic Browser
 
-本指南面向部署者：从一台 Linux 服务器开始，安装完整聊天 Agent、远程浏览器、本地账号、credits 和全站预算。无需另外安装 LibreChat 或 MCP，也不需要在服务器安装 Node.js。
+本指南面向部署者：从一台 Linux 服务器开始，安装完整聊天 Agent、远程浏览器、本地账号、credits 和全站预算。无需另外安装 LibreChat 或 MCP，管理工具统一使用 Node.js 24+，无需 Python 或 npm 依赖安装。
 
-**分发状态：当前仍是安装候选版本，完整 Agent 镜像和安装包尚未公开发布。** 以下使用已取得的可信发行包；`vX.Y.Z`、`agent.example.com` 和邮箱必须换成自己的值。不要直接拉取未发布的 GHCR 地址。自行构建见源码仓库的 `deploy/agent/RELEASING.md`，Mac 和 Ubuntu 共用同一套构建命令，部署不依赖构建机密钥。目前完整流程已在 Linux amd64 验收，原生 arm64 和独立新服务器验收待完成。
+**分发状态：当前仍是安装候选版本，完整 Agent 镜像和安装包尚未公开发布。** 以下使用已取得的可信发行包；`vX.Y.Z`、`agent.example.com` 和邮箱必须换成自己的值。不要直接拉取未发布的 GHCR 地址。自行构建见源码仓库的 `BUILD.md`，Mac 和 Ubuntu 共用同一套构建命令，部署不依赖构建机密钥。目前完整流程已在 Linux amd64 验收，原生 arm64 和独立新服务器验收待完成。
 
 ## 1. 准备服务器、域名与账号
 
@@ -18,7 +18,7 @@
 | --- | --- |
 | Linux 服务器 | 与安装包匹配的 amd64 或 arm64；建议从 4 vCPU、8 GiB 内存、30 GiB 可用磁盘、1 个浏览器开始，另外留出备份空间 |
 | CPU | amd64 需 AVX；arm64 需 ARMv8.2-A 或更高，见 [MongoDB 要求](https://www.mongodb.com/docs/manual/administration/production-notes/#platform-support) |
-| 宿主软件 | Python 3.10+、Docker Engine 26+、Compose v2/v5、Nginx；Docker 使用系统 `/var/run/docker.sock`，不使用 rootless 或远程 daemon |
+| 宿主软件 | Node.js 24+、flock（util-linux）、Docker Engine 26+、Compose v2/v5、Nginx；Docker 使用系统 `/var/run/docker.sock`，不使用 rootless 或远程 daemon |
 | 系统用户 | 固定一个有 Docker 权限的普通用户管理安装目录；之后的 `agentctl` 也用这个用户运行 |
 | 域名和 Cloudflare | 官方公网流程要求 Cloudflare 账号、已接入其 DNS 的域名、代理记录及 Turnstile widget |
 | 模型账号 | Qwen 可用 API key、对应区域的模型 ID、兼容 API base URL、输入/输出费率 |
@@ -26,12 +26,12 @@
 
 Cloudflare 是官方公网流程的前置条件，不参与构建。Turnstile 有免费方案，也可独立于 Cloudflare DNS 使用；本指南统一入口是为了减少部署组合，并非 Turnstile 的技术限制。[Turnstile 方案](https://developers.cloudflare.com/turnstile/plans/)
 
-Ubuntu 按 [Docker 官方步骤](https://docs.docker.com/engine/install/ubuntu/) 安装 Engine 和 Compose plugin，再安装宿主工具：
+先按 [Node.js 官方安装说明](https://nodejs.org/en/download) 安装 Node.js 24 或更新的受支持版本（使用稳定安装路径，供 systemd 定时器调用）。Ubuntu 按 [Docker 官方步骤](https://docs.docker.com/engine/install/ubuntu/) 安装 Engine 和 Compose plugin，再安装宿主工具：
 
 ```bash
 sudo apt update
-sudo apt install -y python3 nginx ca-certificates curl nano
-python3 --version
+sudo apt install -y util-linux nginx ca-certificates curl nano
+node --version
 docker --host unix:///var/run/docker.sock version
 docker --host unix:///var/run/docker.sock compose version
 ```
@@ -60,25 +60,25 @@ AGENT_VERSION='vX.Y.Z'
 sha256sum -c SHA256SUMS
 tar -xzf "agentic-browser-agent-${AGENT_VERSION}.tar.gz"
 cd "agentic-browser-agent-${AGENT_VERSION}"
-python3 bundle.py verify
+node bundle.mjs verify
 ```
 
 `BUILD.json` 记录架构、源码和镜像身份，`release.json` 固定六个镜像。不要修改包内文件或放入个人配置，校验器会拒绝多余文件。安装数据单独放置：
 
 ```bash
 AGENT_DIR="$HOME/my-agent"
-python3 agentctl.py --directory "$AGENT_DIR" init --release release.json --port 3333
+node agentctl.mjs --directory "$AGENT_DIR" init --release release.json --port 3333
 ```
 
 上述适用于 registry digest 包，会拉取固定镜像。公开 GHCR 镜像不需登录；私有镜像需部署用户先配置 Docker 登录。
 
-**若收到含 `images.tar.gz` 的离线候选包**，先执行 `python3 bundle.py load-images`，再在上述 `init` 命令末尾加 `--development`，允许本机 image ID。不要先普通 `init` 再重复初始化。离线导入不表示模型和网站能离线工作；按发行说明匹配镜像存储格式，旧 rc.6 包要求 containerd image store。
+**若收到含 `images.tar.gz` 的离线候选包**，先执行 `node bundle.mjs load-images`，再在上述 `init` 命令末尾加 `--development`，允许本机 image ID。不要先普通 `init` 再重复初始化。离线导入不表示模型和网站能离线工作；按发行说明匹配镜像存储格式。
 
 `AGENT_DIR` 必须是不存在的新目录，安装器拒绝覆盖。初始化不需模型密钥，启动前必须配置完整。初始化后，日常使用安装目录内的工具：
 
 ```text
 ~/my-agent/
-├── agentctl.py          # 管理入口
+├── agentctl.mjs          # 管理入口
 ├── config/
 │   ├── settings.json   # 站点、模型、额度、邮件等普通参数
 │   ├── secrets.env     # 模型和登录等私密值
@@ -124,8 +124,8 @@ nano "$AGENT_DIR/config/secrets.env"
 ## 5. 首次启动并设置代理信任
 
 ```bash
-python3 "$AGENT_DIR/agentctl.py" --directory "$AGENT_DIR" up
-python3 "$AGENT_DIR/agentctl.py" --directory "$AGENT_DIR" doctor
+node "$AGENT_DIR/agentctl.mjs" --directory "$AGENT_DIR" up
+node "$AGENT_DIR/agentctl.mjs" --directory "$AGENT_DIR" doctor
 curl --fail --silent --show-error -o /dev/null -w '%{http_code}\n' \
   -H 'Host: agent.example.com' http://127.0.0.1:3333/api/config
 ```
@@ -135,7 +135,7 @@ curl --fail --silent --show-error -o /dev/null -w '%{http_code}\n' \
 Cloudflare 到宿主 Nginx 的客户端地址由模板处理。宿主 Nginx 到 gateway 还需信任本机 Docker 网桥地址，否则限流可能把访客都识别为一个代理。在标准 Linux bridge 部署中查询：
 
 ```bash
-AGENT_PROJECT=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["project"])' "$AGENT_DIR/installation.json")
+AGENT_PROJECT=$(node -p 'JSON.parse(require("node:fs").readFileSync(process.argv[1],"utf8")).project' "$AGENT_DIR/installation.json")
 docker --host unix:///var/run/docker.sock network inspect "${AGENT_PROJECT}_front" \
   --format '{{range .IPAM.Config}}{{.Gateway}}{{"\n"}}{{end}}'
 ```
@@ -143,8 +143,8 @@ docker --host unix:///var/run/docker.sock network inspect "${AGENT_PROJECT}_fron
 在 `settings.json` 顶层添加 `"trustedProxyIPs": ["实际返回的IP"]`，注意 JSON 逗号。这里信任宿主代理进入 gateway 的地址，不填 Cloudflare 网段或访客 IP。自定义 Docker 网络需核实实际来源，重建网络后重新检查。
 
 ```bash
-python3 "$AGENT_DIR/agentctl.py" --directory "$AGENT_DIR" apply
-python3 "$AGENT_DIR/agentctl.py" --directory "$AGENT_DIR" doctor
+node "$AGENT_DIR/agentctl.mjs" --directory "$AGENT_DIR" apply
+node "$AGENT_DIR/agentctl.mjs" --directory "$AGENT_DIR" doctor
 ```
 
 `apply` 先备份，再加载新配置；有任务时需等空闲。以后改配置也用它，不编辑生成的 `.env` 或 gateway 配置。
@@ -198,8 +198,8 @@ curl --fail --silent --show-error -o /dev/null -w '%{http_code}\n' \
 这是对象中的字段片段，注意与前一个字段间的逗号。`from` 必须使用已验证的发信域名。将 token 填到 `secrets.env` 的 `SMTP_PASSWORD`；`api_token` 是固定用户名。Cloudflare SMTP 用 465 隐式 TLS，不用 587/STARTTLS。[SMTP 参数](https://developers.cloudflare.com/email-service/api/send-emails/smtp/)
 
 ```bash
-python3 "$AGENT_DIR/agentctl.py" --directory "$AGENT_DIR" mail-test --to your-address@example.com
-python3 "$AGENT_DIR/agentctl.py" --directory "$AGENT_DIR" apply
+node "$AGENT_DIR/agentctl.mjs" --directory "$AGENT_DIR" mail-test --to your-address@example.com
+node "$AGENT_DIR/agentctl.mjs" --directory "$AGENT_DIR" apply
 ```
 
 先确认 `accepted: true`，再确认邮箱收到邮件。收据绑定 SMTP 配置、凭据和 origin，`apply` 后才启用 Forgot Password；改配置后需重新测试。不配置邮件时管理员仍可用 `user-reset` 恢复账号。
@@ -220,8 +220,8 @@ python3 "$AGENT_DIR/agentctl.py" --directory "$AGENT_DIR" apply
 只供自己或团队使用时保持 `closed`，交互创建用户、恢复密码。这是同一套应用的注册策略，不是另一套部署。仅本地 SSH 隧道测试可用 loopback HTTP、两把 Turnstile key 同时留空，无需 Cloudflare。
 
 ```bash
-python3 "$AGENT_DIR/agentctl.py" --directory "$AGENT_DIR" user-create
-python3 "$AGENT_DIR/agentctl.py" --directory "$AGENT_DIR" user-reset
+node "$AGENT_DIR/agentctl.mjs" --directory "$AGENT_DIR" user-create
+node "$AGENT_DIR/agentctl.mjs" --directory "$AGENT_DIR" user-reset
 ```
 
 ## 9. 备份与后续维护
@@ -229,8 +229,8 @@ python3 "$AGENT_DIR/agentctl.py" --directory "$AGENT_DIR" user-reset
 账号、聊天、额度和文件在安装目录 `data/` 中，重建容器不会清空它们；不要删除安装目录或批量清理这些卷。
 
 ```bash
-python3 "$AGENT_DIR/agentctl.py" --directory "$AGENT_DIR" backup
-python3 "$AGENT_DIR/agentctl.py" --directory "$AGENT_DIR" schedule \
+node "$AGENT_DIR/agentctl.mjs" --directory "$AGENT_DIR" backup
+node "$AGENT_DIR/agentctl.mjs" --directory "$AGENT_DIR" schedule \
   --timezone Asia/Shanghai --hour 4 --keep 7 --retry-minutes 60
 ```
 
@@ -265,6 +265,6 @@ docker --host unix:///var/run/docker.sock compose --project-directory "$AGENT_DI
 
 ## 可选：空闲测试机安装包验收
 
-在包目录运行 `python3 acceptance/verify.py --work "$HOME/agent-bundle-acceptance"`。仅依赖 Python/Docker，创建三个临时实例，使用模拟模型，真实 Chrome 访问 httpbin.org HTTP 测试页；不调用真实 LLM 或发邮件。默认占回环端口 3340/3341/3342 及约 4–6 GiB 内存，成功后清理测试容器、卷和数据，只保留报告。
+在包目录运行 `node acceptance/verify.mjs --work "$HOME/agent-bundle-acceptance"`。仅依赖 Node.js 24+、Docker 和 flock，创建三个临时实例，使用模拟模型，真实 Chrome 访问 httpbin.org HTTP 测试页；不调用真实 LLM 或发邮件。默认占回环端口 3340/3341/3342 及约 4–6 GiB 内存，成功后清理测试容器、卷和数据，只保留报告。
 
 覆盖初始化保护、普通账号和 credits、Chrome 接管恢复、备份与新实例恢复、升级流程、强杀备份恢复和错误镜像保护。它不替代你的 Cloudflare、真实模型、邮箱、原生架构或独立新主机验收。失败诊断可能含测试凭据，不公开上传。分发许可见包内 `LICENSES/` 及镜像。
