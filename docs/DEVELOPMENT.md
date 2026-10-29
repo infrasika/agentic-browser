@@ -59,6 +59,8 @@ npm test
 
 默认测试覆盖浏览器服务、调度、出口策略、部署配置和构建/运维/发行工具，不启动完整站点或调用付费模型。两项 Linux flock 测试在 Mac 跳过，在 Linux 必须通过。
 
+`.github/workflows/ci.yml` 在 push、pull request 或手动触发时，在 Ubuntu 24.04 和 macOS 14 上使用 Node.js 24 执行 `npm ci`、类型检查和上述测试。工作流只有源码读取权限，不需要部署密钥，不构建或发布镜像。CI 文件在本地提交后，需推送至 GitHub 才会运行；单元测试通过也不能替代镜像构建及完整安装验收。
+
 | 命令 | 用途 |
 | --- | --- |
 | `npm run source:prepare -- --output NEW_DIRECTORY` | 准备并验证 LibreChat 源码 |

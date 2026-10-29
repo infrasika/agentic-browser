@@ -13,11 +13,11 @@
 ```bash
 npm run package:agent -- \
   --build-report output/build/build-EXAMPLE/amd64/report.json \
-  --version v0.2.0-rc.7 \
-  --output output/agent/candidates/v0.2.0-rc.7-amd64
+  --version v0.2.0-rc.8 \
+  --output output/agent/candidates/v0.2.0-rc.8-amd64
 npm run accept:bundle -- \
-  --bundle output/agent/candidates/v0.2.0-rc.7-amd64/agentic-browser-agent-v0.2.0-rc.7 \
-  --work output/tests/bundle-v0.2.0-rc.7-amd64
+  --bundle output/agent/candidates/v0.2.0-rc.8-amd64/agentic-browser-agent-v0.2.0-rc.8 \
+  --work output/tests/bundle-v0.2.0-rc.8-amd64
 ```
 
 需要完整业务和邮件运维验收时，使用候选包的 `release.json`，按 [开发指南](DEVELOPMENT.md) 运行 `accept:agent` 和 `accept:agent-ops`。在另一台服务器验收时，先按包内 README 校验归档和导入镜像，再运行包内 `acceptance/verify.mjs`。多架构可构建不代表两种架构均已完成运行验收。
@@ -39,16 +39,16 @@ npm run accept:bundle -- \
 npm run publish:agent -- \
   --build-report output/build/build-EXAMPLE/amd64/report.json \
   --build-report output/build/build-EXAMPLE/arm64/report.json \
-  --version v0.2.0-rc.7 --namespace infrasika
+  --version v0.2.0-rc.8 --namespace infrasika
 ```
 
 验收后上传，在上面命令末尾加：
 
 ```text
---run --output output/agent/ghcr/v0.2.0-rc.7
+--run --output output/agent/ghcr/v0.2.0-rc.8
 ```
 
-工具要求两平台来自同一源码，检查镜像标签和身份，先上传带 `-amd64` / `-arm64` 的固定架构标签，再生成同一个 `v0.2.0-rc.7` 多平台标签。逐一校验实际上传的镜像与最终 index，成功后生成含六个固定 digest 的 `release.json` 及发布回执。部署时 Docker 按主机架构选取对应子镜像。
+工具要求两平台来自同一源码，检查镜像标签和身份，先上传带 `-amd64` / `-arm64` 的固定架构标签，再生成同一个 `v0.2.0-rc.8` 多平台标签。逐一校验实际上传的镜像与最终 index，成功后生成含六个固定 digest 的 `release.json` 及发布回执。部署时 Docker 按主机架构选取对应子镜像。
 
 已有版本指向不同内容时拒绝覆盖；相同内容可重试。跨仓库发布不是事务，同一 namespace 同时只允许一个发布进程。不会移动 `latest`。部分成功后请使用原镜像和报告重试，不要重建后覆盖同版本。
 
@@ -56,7 +56,7 @@ npm run publish:agent -- \
 
 ```bash
 npm run publish:agent -- \
-  --verify-public output/agent/ghcr/v0.2.0-rc.7/release.json
+  --verify-public output/agent/ghcr/v0.2.0-rc.8/release.json
 ```
 
 ## 2. 生成安装包
@@ -66,9 +66,9 @@ npm run publish:agent -- \
 ```bash
 npm run package:agent -- \
   --build-report output/build/build-EXAMPLE/amd64/report.json \
-  --version v0.2.0-rc.7 \
-  --release output/agent/ghcr/v0.2.0-rc.7/release.json \
-  --output output/agent/releases/v0.2.0-rc.7-amd64
+  --version v0.2.0-rc.8 \
+  --release output/agent/ghcr/v0.2.0-rc.8/release.json \
+  --output output/agent/releases/v0.2.0-rc.8-amd64
 ```
 
 ARM 包改用 `arm64/report.json` 与另一输出目录。不传 `--release` 则生成包含六镜像归档的离线候选包；传入时生成轻量包、固定清单和安装工具。Node 管理工具与依赖编译成独立文件，并附带 `LICENSES/TOOLS.txt`；部署者无需源码或 `npm install`。所有工具/文档来自 Git HEAD 白名单，不包含任何部署目录。打包不发布镜像或更改站点。

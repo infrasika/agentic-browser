@@ -25,7 +25,7 @@ npm ci
 npm run check
 npm test
 npm run build:agent -- --committed \
-  --platforms linux/amd64,linux/arm64 --tag v0.2.0-rc.7
+  --platforms linux/amd64,linux/arm64 --tag v0.2.0-rc.8
 ```
 
 Use a new version when preparing a release. The [build guide](docs/BUILD.md) explains prerequisites and parameters; the [release guide](docs/RELEASING.md) covers GHCR and installation bundles. See [architecture](docs/ARCHITECTURE.md) and [development](docs/DEVELOPMENT.md) for source boundaries, LibreChat changes and tests.

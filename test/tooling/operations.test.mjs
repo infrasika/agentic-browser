@@ -15,7 +15,8 @@ test('separate configuration refuses symlinks, installation overlap and existing
   fs.mkdirSync(config, { recursive: true, mode: 0o700 }); ctl.atomic(path.join(config, 'keep'), 'untouched');
   fs.symlinkSync(path.join(root, 'config'), path.join(root, 'linked'));
   assert.throws(() => ctl.configurationDirectory(install, path.join(root, 'linked/local')), /symlinks/);
-  await assert.rejects(ctl.initialize(install, 'unused-release', 3333, true, config), /configuration_directory_already_exists/);
+  const expected = process.platform === 'linux' ? /configuration_directory_already_exists/ : /supported_linux_host_required/;
+  await assert.rejects(ctl.initialize(install, 'unused-release', 3333, true, config), expected);
   assert.equal(fs.readFileSync(path.join(config, 'keep'), 'utf8'), 'untouched'); assert.ok(!fs.existsSync(install));
 }));
 test('configuration fingerprint reads only the selected private directory', () => temporary(async root => {

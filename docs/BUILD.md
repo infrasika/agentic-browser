@@ -27,7 +27,7 @@ git clone --branch codex/librechat-integration https://github.com/infrasika/agen
 cd agentic-browser
 npm ci
 npm run build:agent -- --committed \
-  --platforms linux/amd64,linux/arm64 --tag v0.2.0-rc.7
+  --platforms linux/amd64,linux/arm64 --tag v0.2.0-rc.8
 ```
 
 `npm run <命令> -- <参数>` 中的 `--` 把后面的参数传给脚本，见 [npm 参数说明](https://docs.npmjs.com/cli/v11/commands/npm-run/)。`build:agent` 已包含 `--run`，无需再写一次；`publish:agent` 默认只预检，上传仍需显式 `--run`。
