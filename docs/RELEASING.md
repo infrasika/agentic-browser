@@ -75,7 +75,18 @@ ARM 包改用 `arm64/report.json` 与另一输出目录。不传 `--release` 则
 
 将匹配架构的安装包放到 Linux 服务器，按 [部署指南](DEPLOYMENT.md) 校验、`init`、填写 `config/settings.json` 与 `config/secrets.env`、`up`、`doctor`。宿主数据位于安装目录 `data/`；生成的 `.env` 只用于 Compose 插值。升级和备份见 [运维指南](OPERATIONS.md)。
 
-独立新服务器、原生 ARM64 全流程、真实版本升级/恢复、匿名下载与拉取均应记录到版本验收结果；旧版本验收不能代替新构建的证据。可用 `.github/workflows/accept-agent-bundle.yml` 在干净 runner 验收可信候选包，工作流准备好不代表已经执行。
+独立新服务器、原生 ARM64 全流程、真实版本升级/恢复、匿名下载与拉取均应记录到版本验收结果；旧版本验收不能代替新构建的证据。
+
+## 在 GitHub 原生 runner 验收
+
+`.github/workflows/accept-agent-bundle.yml` 使用全新的 Linux runner，只下载离线候选包，不 checkout 源码、不安装 npm 依赖、不构建镜像。它调用包内同一套验收工具，使用模拟模型，保留汇总报告。
+
+1. 将工作流推送到 GitHub 默认分支，使手动运行入口可用；待验收的工作流分支可在运行时选择，参见 [手动运行工作流](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/manually-run-a-workflow)。
+2. 将**完整离线包**上传到受信任的 HTTPS 下载地址。不要传入不含镜像的 registry 轻量包；这里验证的是离线完整安装路径。
+3. 在 Actions 中选择该工作流，分别运行两次：`architecture: amd64` 对应 `ubuntu-24.04`，`architecture: arm64` 对应 `ubuntu-24.04-arm`。分别填写该架构的 `bundle_url` 和从可信发布渠道取得的 `sha256`。不要在 URL 中携带密钥或短期签名，它属于工作流输入；尚未公开的包可在受控独立主机按包内命令验收。
+4. 下载对应的 `complete-agent-candidate-acceptance-amd64` / `-arm64` artifact，核对 `host-evidence.json`、`BUILD.json`、`release.json` 和 `report.json` 的架构、源码提交、归档摘要、`passed` 与 `cleanup.passed`。
+
+工作流在导入镜像前检查宿主、Node、Docker daemon 和六个镜像的平台是否一致，拒绝把 QEMU 构建或其他架构误记为原生运行验收。两个平台各自执行，不能用其中一次成功代替另一次。runner 标签和仓库可用性见 [GitHub 官方说明](https://docs.github.com/en/actions/how-tos/write-workflows/choose-where-workflows-run/choose-the-runner-for-a-job)。工作流准备好不代表已经执行，仓库权限、Actions 配额和下载渠道需要发布者提供。
 
 ## 3. 发布下载渠道
 

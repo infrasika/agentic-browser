@@ -1,6 +1,6 @@
 # 当前状态与后续验收
 
-更新：2026-10-29。此处只记录当前交付范围、已验证版本和未完成事项，历史实现过程由 Git 保存。
+更新：2026-10-30（北京时间）。此处只记录当前交付范围、已验证版本和未完成事项，历史实现过程由 Git 保存。
 
 ## 已交付
 
@@ -27,6 +27,8 @@
 
 干净源码副本已在没有 `.deployment/`、本站密钥或已有 `node_modules` 的情况下，完成 npm 安装及独立配置初始化，记录为 `output/build/config-directory-clean-checkout.json`。新 clone 的部署流程不依赖本站运行文件或归档。
 
+发行 CI 已补齐原生 amd64 / arm64 选择及平台核对，源码 CI 覆盖 Linux 双架构和 macOS。两个工作流通过 actionlint；用实际 rc.8 双架构包完成 9 项本地流程检查，包括摘要、解压、完整性与错误架构拒绝，记录为 `output/build/native-ci-preflight.json`。这不代表 GitHub、Mac 或原生 ARM64 运行验收已经完成；既有候选包保持原样。
+
 ## 当前测试站
 
 `https://agentic-browser.zkpass.org` 运行 rc.8 镜像，运行目录为 `.deployment/agent-site/`，真实配置位于仓库根目录 `config/local/`。数据和备份保存在运行目录的 `data/`、`backups/`。每用户一个浏览器，实际放行 5、硬上限 10；新用户 200,000 credits、默认全站日预算 20,000,000 credits，管理页面保存的预算优先。
@@ -37,16 +39,15 @@
 
 ## 下一步
 
-当前功能和本机发行验证已完成。公开发行前仍有以下事项；其中模型切换是已知功能限制，其余主要是实机、外部服务和发行验证。
+当前功能和本机发行验证已完成。已有 Agent 切换模型按当前需求暂不开发，不作为本阶段交付条件；配置限制保留在 [配置说明](CONFIGURATION.md)。公开发行前主要剩余实机、外部服务和发行验证。
 
 | 工作 | 完成条件 |
 | --- | --- |
-| 远程 CI | 推送源码后核对 GitHub Ubuntu / macOS 工作流；源码测试不包含 Mac Docker 构建 |
+| 远程 CI | 推送源码后核对 GitHub Ubuntu amd64 / arm64、macOS 工作流；当前 GitHub 连接无法访问仓库，尚未运行。源码测试不包含 Mac Docker 构建 |
 | Mac / 原生 ARM64 | 在 Mac 实机执行源码构建；在原生 ARM64 Linux 完成安装和运行验收，QEMU 构建不能替代 |
-| 独立主机 | 新 Linux amd64 主机或干净 CI runner 完成候选包安装/恢复；已提供 `.github/workflows/accept-agent-bundle.yml`，尚未执行 |
+| 独立主机 | 新 Linux 主机或干净 CI runner 完成候选包安装/恢复；`.github/workflows/accept-agent-bundle.yml` 已提供 amd64 / arm64 原生 runner 选择和平台核对，尚未远程执行 |
 | 公开发行 | 维护者确认项目主许可证；按当前约定在 Mac 发布 GHCR 与安装包，验证匿名下载和拉取。仓库目前保留第三方许可，尚无项目主许可证 |
-| 公网安装 | 为本站配置源站证书和 Cloudflare Full (strict)，再核对公网全链路；候选版自动验收不替代真实模型、Turnstile 和收件验收 |
-| 已有实例切换模型 | 目前启动时会核对已创建 Agent 的模型绑定，直接修改 `model.name` 会拒绝启动；需实现保留账号、权限及额度的模型变更流程，再单独验收 |
+| 公网安装 | 当前测试站暂缓源站 TLS 变更，沿用现有入口；新用户公网部署指南仍使用 Full (strict)。正式开放前核对源站证书及公网全链路，已有覆盖该域名的 Origin CA 证书可复用 |
 | 运维演练 | 配置受控异地备份并跨机恢复；在维护窗口验证整机重启；数据库升级时单独验证实际跨版本迁移 |
 
 本机隔离验收不等于独立主机，目录副本不等于异地备份，进程强杀不等于整机断电。公开分发与运行范围应以对应版本的验收证据为准。
