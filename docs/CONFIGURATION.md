@@ -33,6 +33,8 @@ npm run agent -- --directory "$AGENT_DIR" doctor
 
 `init` 生成真实 `settings.json`、`secrets.env` 和 `browser-token`，权限为目录 0700、文件 0600。**编辑生成的文件，不用空示例覆盖它们**，否则会丢掉自动生成的管理员密码和登录/加密密钥。新建安装使用自己的密钥；运行中的实例升级保留原密钥。
 
+服务器的 `config/local/` 还可能包含 `nginx.conf`（启动或应用配置时生成）、`backup.json`（`schedule` 生成的备份策略）、`smtp-verified.json`（`mail-test` 成功后生成的验证收据）。这些文件不需要手工补齐或上传 Git；新安装通过对应命令生成自己的文件。Mac 仅构建和发布时，整个 `config/local/` 都无需存在，以上 Linux 初始化命令也不需要执行。
+
 必须由你填写的是模型 API key、模型名称/地址/费率和管理员邮箱；公网部署还需域名和 Turnstile 公私钥，启用 SMTP 时填写发信参数与凭据。管理员初始密码、JWT、加密密钥和内部浏览器 token 自动生成，下面的字段表说明每项用途。
 
 仓库 `config/` 提交两份公开示例；真实配置统一放 `config/local/` 并被 Git 忽略。`.deployment/` 仅保存本机生成的运行文件、数据和备份，新 clone 无需复制它。安装器、Compose 模板、初始化逻辑和示例均由 Git 提供，`init` 会自动生成实例所需文件。根目录无需额外 `.env.example`。

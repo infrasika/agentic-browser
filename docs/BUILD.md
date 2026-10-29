@@ -16,6 +16,8 @@ Mac（Intel / Apple Silicon）和 Ubuntu 使用同一个仓库、同一套 Node.
 
 clone 后的 `config/settings.example.json` 和 `config/secrets.env.example` 可用于查看部署参数；构建时保持示例原样即可。真实文件由部署时的 `init` 生成，不从构建机传入镜像。
 
+**Mac 上 clone 后没有 `config/local/` 是正常的。** 只做构建、打包或发布时，不用创建该目录、不用复制服务器的配置，也不用运行 `agent init`。下面的构建命令可以直接执行。当前完整 Agent 安装器仅支持 Linux；要启动并体验整套服务，请在目标 Linux 服务器或 Linux 虚拟机上初始化和填写配置。Mac 的构建支持不等于 macOS 原生部署支持。
+
 ## 一次 clone 即可构建
 
 构建机需要 Node.js 24+（含 npm）、Git、系统 tar、Docker Engine 28+ 与 Buildx；Mac 使用运行中的 Docker Desktop。打包需要 Docker API 1.49+ 的按平台 inspect/save 能力。无需在宿主安装 Python；开发、构建、发布和验收共用 Node.js。构建器默认限制为 2 CPU / 5 GiB，Docker VM 应留出额外内存和至少 30 GiB 可用空间。
