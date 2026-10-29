@@ -7,6 +7,29 @@ import { pathToFileURL } from 'node:url';
 import * as ctl from '../../deploy/agent/agentctl.mjs';
 import { sleep } from '../../deploy/agent/lib/system.mjs';
 import { temporary, backupFixture, fakeInstall } from './fixtures.mjs';
+test('separate configuration refuses symlinks, installation overlap and existing initialization targets', () => temporary(async root => {
+  const install = path.join(root, 'install'), config = path.join(root, 'config/local');
+  assert.equal(ctl.configurationDirectory(install, config), config);
+  assert.equal(ctl.configurationDirectory(install), path.join(install, 'config'));
+  for (const bad of [root, install, path.join(install, 'data'), path.join(install, 'state'), 'relative', config + ':ro']) assert.throws(() => ctl.configurationDirectory(install, bad));
+  fs.mkdirSync(config, { recursive: true, mode: 0o700 }); ctl.atomic(path.join(config, 'keep'), 'untouched');
+  fs.symlinkSync(path.join(root, 'config'), path.join(root, 'linked'));
+  assert.throws(() => ctl.configurationDirectory(install, path.join(root, 'linked/local')), /symlinks/);
+  await assert.rejects(ctl.initialize(install, 'unused-release', 3333, true, config), /configuration_directory_already_exists/);
+  assert.equal(fs.readFileSync(path.join(config, 'keep'), 'utf8'), 'untouched'); assert.ok(!fs.existsSync(install));
+}));
+test('configuration fingerprint reads only the selected private directory', () => temporary(async root => {
+  const installRoot = path.join(root, 'install'), fixture = fakeInstall(installRoot), config = path.join(root, 'config');
+  fs.mkdirSync(config, { mode: 0o700 });
+  const job = Object.assign(Object.create(ctl.Installation.prototype), fixture, { configDirectory: config });
+  ctl.atomic(path.join(config, 'settings.json'), { name: 'selected' });
+  const first = await job.fingerprint();
+  ctl.atomic(path.join(installRoot, 'config/settings.json'), { name: 'unused' }); assert.deepEqual(await job.fingerprint(), first);
+  ctl.atomic(path.join(config, 'settings.json'), { name: 'changed' }); assert.notDeepEqual(await job.fingerprint(), first);
+  fs.rmSync(config, { recursive: true });
+  ctl.atomic(path.join(installRoot, 'installation.json'), { kind: ctl.KIND, project: 'agent-0123456789ab', uid: process.getuid(), gid: process.getgid(), configDirectory: config });
+  assert.throws(() => new ctl.Installation(installRoot));
+}));
 test('storage is isolated and missing/symlinked data never starts an empty database', () => temporary(async root => {
   for (const n of ['first', 'restored']) fs.mkdirSync(path.join(root, n), { mode: 0o700 });
   const first = ctl.storageDirectory(path.join(root, 'first'), true), second = ctl.storageDirectory(path.join(root, 'restored'), true);

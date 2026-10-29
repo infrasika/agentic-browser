@@ -27,14 +27,15 @@ Agentic Browser 是包含聊天、远程浏览器、本地账号和额度管理�
 | `integrations/librechat/` | 固定上游提交、定制补丁和上游许可证 | 是 |
 | `runtime/` | Chrome Dockerfile、扩展安装器、资源锁、沙箱及许可证 | 是 |
 | `deploy/agent/` | Compose / Nginx 模板、应用启动配置、Node 运维工具 | 是 |
-| `config/*.example.*` | 公开配置字段示例，不填写真实密钥；实际文件由安装器生成 | 是 |
+| `config/*.example.*` | 公开配置字段示例，不填写真实密钥 | 是 |
+| `config/local/` | 源码部署的真实参数、密钥、邮件收据和备份策略，由安装器生成 | 否 |
 | `scripts/build/` | 源码准备、下载、镜像构建、发布和打包 | 是 |
 | `scripts/sync-browser-contract.mjs` | 同步两端浏览器 API 协议 | 是 |
 | `test/` | 单元测试；`tooling/` 验证工具，`acceptance/` 执行完整验收 | 是 |
 | `docs/` | 所有维护中的指南与状态说明 | 是 |
 | `output/` | 下载缓存、构建日志、候选包及验收记录 | 否 |
-| `.deployment/` | 本机安装、私密配置、站点数据和恢复归档 | 否 |
+| `.deployment/` | 自动生成的运行文件、站点数据、备份和恢复归档；不是源码依赖 | 否 |
 
 根目录 `README.md` 是仓库入口。许可原文保留在对应组件目录。安装包的 `README.md`、`CONFIGURATION.md` 和 `OPERATIONS.md` 由这里的部署、配置和运维文档生成，不另外维护副本。
 
-`.deployment/` 不影响其他机器构建。已安装实例的 `data/` 和 `backups/` 需要保留；`output/` 中经过验收的发行包也可能用于恢复，清理时应按具体产物判断。浏览器调试工具生成的 `.playwright-cli/` 不是运行依赖。
+新 clone 使用源码工具与公开示例初始化，不需要 `.deployment/` 中的任何文件。历史备份可能包含当时的配置快照，恢复归档不作为日常配置入口。已安装实例的 `data/` 和 `backups/` 需要保留；`output/` 中经过验收的发行包也可能用于恢复，清理时应按具体产物判断。浏览器调试工具生成的 `.playwright-cli/` 不是运行依赖。

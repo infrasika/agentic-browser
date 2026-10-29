@@ -8,6 +8,12 @@ import { prepare } from './prepare-librechat.mjs';
 import { fetchAssets } from './fetch-runtime-assets.mjs';
 import { argumentsFor, cli, digest, exists, Failure, id, json, mainModule, run, walk } from '../../deploy/agent/lib/system.mjs';
 export const ROOT = path.resolve(import.meta.dirname, '../..');
+function publicSourcePaths(files) {
+  for (const relative of files) {
+    if (relative.split('/').some(p => ['.git', 'node_modules', '.deployment', '.data', 'output'].includes(p)) || relative.startsWith('config/') && !['config/settings.example.json', 'config/secrets.env.example'].includes(relative)) throw new Failure('Private/generated path is tracked; refusing build context');
+  }
+  return files;
+}
 export function platforms(value) {
   const items = value.split(',');
   if (new Set(items).size !== items.length || items.some(p => !['linux/amd64', 'linux/arm64'].includes(p))) throw new Failure('Use linux/amd64, linux/arm64 or both, without duplicates');
@@ -22,8 +28,7 @@ function readableDirectories(target) {
 }
 export async function checkout(source, target) {
   fs.mkdirSync(target);
-  for (const relative of (await run(['git', 'ls-files', '-z'], { cwd: source })).split('\0').filter(Boolean)) {
-    if (relative.split('/').some(p => ['.git', 'node_modules', '.deployment', '.data', 'output'].includes(p))) throw new Failure('Private/generated path is tracked; refusing build context');
+  for (const relative of publicSourcePaths((await run(['git', 'ls-files', '-z'], { cwd: source })).split('\0').filter(Boolean))) {
     const original = path.join(source, relative), dest = path.join(target, relative);
     if (!exists(original)) continue;
     fs.mkdirSync(path.dirname(dest), { recursive: true });
@@ -33,6 +38,7 @@ export async function checkout(source, target) {
   readableDirectories(target);
 }
 export async function committedCheckout(source, target, revision) {
+  publicSourcePaths((await run(['git', 'ls-tree', '-r', '-z', '--name-only', revision], { cwd: source })).split('\0').filter(Boolean));
   fs.mkdirSync(target);
   const data = await run(['git', 'archive', revision], { cwd: source, binary: true, maxBuffer: 128 * 1024 * 1024 });
   await pipeline(Readable.from([data]), tar.x({ cwd: target, strict: true, preservePaths: false }));

@@ -76,7 +76,7 @@ node agentctl.mjs --directory "$AGENT_DIR" init --release release.json --port 33
 
 **若收到含 `images.tar.gz` 的离线候选包**，先执行 `node bundle.mjs load-images`，再在上述 `init` 命令末尾加 `--development`，允许本机 image ID。不要先普通 `init` 再重复初始化。离线导入不表示模型和网站能离线工作；按发行说明匹配镜像存储格式。
 
-`AGENT_DIR` 必须是不存在的新目录，安装器拒绝覆盖。初始化不需模型密钥，启动前必须配置完整。初始化后，日常使用安装目录内的工具：
+`AGENT_DIR` 必须是不存在的新目录，安装器拒绝覆盖。若希望配置与运行目录分开，在 `init` 增加 `--config-directory /absolute/path/to/config/local`，该目录也必须不存在。之后编辑这个独立目录内的配置；路径已记录在实例元数据，无需在每个命令重复传入。源码部署推荐使用仓库 `config/local/`，详细步骤见 [配置指南](CONFIGURATION.md)。初始化不需模型密钥，启动前必须配置完整。初始化后，日常使用安装目录内的工具：
 
 ```text
 ~/my-agent/

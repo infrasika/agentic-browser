@@ -4,7 +4,7 @@
 
 ## 安装后的配置与数据
 
-首次部署按安装指南执行（源码中为 `docs/DEPLOYMENT.md`，发行包中为 `README.md`），其中集中维护软件准备、Cloudflare、初始化、密钥填写和公网验收步骤。本手册以 `/srv/my-agent` 为示例安装目录，使用时换成自己选择的路径，例如 `$HOME/my-agent`。
+首次部署按安装指南执行（源码中为 `docs/DEPLOYMENT.md`，发行包中为 `README.md`），其中集中维护软件准备、Cloudflare、初始化、密钥填写和公网验收步骤。本手册以 `/srv/my-agent` 为示例运行目录，使用时换成自己选择的路径。真实配置目录由 `installation.json` 的 `configDirectory` 记录；源码部署使用根目录 `config/local/`，未显式指定时默认为运行目录下的 `config/`。
 
 版本清单固定六个镜像，普通模式只接受 registry digest。默认入口仅监听 `127.0.0.1:3333`，数据库和 Browser 控制 API 不发布公网。配置字段及挂载关系见 [CONFIGURATION.md](CONFIGURATION.md)。
 
@@ -59,7 +59,7 @@ node /srv/my-agent/agentctl.mjs --directory /srv/my-agent backup
 node /srv/my-agent/agentctl.mjs --directory /srv/my-agent verify-backup /srv/my-agent/backups/BACKUP_NAME
 ```
 
-有运行、排队、人工接管、未确认事件或未清理 runtime 时会延后，不终止用户任务。空闲时入口进入维护状态并排空已进入应用的请求，再停止 Agent、Browser、Redis 和 Mongo 写入。归档包括六个数据卷、配置/密钥、Compose 和固定镜像清单；每个文件有 SHA-256，完整验证后才去掉 `.pending` 标记。备份结束先恢复健康，再解除维护。
+有运行、排队、人工接管、未确认事件或未清理 runtime 时会延后，不终止用户任务。空闲时入口进入维护状态并排空已进入应用的请求，再停止 Agent、Browser、Redis 和 Mongo 写入。归档包括六个数据卷、所选配置目录的配置/密钥、Compose 和固定镜像清单；每个文件有 SHA-256，完整验证后才去掉 `.pending` 标记。备份结束先恢复健康，再解除维护。
 
 这是停写后的完整数据卷快照，恢复要求相同数值 UID/GID、匹配的固定镜像及安装格式 v1 的 Compose 拓扑；不支持跨 Mongo 大版本转换。归档包含密钥、账号和聊天，目录/文件权限为 0700/0600，应使用受控存储。镜像本身、外层 HTTPS 代理/证书、手工额外挂载文件不在备份内；使用本机镜像时需另外保留对应镜像（候选包的 images.tar.gz 包含六个安装镜像）。
 
@@ -71,7 +71,7 @@ node /srv/my-agent/agentctl.mjs --directory /srv/my-agent verify-backup /srv/my-
 node /srv/my-agent/agentctl.mjs --directory /srv/my-agent schedule --timezone Asia/Shanghai --hour 4 --keep 7 --retry-minutes 60
 ```
 
-命令生成私密的 `config/backup.json` 和 `state/systemd/` 下的两个 systemd unit，不修改其他实例。由服务器管理员将输出目录内的 `.service` 和 `.timer` 用 `sudo systemctl link` 链接，再 `sudo systemctl enable --now TIMER_NAME` 启用。服务显式以安装目录所属 UID/GID 运行，备份进程不使用 root，且该用户本身须有 Docker 访问权限。系统定时器不依赖 SSH 登录或用户服务管理器缓存的组列表，开机后会继续检查；不支持 systemd 的宿主可由自己的调度器每分钟调用 `maintain`。
+命令在所选配置目录生成私密的 `backup.json`，在运行目录的 `state/systemd/` 生成两个 systemd unit，不修改其他实例。由服务器管理员将输出目录内的 `.service` 和 `.timer` 用 `sudo systemctl link` 链接，再 `sudo systemctl enable --now TIMER_NAME` 启用。服务显式以安装目录所属 UID/GID 运行，备份进程不使用 root，且该用户本身须有 Docker 访问权限。系统定时器不依赖 SSH 登录或用户服务管理器缓存的组列表，开机后会继续检查；不支持 systemd 的宿主可由自己的调度器每分钟调用 `maintain`。
 
 ```bash
 node /srv/my-agent/agentctl.mjs --directory /srv/my-agent maintain
@@ -93,6 +93,8 @@ node /srv/my-agent/agentctl.mjs --directory /srv/restored-agent restore /srv/my-
 # 查看恢复配置后启动
 node /srv/restored-agent/agentctl.mjs --directory /srv/restored-agent recover
 ```
+
+恢复可增加 `--config-directory /absolute/path/to/config/restored` 指定新的独立配置目录。运行目录和配置目录都拒绝覆盖已有路径；不会沿用备份源的配置路径。
 
 恢复采用当前安装器的目录挂载模板，目标数据只落在新目录；不会复用源目录或源代理信任地址。恢复先验证摘要、路径与条目类型，拒绝符号链接及活跃 runtime 记录。保留账号/密码/聊天/credits/预算，生成新的 Browser instance ID，避免接管原实例容器。默认改为新回环 origin、关闭注册和 Turnstile，旧邮件收据因 origin 改变而失效；先停在未运行状态供核对配置，不自动重放网页操作。切换回正式域名及验证 SMTP 后再开放访问。
 

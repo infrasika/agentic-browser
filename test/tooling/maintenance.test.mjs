@@ -46,6 +46,17 @@ test('schedule emits private Node systemd units without enabling them', () => te
   const timer=path.join(result.unitDirectory,result.timer), service=fs.readFileSync(timer.replace(/\.timer$/,'.service'),'utf8');
   assert.match(fs.readFileSync(timer,'utf8'),/Persistent=true/); assert.equal(fs.statSync(timer).mode&0o777,0o600); assert.match(service,new RegExp('User='+process.getuid())); assert.match(service,/agentctl\.mjs/); assert.doesNotMatch(service,/python|sudo/); assert.ok(fs.existsSync(path.join(root,'agentctl.mjs')));
 }));
+test('external configuration owns backup policy and cannot be used as a replica target', () => temporary(async root => {
+  const { install, policy } = fixture(path.join(root, 'install')), config = path.join(root, 'config');
+  fs.renameSync(install.configDirectory, config); install.configDirectory = config;
+  assert.equal(job.status(install).configured, true);
+  const result = await job.configure(install, { timezone: 'UTC' });
+  assert.ok(fs.existsSync(path.join(config, 'backup.json'))); assert.ok(!fs.existsSync(path.join(install.root, 'config')));
+  const service = fs.readFileSync(path.join(result.unitDirectory, result.timer.replace(/\.timer$/, '.service')), 'utf8');
+  assert.ok(service.includes(job.unitQuote(config)));
+  fs.mkdirSync(path.join(config, 'copies'), { mode: 0o700 });
+  for (const dest of [config, path.join(config, 'copies'), root]) assert.throws(() => job.validate({ ...policy, copyTo: dest }, install.root, config));
+}));
 test('invalid policy, nested/symlink copy roots and invalid time zones fail', () => temporary(async root => {
   const {policy}=fixture(root); fs.mkdirSync(path.join(root,'replica'),{mode:0o700});
   for(const changes of [{hour:24},{keep:0},{retryMinutes:true},{timeZone:'../UTC'},{copyTo:path.join(root,'replica')},{copyTo:path.dirname(root)}]) assert.throws(()=>job.validate({...policy,...changes},root));

@@ -8,7 +8,7 @@ import { resolve } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { Installation } from '../../deploy/agent/agentctl.mjs';
 if(!process.argv.includes('--run')) { console.log('Usage: node test/acceptance/accept-agent-operations.mjs --run --release release.json [--hold]');process.exit(0); }
-const root=resolve(import.meta.dirname,'../..'), id=randomUUID(), work=resolve(root,'output/tests/operations',id), directory=work+'/install', restored=work+'/restored';
+const root=resolve(import.meta.dirname,'../..'), id=randomUUID(), work=resolve(root,'output/tests/operations',id), directory=work+'/install', restored=work+'/restored', configDirectory=work+'/config/source', restoredConfig=work+'/config/restored';
 const report={id,passed:false,stage:'preflight',checks:[],callsPaidModel:false}, exec=promisify(execFile);
 const command=async(cmd,args,options={})=>(await exec(cmd,args,{cwd:root,timeout:300000,maxBuffer:6*1024*1024,...options})).stdout.trim();
 const cliPath=resolve(root,'deploy/agent/agentctl.mjs');
@@ -29,19 +29,19 @@ try {
   const releaseManifest=await acceptanceRelease(), images=releaseManifest.images;
   report.images=images;
   const release=await inputFile('release.json',releaseManifest);
-  report.stage='installer';await cli(['init','--release',release,'--port','3335','--development']);
+  report.stage='installer';await cli(['init','--release',release,'--port','3335','--development','--config-directory',configDirectory]);
   project=JSON.parse(await readFile(directory+'/installation.json')).project;
-  const beforeSecrets=await readFile(directory+'/config/secrets.env','utf8');
-  await assert.rejects(cli(['init','--release',release,'--port','3335','--development']));assert.equal(await readFile(directory+'/config/secrets.env','utf8'),beforeSecrets);
+  const beforeSecrets=await readFile(configDirectory+'/secrets.env','utf8');
+  await assert.rejects(cli(['init','--release',release,'--port','3335','--development']));assert.equal(await readFile(configDirectory+'/secrets.env','utf8'),beforeSecrets);
   await assert.rejects(cli(['up']));
-  const settings=JSON.parse(await readFile(directory+'/config/settings.json'));
+  const settings=JSON.parse(await readFile(configDirectory+'/settings.json'));
   Object.assign(settings,{adminEmail:'operator-admin@example.test',model:{name:'selfhost-fixture',baseURL:'http://fixture:9000/v1',promptRate:.276,completionRate:1.101},smtp:{host:'fixture',port:2525,encryption:'tls',from:'agent@example.test',username:''}});
-  await writeFile(directory+'/config/settings.json',JSON.stringify(settings),{mode:0o600});
-  await writeFile(directory+'/config/secrets.env',beforeSecrets.replace('QWEN_API_KEY=','QWEN_API_KEY=fixture-no-cloud'),{mode:0o600});
-  const secrets=parseEnv(await readFile(directory+'/config/secrets.env','utf8'));
+  await writeFile(configDirectory+'/settings.json',JSON.stringify(settings),{mode:0o600});
+  await writeFile(configDirectory+'/secrets.env',beforeSecrets.replace('QWEN_API_KEY=','QWEN_API_KEY=fixture-no-cloud'),{mode:0o600});
+  const secrets=parseEnv(await readFile(configDirectory+'/secrets.env','utf8'));
   // A test-only trusted CA for the local TLS mail sink. No insecure TLS setting.
   await command('openssl',['req','-x509','-newkey','rsa:2048','-nodes','-days','1','-subj','/CN=fixture','-addext','subjectAltName=DNS:fixture','-keyout',work+'/mail.key','-out',work+'/mail.crt']);
-  await cp(work+'/mail.crt',directory+'/config/test-ca.pem');
+  await cp(work+'/mail.crt',configDirectory+'/test-ca.pem');
   let yaml=await readFile(directory+'/compose.yaml','utf8');yaml=yaml.replace('  agent:\n','  agent:\n    environment:\n      NODE_EXTRA_CA_CERTS: /config/test-ca.pem\n');await writeFile(directory+'/compose.yaml',yaml,{mode:0o600});
   // Render before starting the fixture on the install-owned network.
   await new Installation(directory).render();
@@ -50,7 +50,10 @@ try {
   await writeFile(work+'/fixture.mjs',"import './model-fixture.mjs'; import './mail-fixture.mjs';\n",{mode:0o600});
   await command('docker',['run','-d','--name',project+'-fixture','--network',project+'_front','--network-alias','fixture','--read-only','--user',`${process.getuid()}:${process.getgid()}`,'--cap-drop=ALL','--security-opt=no-new-privileges','--memory=192m','--cpus=.5','-v',work+':/fixtures:ro','--entrypoint=node',images.agent,'/fixtures/fixture.mjs']);
   await cli(['up']);instance=await compose(['exec','-T','browser','cat','/data/runtimes/instance-id']);
-  report.checks.push('installer_requires_configuration_preserves_secrets_and_generates_env_from_settings');
+  const generated=JSON.parse(await readFile(directory+'/installation.json'));assert.equal(generated.configDirectory,configDirectory);
+  const mounts=JSON.parse(await compose(['config','--format','json']));assert.equal(mounts.secrets.agent.file,configDirectory+'/secrets.env');assert.equal(mounts.services.agent.volumes.find(v=>v.target==='/config').source,configDirectory);
+  await assert.rejects(cli(['init','--release',release,'--port','3337','--development','--config-directory',configDirectory],work+'/duplicate'));
+  report.checks.push('external_configuration_is_mounted_and_backed_up_without_sharing_or_overwriting_other_instances');
   report.stage='account_commands';
   const user={email:'operator-user@example.test',name:'Operator User',username:'operator-user',password:'Synthetic-Password-2026!'};
   const userInput=await inputFile('user-input.json',user);
@@ -99,11 +102,11 @@ try {
   const original=await dbSnapshot();assert.ok(original.find(c=>c.name==='sitebudgets').rows.length>0);assert.ok((await call('/api/demo-admin',{token:adminToken})).spentCredits>0);const backup=(await cli(['backup'])).backup;
   assert.equal((await cli(['verify-backup',backup])).verified,true);
   assert.equal((await cli(['doctor'])).healthy,true);
-  await cli(['restore',backup,'--port','3336','--development'],restored);
+  await cli(['restore',backup,'--port','3336','--development','--config-directory',restoredConfig],restored);
   cloneProject=JSON.parse(await readFile(restored+'/installation.json')).project;
   await command('docker',['network','connect','--alias','fixture',cloneProject+'_front',project+'-fixture']);
   // Disable the copied test SMTP profile; restored origin intentionally invalidates receipt.
-  const cloneSettings=JSON.parse(await readFile(restored+'/config/settings.json'));delete cloneSettings.smtp;await writeFile(restored+'/config/settings.json',JSON.stringify(cloneSettings),{mode:0o600});
+  const cloneSettings=JSON.parse(await readFile(restoredConfig+'/settings.json'));delete cloneSettings.smtp;await writeFile(restoredConfig+'/settings.json',JSON.stringify(cloneSettings),{mode:0o600});
   await cli(['recover'],restored);cloneInstance=await compose(['exec','-T','browser','cat','/data/runtimes/instance-id'],restored);assert.notEqual(cloneInstance,instance);
   assert.deepEqual(await dbSnapshot(restored),original);
   const cloneToken=await login(user.email,reset.password,'http://127.0.0.1:3336');assert.deepEqual(await call('/api/balance',{token:cloneToken,base:'http://127.0.0.1:3336'}),balance);

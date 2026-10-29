@@ -4,30 +4,30 @@ import { id } from './lib/system.mjs';
 import * as ctl from './agentctl.mjs';
 export const POLICY = 'agentic-browser-backup-policy-v1';
 const NAME = /^\d{8}T\d{6}Z-[a-f0-9]{8}$/;
-export function validate(value, root) {
+export function validate(value, root, configDirectory = path.join(root, 'config')) {
   if (Object.keys(value).sort().join(',') !== 'copyTo,hour,keep,kind,retryMinutes,timeZone' || value.kind !== POLICY) throw new ctl.Failure('invalid_backup_policy');
   for (const [key, low, high] of [['hour', 0, 23], ['keep', 1, 365], ['retryMinutes', 1, 1440]]) if (!Number.isInteger(value[key]) || value[key] < low || value[key] > high) throw new ctl.Failure('invalid_backup_policy');
   try { new Intl.DateTimeFormat('en', { timeZone: value.timeZone }).format(); } catch { throw new ctl.Failure('invalid_backup_timezone'); }
   if (typeof value.timeZone !== 'string') throw new ctl.Failure('invalid_backup_timezone');
   if (value.copyTo !== null) {
     const dest = value.copyTo;
-    if (typeof dest !== 'string' || !path.isAbsolute(dest) || fs.realpathSync(dest) !== dest || dest === root || dest.startsWith(root + path.sep) || root.startsWith(dest + path.sep)) throw new ctl.Failure('backup_copy_requires_separate_absolute_directory');
+    if (typeof dest !== 'string' || !path.isAbsolute(dest) || fs.realpathSync(dest) !== dest || [root, configDirectory].some(source => dest === source || dest.startsWith(source + path.sep) || source.startsWith(dest + path.sep))) throw new ctl.Failure('backup_copy_requires_separate_absolute_directory');
   }
   return value;
 }
 export function status(install) {
-  const policy = path.join(install.root, 'config/backup.json'), state = path.join(install.root, 'state/backup-status.json');
-  return { configured: ctl.exists(policy), policy: ctl.exists(policy) ? validate(ctl.readPrivate(policy), install.root) : null, state: ctl.exists(state) ? ctl.readPrivate(state) : {}, maintenancePending: ctl.exists(install.intent) || ctl.exists(install.gate) };
+  const policy = path.join(install.configDirectory, 'backup.json'), state = path.join(install.root, 'state/backup-status.json');
+  return { configured: ctl.exists(policy), policy: ctl.exists(policy) ? validate(ctl.readPrivate(policy), install.root, install.configDirectory) : null, state: ctl.exists(state) ? ctl.readPrivate(state) : {}, maintenancePending: ctl.exists(install.intent) || ctl.exists(install.gate) };
 }
 export function unitQuote(value) { return JSON.stringify(String(value).replaceAll('%', '%%').replaceAll('$', '$$')); }
 export async function configure(install, args) {
-  const policy = validate({ kind: POLICY, timeZone: args.timezone ?? 'UTC', hour: Number(args.hour ?? 4), keep: Number(args.keep ?? 7), retryMinutes: Number(args['retry-minutes'] ?? 60), copyTo: args['copy-to'] ? path.resolve(args['copy-to']) : null }, install.root);
+  const policy = validate({ kind: POLICY, timeZone: args.timezone ?? 'UTC', hour: Number(args.hour ?? 4), keep: Number(args.keep ?? 7), retryMinutes: Number(args['retry-minutes'] ?? 60), copyTo: args['copy-to'] ? path.resolve(args['copy-to']) : null }, install.root, install.configDirectory);
   if (policy.copyTo) ctl.privatePath(policy.copyTo, true);
-  await ctl.installTools(install.root); ctl.atomic(path.join(install.root, 'config/backup.json'), policy);
+  await ctl.installTools(install.root); ctl.atomic(path.join(install.configDirectory, 'backup.json'), policy);
   const units = path.join(install.root, 'state/systemd'); fs.mkdirSync(units, { mode: 0o700, recursive: true }); ctl.privatePath(units, true);
   const name = 'agentic-backup-' + install.meta.project;
   const command = [process.execPath, path.join(install.root, 'agentctl.mjs'), '--directory', install.root, 'maintain'].map(unitQuote).join(' ');
-  ctl.atomic(path.join(units, name + '.service'), `[Unit]\nDescription=Private Agent idle backup and recovery\nWants=docker.service\nAfter=docker.service\nRequiresMountsFor=${unitQuote(install.root)}\n[Service]\nType=oneshot\nUser=${process.getuid()}\nGroup=${process.getgid()}\nUMask=0077\nExecStart=${command}\nTimeoutStartSec=60min\nTimeoutStopSec=5min\nKillMode=control-group\n`);
+  ctl.atomic(path.join(units, name + '.service'), `[Unit]\nDescription=Private Agent idle backup and recovery\nWants=docker.service\nAfter=docker.service\nRequiresMountsFor=${unitQuote(install.root)} ${unitQuote(install.configDirectory)}\n[Service]\nType=oneshot\nUser=${process.getuid()}\nGroup=${process.getgid()}\nUMask=0077\nExecStart=${command}\nTimeoutStartSec=60min\nTimeoutStopSec=5min\nKillMode=control-group\n`);
   ctl.atomic(path.join(units, name + '.timer'), '[Unit]\nDescription=Check private Agent backup and recovery each minute\n[Timer]\nOnCalendar=*-*-* *:*:00 UTC\nPersistent=true\nRandomizedDelaySec=10\n[Install]\nWantedBy=timers.target\n');
   return { configured: true, unitDirectory: units, timer: name + '.timer', next: 'As a host administrator, link both units with systemctl link and enable --now the timer. The service runs as the installation owner, not root.' };
 }
@@ -60,8 +60,8 @@ export async function tick(install, now = new Date()) {
       await install.recover(); return save('recovered_interrupted_backup');
     }
     if (ctl.exists(install.gate)) return save('operator_required');
-    const policyPath = path.join(install.root, 'config/backup.json'); if (!ctl.exists(policyPath)) return save('not_configured');
-    const policy = validate(ctl.readPrivate(policyPath), install.root);
+    const policyPath = path.join(install.configDirectory, 'backup.json'); if (!ctl.exists(policyPath)) return save('not_configured');
+    const policy = validate(ctl.readPrivate(policyPath), install.root, install.configDirectory);
     const local = Object.fromEntries(new Intl.DateTimeFormat('en-CA', { timeZone: policy.timeZone, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', hourCycle: 'h23' }).formatToParts(now).map(p => [p.type, p.value]));
     const day = `${local.year}-${local.month}-${local.day}`;
     if (state.lastAttemptAt && now.getTime() < Date.parse(state.lastAttemptAt) + policy.retryMinutes * 60_000) return { status: 'retry_not_due' };

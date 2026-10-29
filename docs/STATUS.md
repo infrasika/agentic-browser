@@ -6,7 +6,7 @@
 
 聊天与浏览器同屏、本地账号、每用户一个会话、排队、人工接管归还后继续、credits、全站日预算、管理员入口、Turnstile 和可选 SMTP 找回已实现。完整 Compose 支持本机目录持久化、一次填写配置、账号管理、停写备份、定时轮转、新实例恢复及失败升级保护。GitHub 私有仓库数量/名称和邮件到达已由用户核对。
 
-源码、构建、发布、打包和运维共用 Node.js 24+。安装包包含独立工具与依赖许可证，不需源码或 npm 安装。Mac / Ubuntu 使用同一源码和双架构构建入口，站点密钥仅在部署时填写。源码与新发行包均提供 `config/settings.example.json`、`config/secrets.env.example`；实际配置和独立密钥由 `init` 生成。
+源码、构建、发布、打包和运维共用 Node.js 24+。安装包包含独立工具与依赖许可证，不需源码或 npm 安装。Mac / Ubuntu 使用同一源码和双架构构建入口，站点密钥仅在部署时填写。源码与新发行包均提供 `config/settings.example.json`、`config/secrets.env.example`；源码部署使用 `init --config-directory "$PWD/config/local"` 生成实际配置和独立密钥，运行目录保存在 `.deployment/`。构建、备份、恢复和定时器均支持独立配置位置。
 
 ## 已验证的候选版本
 
@@ -22,13 +22,15 @@
 
 总记录为 `output/build/node-toolchain-verification.json`。记录和候选包属于本机未跟踪产物，新 clone 不包含它们；按 [构建](BUILD.md)、[发布](RELEASING.md) 重新生成自己的证据。
 
-当前源码已通过 69 项回归和 TypeScript 检查。12 份文档的 57 个源码相对链接、6 个包内链接和 35 个 Bash 代码块检查通过；公开示例与初始化字段一致、密钥独立生成、私密文件忽略和安装包示例校验均通过，记录为 `output/build/config-examples-verification.json`。此前 Docker amd64 / arm64 最小构建验证了分发声明的新路径和原始内容，记录为 `output/build/docs-cleanup-verification.json`。这些检查不等于重新构建完整应用或生成新发行包。
+当前源码已通过 73 项回归。独立配置目录完成 10 项真实运维验收，含账号、TLS SMTP、挂载、备份、新目录恢复和失败升级保护；记录为 `output/agent/operations-0cc46abc-9dcd-47ff-94ac-be37fccab4b6.json`。干净源码副本在没有 `.deployment/`、本站密钥或已有 `node_modules` 的情况下，完成 npm 安装及独立配置初始化，记录为 `output/build/config-directory-clean-checkout.json`。这些检查不等于重新构建完整应用或生成新发行包。
 
 ## 当前测试站
 
 `https://agentic-browser.zkpass.org` 运行 rc.6，安装位于 `.deployment/agent-site/`，配置为该目录的 `config/`，数据为 `data/`，备份为 `backups/`。每用户一个浏览器，实际放行 5、硬上限 10；新用户 200,000 credits、默认全站日预算 20,000,000 credits，管理页面保存的预算优先。
 
 源码整理不会升级正在运行的实例。rc.6 保留已安装的旧管理工具和备份定时器；对它操作应使用相应版本的安装包说明，不能直接替换入口文件。其外层 Nginx 仍沿用 HTTP 源站入口，尚未应用新部署指南的 Full (strict) HTTPS 模板。升级前需备份，升级后重建定时器并验证恢复。恢复包、配置和数据不作为构建缓存清理。
+
+本站真实配置迁至根目录 `config/local/`、切换 Node 管理工具和定时器的准备工作已完成，实际切换待维护窗口执行；当前仍读取 `.deployment/agent-site/config/`。新 clone 的部署流程已支持独立配置，不依赖本站的旧安装状态。
 
 ## 下一步
 

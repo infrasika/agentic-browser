@@ -57,12 +57,12 @@ MongoDB 保存 LibreChat 账号、密码摘要、聊天、个人 credits、全�
 
 ## 部署
 
-所有部署使用同一套完整 Agent Compose，见 [部署指南](DEPLOYMENT.md)。宿主 Nginx 将域名转到 gateway 的回环端口；Mongo、Redis、浏览器状态与应用文件绑定安装目录的 `data/`，重建容器保留数据。配置和密钥保存在安装目录的 `config/`，通过 secret 或只读文件挂载；`agentctl.mjs` 生成 Compose 插值文件并管理生命周期。对应关系见 [配置](CONFIGURATION.md)，备份恢复见 [运维](OPERATIONS.md)。
+所有部署使用同一套完整 Agent Compose，见 [部署指南](DEPLOYMENT.md)。宿主 Nginx 将域名转到 gateway 的回环端口；Mongo、Redis、浏览器状态与应用文件绑定安装目录的 `data/`，重建容器保留数据。配置和密钥通过 `--config-directory` 指定位置，源码部署使用根目录 `config/local/`；Compose 通过 `AGENT_CONFIG_DIR` 挂载同一目录的 secret 和只读配置；`agentctl.mjs` 生成 Compose 插值文件并管理生命周期。对应关系见 [配置](CONFIGURATION.md)，备份恢复见 [运维](OPERATIONS.md)。
 
 官方公网安装路径统一为 Cloudflare DNS/代理 → 宿主 HTTPS Nginx（Full strict）→ Compose gateway，公开注册使用 Turnstile。这样统一入口模板和验收，不给应用增加 Cloudflare DNS/证书管理 SDK、Tunnel 服务或另一套 Compose。关闭注册只是本地账号系统的策略开关，保留自用和隔离验收能力。
 
 密码找回共用一套 TLS SMTP 实现，官方指南提供 Cloudflare Email Sending 配置；发信服务不是核心启动的硬依赖。源站证书归宿主，模型与应用密钥归安装目录，构建和发布均不依赖这些部署参数。
 
-`deploy/` 是版本控制中的部署源码，`.deployment/` 是不提交的本地安装状态。构建日志和报告在 `output/build/`，临时验收安装在 `output/tests/`。完整目录约定见 [文档导航](README.md)。
+`deploy/` 是版本控制中的部署源码，`.deployment/` 是不提交的本地运行状态和数据，根目录 `config/local/` 保存本机配置；两者均可由新 clone 的安装工具初始化。构建日志和报告在 `output/build/`，临时验收安装在 `output/tests/`。完整目录约定见 [文档导航](README.md)。
 
 发行清单包含 Agent、Browser Service、Chrome runtime、gateway、MongoDB、Redis 六个不可变镜像。Chrome runtime 由 Browser Service 按会话启动，并非常驻 Compose 服务。源码工具将管理 CLI 及其依赖编译为独立 Node 文件；源码准备、镜像构建、GHCR 上传和安装包制作分别见 [开发](DEVELOPMENT.md)、[构建](BUILD.md) 和 [发布](RELEASING.md)。已验收平台和剩余工作见 [当前状态](STATUS.md)。

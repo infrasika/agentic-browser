@@ -1,6 +1,6 @@
 # 配置文件与容器的对应关系
 
-配置在**部署时**读取，不在构建时写入镜像。安装目录由 `agentctl.mjs --directory` 指定，日常维护其中的 `config/settings.json` 与 `config/secrets.env`。
+配置在**部署时**读取，不在构建时写入镜像。运行目录由 `agentctl.mjs --directory` 指定；配置目录可通过初始化时的 `--config-directory` 单独指定。源码部署统一使用仓库根目录的 `config/local/`，日常编辑其中的 `settings.json` 与 `secrets.env`。
 
 源码仓库根目录不需要 `.env`。管理工具只读取所选安装目录中的 `.env`；本机 `.deployment/` 不进入 Git 或镜像，Mac 构建也不依赖它。
 
@@ -19,23 +19,27 @@
 
 ```bash
 npm ci
-AGENT_DIR="$HOME/my-agent"
-npm run agent -- --directory "$AGENT_DIR" init --release /absolute/path/to/release.json
-nano "$AGENT_DIR/config/settings.json"
-nano "$AGENT_DIR/config/secrets.env"
+AGENT_DIR="$PWD/.deployment/local"
+AGENT_CONFIG="$PWD/config/local"
+npm run agent -- --directory "$AGENT_DIR" init \
+  --config-directory "$AGENT_CONFIG" --release /absolute/path/to/release.json
+nano "$AGENT_CONFIG/settings.json"
+nano "$AGENT_CONFIG/secrets.env"
 npm run agent -- --directory "$AGENT_DIR" up
 npm run agent -- --directory "$AGENT_DIR" doctor
 ```
 
-`release.json` 来自构建后的安装包或发布回执，不是手写空文件；本机 image ID 离线包先导入镜像，并给 `init` 加 `--development`。安装目录必须不存在，首次安装的完整前置条件和 HTTPS 步骤见部署指南（源码 `docs/DEPLOYMENT.md`、包内 `README.md`）。
+`release.json` 来自构建后的安装包或发布回执，不是手写空文件；本机 image ID 离线包先导入镜像，并给 `init` 加 `--development`。运行目录和配置目录都必须不存在，首次安装的完整前置条件和 HTTPS 步骤见部署指南（源码 `docs/DEPLOYMENT.md`、包内 `README.md`）。
 
 `init` 生成真实 `settings.json`、`secrets.env` 和 `browser-token`，权限为目录 0700、文件 0600。**编辑生成的文件，不用空示例覆盖它们**，否则会丢掉自动生成的管理员密码和登录/加密密钥。新建安装使用自己的密钥；运行中的实例升级保留原密钥。
 
 必须由你填写的是模型 API key、模型名称/地址/费率和管理员邮箱；公网部署还需域名和 Turnstile 公私钥，启用 SMTP 时填写发信参数与凭据。管理员初始密码、JWT、加密密钥和内部浏览器 token 自动生成，下面的字段表说明每项用途。
 
-`.deployment/` 只是这台开发服务器选择的私密安装位置，用户也可安装到 `$HOME/my-agent` 或 `/srv/my-agent`。仓库 `config/` 只提交两份示例，其他文件默认被 Git 忽略；安装包的示例也保持原样，实例数据与配置放在单独的安装目录。根目录无需额外 `.env.example`，因为根 `.env` 不会作为此部署的业务配置加载。
+仓库 `config/` 提交两份公开示例；真实配置统一放 `config/local/` 并被 Git 忽略。`.deployment/` 仅保存本机生成的运行文件、数据和备份，新 clone 无需复制它。安装器、Compose 模板、初始化逻辑和示例均由 Git 提供，`init` 会自动生成实例所需文件。根目录无需额外 `.env.example`。
 
-例如安装到 `/srv/my-agent`，文件位置如下：
+`--config-directory` 的绝对路径记录在运行目录的 `installation.json`，后续 `up`、`apply`、备份和定时器自动读取，无需重复传参。恢复到新实例时也可指定新的配置目录，原配置不会被复用。独立发行包安装若省略该参数，默认使用运行目录下的 `config/`；两种位置共用同一套工具。
+
+例如发行包安装到 `/srv/my-agent` 且不指定独立配置目录，文件位置如下：
 
 ```text
 /srv/my-agent/
@@ -51,19 +55,21 @@ npm run agent -- --directory "$AGENT_DIR" doctor
 
 | 输入 | 传递方式 | 使用者 |
 | --- | --- | --- |
-| `config/settings.json` | 只读挂载为 `/config/settings.json`；启动时生成临时 LibreChat 配置 | Agent |
-| `config/secrets.env` | Compose 的 `secrets.agent.file`，挂载为 `/run/secrets/agent`；启动程序读取后注入应用进程环境 | Agent |
-| `config/browser-token` | Compose secret，挂载为 `/run/secrets/browser_token` | Agent、Browser Service |
+| 配置目录内 `settings.json` | 只读挂载为 `/config/settings.json`；启动时生成临时 LibreChat 配置 | Agent |
+| 配置目录内 `secrets.env` | Compose 的 `secrets.agent.file`，挂载为 `/run/secrets/agent`；启动程序读取后注入应用进程环境 | Agent |
+| 配置目录内 `browser-token` | Compose secret，挂载为 `/run/secrets/browser_token` | Agent、Browser Service |
 | `release.json`、实例信息与部分 settings | `agentctl.mjs` 在启动或应用配置时生成安装目录 `.env`，供 `compose.yaml` 的 `${…}` 插值 | Compose |
-| `config/nginx.conf` | 根据 origin、代理信任地址生成，只读挂载 | Gateway |
+| 配置目录内 `nginx.conf` | 根据 origin、代理信任地址生成，只读挂载 | Gateway |
 
-生成的 `.env` 包含六个镜像地址、实例名、UID/GID、Docker socket GID、入口端口、origin、数据目录和浏览器并发；不包含 Qwen key、管理员密码、JWT 或 SMTP 密码。Compose 只记录 secret 文件路径，应用启动后才读取这些值。
+生成的 `.env` 包含六个镜像地址、实例名、UID/GID、Docker socket GID、入口端口、origin、`AGENT_CONFIG_DIR` 配置路径、数据目录和浏览器并发；不包含 Qwen key、管理员密码、JWT 或 SMTP 密码。Compose 只记录 secret 文件路径，应用启动后才读取这些值。
 
 “插值”就是替换 YAML 中的占位符。例如 `.env` 中的 `AGENT_PORT=3351` 会让 Compose 将 `${AGENT_PORT:-3333}` 替换为 `3351`，最终端口映射为 `127.0.0.1:3351:8080`。其中 `:-3333` 表示未设置时使用默认值。`${AGENT_IMAGE:?...}` 同理替换成镜像地址，缺失时则报错。
 
 管理工具会显式通过 `--env-file` 指定本安装目录的 `.env`。这个文件用于解析 Compose 配置，并不会自动把其中每个变量注入容器；容器环境变量由 YAML 的 `environment` 指定，密钥则按上表作为文件挂载。
 
 普通 Compose secrets 使用文件挂载，不是宿主磁盘加密服务。安装目录为 0700，配置文件为 0600；宿主管理员仍能读取文件和进程。不要公开配置目录、备份或进程环境。[Docker Compose secrets 说明](https://docs.docker.com/compose/how-tos/use-secrets/)
+
+运行目录中的 `installation.json` 记录实例实际使用的配置位置。现有实例变更路径时，必须同步元数据、Compose 挂载和定时器，不能只移动文件或用符号链接替代。新部署直接用 `--config-directory` 选定位置即可。
 
 ## settings.json：普通设置
 

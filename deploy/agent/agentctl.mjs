@@ -52,21 +52,22 @@ export class Installation {
     privatePath(this.root, true); this.meta = readPrivate(path.join(this.root, 'installation.json'));
     if (this.meta.kind !== KIND || !/^agent-[a-f0-9]{12}$/.test(this.meta.project)) throw new Failure('invalid_installation');
     if (this.meta.uid !== process.getuid() || this.meta.gid !== process.getgid()) throw new Failure('installation_owner_changed');
+    this.configDirectory = configurationDirectory(this.root, this.meta.configDirectory); privatePath(this.configDirectory, true);
     this.release = readPrivate(path.join(this.root, 'release.json')); this.gate = path.join(this.root, 'state/maintenance/active'); this.intent = path.join(this.root, 'state/operation.json');
   }
   compose(args, options) { return execute([...DOCKER, 'compose', '--project-directory', this.root, '--env-file', path.join(this.root, '.env'), '-p', this.meta.project, '-f', path.join(this.root, 'compose.yaml'), ...args], options); }
   async config(action) {
-    return JSON.parse(await execute([...DOCKER, 'run', '--rm', '--network=none', '--user', `${this.meta.uid}:${this.meta.gid}`, '--read-only', '--cap-drop=ALL', '--security-opt=no-new-privileges', '--memory=512m', '--volume', path.join(this.root, 'config') + ':/config', '--entrypoint', 'node', this.release.images.agent, '/app/selfhost/init.mjs', action, '/config']));
+    return JSON.parse(await execute([...DOCKER, 'run', '--rm', '--network=none', '--user', `${this.meta.uid}:${this.meta.gid}`, '--read-only', '--cap-drop=ALL', '--security-opt=no-new-privileges', '--memory=512m', '--volume', this.configDirectory + ':/config', '--entrypoint', 'node', this.release.images.agent, '/app/selfhost/init.mjs', action, '/config']));
   }
   async render() {
     storageDirectory(this.root); const result = await this.config('render');
-    const values = { AGENT_PROJECT: this.meta.project, AGENT_UID: this.meta.uid, AGENT_GID: this.meta.gid, DOCKER_GID: fs.statSync('/var/run/docker.sock').gid, AGENT_PORT: this.meta.port, AGENT_ORIGIN: result.origin, BROWSER_MAX_SESSIONS: result.maximum, AGENT_DATA_DIR: path.join(this.root, 'data'), ...Object.fromEntries(Object.entries(this.release.images).map(([k, v]) => [k.toUpperCase() + '_IMAGE', v])) };
+    const values = { AGENT_PROJECT: this.meta.project, AGENT_UID: this.meta.uid, AGENT_GID: this.meta.gid, DOCKER_GID: fs.statSync('/var/run/docker.sock').gid, AGENT_PORT: this.meta.port, AGENT_ORIGIN: result.origin, BROWSER_MAX_SESSIONS: result.maximum, AGENT_CONFIG_DIR: this.configDirectory, AGENT_DATA_DIR: path.join(this.root, 'data'), ...Object.fromEntries(Object.entries(this.release.images).map(([k, v]) => [k.toUpperCase() + '_IMAGE', v])) };
     atomic(path.join(this.root, '.env'), Object.entries(values).map(([k, v]) => `${k}=${v}\n`).join(''));
     await this.compose(['config', '--quiet']); return result;
   }
   async fingerprint() {
     const result = {};
-    for (const name of ['settings.json', 'secrets.env', 'browser-token', 'smtp-verified.json']) { const file = path.join(this.root, 'config', name); if (exists(file)) result[name] = await digest(file); }
+    for (const name of ['settings.json', 'secrets.env', 'browser-token', 'smtp-verified.json']) { const file = path.join(this.configDirectory, name); if (exists(file)) result[name] = await digest(file); }
     return result;
   }
   async up() {
@@ -133,7 +134,7 @@ export class Installation {
   async archive(destination) {
     for (const [key, name] of Object.entries(await this.volumeNames())) await transferVolume(this.release.images.agent, name, this.meta.project, path.join(destination, key + '.tar.gz'));
     for (const name of ['settings.json', 'secrets.env', 'browser-token', 'smtp-verified.json', 'backup.json']) {
-      const source = path.join(this.root, 'config', name);
+      const source = path.join(this.configDirectory, name);
       if (['smtp-verified.json', 'backup.json'].includes(name) && !exists(source)) continue;
       privatePath(source); atomic(path.join(destination, name), fs.readFileSync(source));
     }
@@ -153,7 +154,7 @@ export class Installation {
     const output = await this.compose(['exec', '-T', 'agent', 'node', '/app/selfhost/operator.mjs', action], { input: JSON.stringify(value), timeout: 90_000 });
     const line = output.split('\n').find(row => row.startsWith('AGENT_RESULT=')); if (!line) throw new Failure('missing_operator_result');
     const result = JSON.parse(line.slice('AGENT_RESULT='.length));
-    if (action === 'mail-test') atomic(path.join(this.root, 'config/smtp-verified.json'), result);
+    if (action === 'mail-test') atomic(path.join(this.configDirectory, 'smtp-verified.json'), result);
     return result;
   }
   async upgrade(releasePath, development) {
@@ -206,39 +207,48 @@ export function storageDirectory(root, create = false) {
   return directory;
 }
 function realFuture(file) { if (exists(file)) return fs.realpathSync(file); return path.join(realFuture(path.dirname(file)), path.basename(file)); }
-export async function initialize(directory, releasePath, port = 3333, development = false) {
+export function configurationDirectory(root, directory = path.join(root, 'config')) {
+  if (typeof directory !== 'string' || !path.isAbsolute(directory) || path.resolve(directory) !== directory || /[:,$#'"\\\n\r]/.test(directory)) throw new Failure('invalid_configuration_directory');
+  if (directory === path.parse(directory).root || directory === root || root.startsWith(directory + path.sep) || directory.startsWith(root + path.sep) && directory !== path.join(root, 'config')) throw new Failure('configuration_directory_overlaps_installation');
+  if (realFuture(directory) !== directory) throw new Failure('configuration_symlinks_not_allowed');
+  return directory;
+}
+export async function initialize(directory, releasePath, port = 3333, development = false, configPath) {
   if (!Number.isInteger(port) || port < 1024 || port > 65535) throw new Failure('invalid_loopback_port'); hostPlatform();
   if (exists(directory)) throw new Failure('installation_directory_already_exists');
   if (path.resolve(directory) !== realFuture(path.resolve(directory))) throw new Failure('installation_symlinks_not_allowed');
   if (/[,$#'"\\\n\r]/.test(directory)) throw new Failure('unsupported_installation_path');
+  const configDirectory = configurationDirectory(directory, configPath);
+  if (exists(configDirectory)) throw new Failure('configuration_directory_already_exists');
   await new Promise((resolve, reject) => { const probe = net.createServer(); probe.once('error', () => reject(new Failure('loopback_port_unavailable'))); probe.listen(port, '127.0.0.1', () => probe.close(resolve)); });
   const release = releaseFile(releasePath, development); await pullImages(release); await execute([...DOCKER, 'compose', 'version']);
   const version = JSON.parse(await execute([...DOCKER, 'version', '--format', '{{json .Server}}']));
   if (Number(version.Version.split('.')[0]) < 26) throw new Failure('docker_engine_26_required');
   fs.mkdirSync(directory, { mode: 0o700, recursive: true });
-  for (const name of ['config', 'state', 'state/maintenance']) fs.mkdirSync(path.join(directory, name), { mode: 0o700 });
+  for (const name of ['state', 'state/maintenance']) fs.mkdirSync(path.join(directory, name), { mode: 0o700 });
+  fs.mkdirSync(configDirectory, { mode: 0o700, recursive: true });
   storageDirectory(directory, true); atomic(path.join(directory, 'compose.yaml'), fs.readFileSync(path.join(SOURCE, 'compose.yaml'))); await installTools(directory);
-  const meta = { kind: KIND, project: 'agent-' + id().slice(0, 12), uid: process.getuid(), gid: process.getgid(), port };
+  const meta = { kind: KIND, project: 'agent-' + id().slice(0, 12), uid: process.getuid(), gid: process.getgid(), port, configDirectory };
   atomic(path.join(directory, 'installation.json'), meta); atomic(path.join(directory, 'release.json'), release);
-  await execute([...DOCKER, 'run', '--rm', '--network=none', '--user', `${meta.uid}:${meta.gid}`, '--read-only', '--cap-drop=ALL', '--volume', path.join(directory, 'config') + ':/config', '--entrypoint=node', release.images.agent, '/app/selfhost/init.mjs', 'init', '/config']);
-  const settings = readPrivate(path.join(directory, 'config/settings.json')); settings.origin = `http://127.0.0.1:${port}`; atomic(path.join(directory, 'config/settings.json'), settings);
-  return { status: 'initialized', directory, next: 'Edit config/settings.json and config/secrets.env once, then run up.' };
+  await execute([...DOCKER, 'run', '--rm', '--network=none', '--user', `${meta.uid}:${meta.gid}`, '--read-only', '--cap-drop=ALL', '--volume', configDirectory + ':/config', '--entrypoint=node', release.images.agent, '/app/selfhost/init.mjs', 'init', '/config']);
+  const settings = readPrivate(path.join(configDirectory, 'settings.json')); settings.origin = `http://127.0.0.1:${port}`; atomic(path.join(configDirectory, 'settings.json'), settings);
+  return { status: 'initialized', directory, configDirectory, next: 'Edit settings.json and secrets.env in configDirectory once, then run up.' };
 }
-export async function restore(source, directory, port, development) {
+export async function restore(source, directory, port, development, configPath) {
   const manifest = await verifyBackup(source);
   if (manifest.uid !== process.getuid() || manifest.gid !== process.getgid()) throw new Failure('restore_requires_same_numeric_uid_gid');
-  await initialize(directory, path.join(source, 'release.json'), port, development); const install = new Installation(directory);
-  for (const name of ['settings.json', 'secrets.env', 'browser-token', 'smtp-verified.json']) if (exists(path.join(source, name))) atomic(path.join(directory, 'config', name), fs.readFileSync(path.join(source, name)));
-  const settings = readPrivate(path.join(directory, 'config/settings.json'));
+  await initialize(directory, path.join(source, 'release.json'), port, development, configPath); const install = new Installation(directory);
+  for (const name of ['settings.json', 'secrets.env', 'browser-token', 'smtp-verified.json']) if (exists(path.join(source, name))) atomic(path.join(install.configDirectory, name), fs.readFileSync(path.join(source, name)));
+  const settings = readPrivate(path.join(install.configDirectory, 'settings.json'));
   settings.origin = `http://127.0.0.1:${port}`; settings.registration = 'closed'; settings.turnstileSiteKey = ''; delete settings.trustedProxyIPs;
-  atomic(path.join(directory, 'config/settings.json'), settings);
-  const secretPath = path.join(directory, 'config/secrets.env'); atomic(secretPath, fs.readFileSync(secretPath, 'utf8').replace(/^TURNSTILE_SECRET_KEY=.*$/gm, 'TURNSTILE_SECRET_KEY='));
+  atomic(path.join(install.configDirectory, 'settings.json'), settings);
+  const secretPath = path.join(install.configDirectory, 'secrets.env'); atomic(secretPath, fs.readFileSync(secretPath, 'utf8').replace(/^TURNSTILE_SECRET_KEY=.*$/gm, 'TURNSTILE_SECRET_KEY='));
   await install.render(); atomic(install.gate, 'maintenance\n'); atomic(install.intent, { kind: KIND, operation: 'restore', phase: 'restoring' });
   try {
     await install.compose(['create']); const names = await install.volumeNames();
     for (const [key, name] of Object.entries(names)) await transferVolume(install.release.images.agent, name, install.meta.project, path.join(source, key + '.tar.gz'), true);
     await execute([...DOCKER, 'run', '--rm', '--network=none', '--read-only', '--user', `${process.getuid()}:${process.getgid()}`, '--cap-drop=ALL', '--mount', `type=volume,src=${names['browser-data']},dst=/volume`, '--entrypoint=node', install.release.images.agent, '-e', "require('fs').writeFileSync('/volume/runtimes/instance-id',require('crypto').randomUUID(),{mode:0o600})"]);
-    atomic(install.intent, { kind: KIND, operation: 'restore', phase: 'ready' }); return { status: 'restored_stopped', directory, next: 'Review configuration, then run recover.' };
+    atomic(install.intent, { kind: KIND, operation: 'restore', phase: 'ready' }); return { status: 'restored_stopped', directory, configDirectory: install.configDirectory, next: 'Review configuration, then run recover.' };
   } catch (error) { atomic(install.intent, { kind: KIND, operation: 'restore', phase: 'restore_failed' }); throw error; }
 }
 async function accountInput() {
@@ -251,14 +261,15 @@ async function accountInput() {
 }
 export async function main() {
   process.umask(0o077);
-  const { values: args, positionals } = argumentsFor(Object.fromEntries(['directory', 'release', 'port', 'timezone', 'hour', 'keep', 'retry-minutes', 'copy-to', 'input-file', 'to'].map(k => [k, { type: 'string' }]).concat([['development', { type: 'boolean' }]])));
+  const { values: args, positionals } = argumentsFor(Object.fromEntries(['directory', 'config-directory', 'release', 'port', 'timezone', 'hour', 'keep', 'retry-minutes', 'copy-to', 'input-file', 'to'].map(k => [k, { type: 'string' }]).concat([['development', { type: 'boolean' }]])));
   const [command, backup] = positionals, commands = ['init', 'up', 'doctor', 'backup', 'recover', 'apply', 'maintain', 'maintenance-status', 'schedule', 'user-create', 'user-reset', 'mail-test', 'upgrade', 'verify-backup', 'restore'];
-  if (args.help) return console.log('node agentctl.mjs --directory INSTALLATION ' + commands.join('|') + '\ninit/upgrade: --release FILE [--development]; init/restore: --port 3333\nschedule: --timezone UTC --hour 4 --keep 7 --retry-minutes 60 [--copy-to DIRECTORY]\nmail-test: --to EMAIL; user-create/user-reset: [--input-file PRIVATE_JSON]; restore/verify-backup: BACKUP');
+  if (args.help) return console.log('node agentctl.mjs --directory INSTALLATION ' + commands.join('|') + '\ninit/upgrade: --release FILE [--development]; init/restore: --port 3333 [--config-directory NEW_DIRECTORY]\nschedule: --timezone UTC --hour 4 --keep 7 --retry-minutes 60 [--copy-to DIRECTORY]\nmail-test: --to EMAIL; user-create/user-reset: [--input-file PRIVATE_JSON]; restore/verify-backup: BACKUP');
   if (!args.directory || !commands.includes(command) || positionals.length > (['restore', 'verify-backup'].includes(command) ? 2 : 1)) throw new Failure('Use --directory and a supported command; see --help');
   if (['init', 'upgrade'].includes(command) && !args.release || ['restore', 'verify-backup'].includes(command) && !backup || command === 'mail-test' && !args.to) throw new Failure('Missing command argument; see --help');
-  const directory = path.resolve(args.directory); let result;
-  if (command === 'init') result = await initialize(directory, path.resolve(args.release), Number(args.port ?? 3333), args.development);
-  else if (command === 'restore') result = await restore(path.resolve(backup), directory, Number(args.port ?? 3333), args.development);
+  if (args['config-directory'] && !['init', 'restore'].includes(command)) throw new Failure('config-directory_is_only_for_init_or_restore');
+  const directory = path.resolve(args.directory), configPath = args['config-directory'] ? path.resolve(args['config-directory']) : undefined; let result;
+  if (command === 'init') result = await initialize(directory, path.resolve(args.release), Number(args.port ?? 3333), args.development, configPath);
+  else if (command === 'restore') result = await restore(path.resolve(backup), directory, Number(args.port ?? 3333), args.development, configPath);
   else if (command === 'verify-backup') { await verifyBackup(path.resolve(backup)); result = { verified: true }; }
   else {
     const install = new Installation(directory); let unlock;

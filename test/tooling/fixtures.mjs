@@ -26,5 +26,5 @@ export async function backupFixture(directory, bad) {
 }
 export function fakeInstall(root) {
   fs.mkdirSync(path.join(root, 'state'), { mode: 0o700, recursive: true }); fs.mkdirSync(path.join(root, 'config'), { mode: 0o700, recursive: true });
-  return { root, meta: { project: 'agent-0123456789ab' }, intent: path.join(root, 'intent'), gate: path.join(root, 'gate') };
+  return { root, configDirectory: path.join(root, 'config'), meta: { project: 'agent-0123456789ab' }, intent: path.join(root, 'intent'), gate: path.join(root, 'gate') };
 }

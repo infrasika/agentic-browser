@@ -27,7 +27,7 @@ services:
     cap_drop: [ALL]
     security_opt: [no-new-privileges:true]
     ports: ['${AGENT_BIND:-127.0.0.1}:${AGENT_PORT:-3333}:8080']
-    volumes: ['./config/nginx.conf:/etc/nginx/nginx.conf:ro', './state/maintenance:/maintenance:ro']
+    volumes: ['${AGENT_CONFIG_DIR:?Set the configuration directory}/nginx.conf:/etc/nginx/nginx.conf:ro', './state/maintenance:/maintenance:ro']
     tmpfs: ['/tmp:rw,nosuid,nodev,size=32m,mode=1777']
     networks: [front]
     depends_on:
@@ -44,7 +44,7 @@ services:
     cap_drop: [ALL]
     security_opt: [no-new-privileges:true]
     volumes:
-      - ./config:/config:ro
+      - ${AGENT_CONFIG_DIR:?Set the configuration directory}:/config:ro
       - {type: volume, source: uploads, target: /app/uploads, volume: {nocopy: true}}
       - {type: volume, source: images, target: /app/client/public/images, volume: {nocopy: true}}
       - {type: volume, source: logs, target: /app/logs, volume: {nocopy: true}}
@@ -172,5 +172,5 @@ volumes:
       o: bind
       device: ${AGENT_DATA_DIR:?Set the installation data directory}/logs
 secrets:
-  agent: {file: ./config/secrets.env}
-  browser_token: {file: ./config/browser-token}
+  agent: {file: '${AGENT_CONFIG_DIR:?Set the configuration directory}/secrets.env'}
+  browser_token: {file: '${AGENT_CONFIG_DIR:?Set the configuration directory}/browser-token'}

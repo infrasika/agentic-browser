@@ -39,6 +39,15 @@ test('working and committed contexts exclude untracked secrets and preserve read
 test('CRX parsing refuses unsigned and malformed packages', () => {
   for (const data of [Buffer.alloc(0),Buffer.from('Cr24'),Buffer.alloc(128)]) assert.throws(() => inspectCrx(data,'a'.repeat(32)));
 });
+test('both build modes refuse a tracked private configuration directory', () => temporary(async root => {
+  const repo = path.join(root, 'repo'); fs.mkdirSync(repo); await run(['git', 'init', '-q', repo]);
+  fs.mkdirSync(path.join(repo, 'config/local'), { recursive: true });
+  fs.writeFileSync(path.join(repo, 'config/local/secrets.env'), 'SYNTHETIC=fixture');
+  await run(['git', 'add', 'config'], { cwd: repo });
+  await run(['git', '-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.test', 'commit', '-qm', 'fixture'], { cwd: repo });
+  await assert.rejects(checkout(repo, path.join(root, 'working')), /Private\/generated/);
+  await assert.rejects(committedCheckout(repo, path.join(root, 'committed'), 'HEAD'), /Private\/generated/);
+}));
 test('Debian metadata is read without dpkg, and malformed archives fail', () => temporary(async root => {
   fs.writeFileSync(path.join(root, 'control'), 'Package: fixture\nVersion: 1.2.3-1\nArchitecture: arm64\n');
   const archive = path.join(root, 'control.tar.gz');
