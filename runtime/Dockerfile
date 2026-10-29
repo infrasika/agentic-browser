@@ -11,7 +11,7 @@ RUN --mount=type=bind,source=output/runtime/packages,target=/tmp/packages \
     && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY package.json package-lock.json ./
-RUN npm ci --ignore-scripts && npm cache clean --force
+RUN npm ci --omit=dev --ignore-scripts && npm cache clean --force
 COPY runtime/assets.lock.json runtime/install-extensions.mjs ./runtime/
 COPY output/runtime/packages/*.crx /opt/agentic-browser/extensions/
 RUN node runtime/install-extensions.mjs && mkdir -p /data /app/output/playwright && chown node:node /data /app/output/playwright

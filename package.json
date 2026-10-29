@@ -11,20 +11,23 @@
     "dev": "tsx watch src/service.ts",
     "start": "tsx src/service.ts",
     "check": "tsc --noEmit",
-    "test": "tsx --test test/*.test.ts test/*.test.mjs",
-    "runtime:fetch": "python3 scripts/build/fetch-runtime-assets.py",
+    "test": "tsx --test test/*.test.ts test/*.test.mjs test/tooling/*.test.mjs",
+    "source:prepare": "node scripts/build/prepare-librechat.mjs",
+    "runtime:fetch": "node scripts/build/fetch-runtime-assets.mjs",
     "runtime:build": "npm run runtime:fetch && docker build -f runtime/Dockerfile -t agentic-browser-runtime:development .",
     "test:extensions": "bash test/acceptance/test-extensions.sh",
     "test:runtime": "tsx --test test/runtime.integration.ts",
-    "build:agent": "python3 scripts/build/build-agent-images.py --run",
+    "build:agent": "node scripts/build/build-agent-images.mjs --run",
+    "publish:agent": "node scripts/build/publish-agent-images.mjs",
     "test:agent-config": "node --test test/agent-deployment.test.mjs",
     "accept:agent": "node test/acceptance/accept-agent-compose.mjs --run",
-    "agent": "python3 deploy/agent/agentctl.py",
-    "test:agent-ops": "python3 -m unittest discover -s test -p test_agent_operations.py",
+    "agent": "node deploy/agent/agentctl.mjs",
+    "test:agent-ops": "node --test test/tooling/operations.test.mjs test/tooling/maintenance.test.mjs",
     "accept:agent-ops": "node test/acceptance/accept-agent-operations.mjs --run",
-    "package:agent": "python3 scripts/build/package-agent.py",
-    "test:agent-bundle": "python3 -m unittest discover -s test -p test_agent_bundle.py",
-    "test:python": "python3 -m unittest discover -s test -p \"test_*.py\""
+    "package:agent": "node scripts/build/package-agent.mjs",
+    "test:agent-bundle": "node --test test/tooling/bundle.test.mjs",
+    "test:tools": "node --test test/tooling/*.test.mjs",
+    "accept:bundle": "node test/acceptance/verify-bundle.mjs"
   },
   "dependencies": {
     "playwright": "1.64.0",
@@ -35,6 +38,9 @@
   "devDependencies": {
     "@types/node": "24.10.1",
     "@types/ws": "8.18.2",
+    "esbuild": "0.28.2",
+    "fflate": "0.8.3",
+    "tar": "7.5.22",
     "typescript": "5.9.3"
   }
 }

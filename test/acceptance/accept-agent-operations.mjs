@@ -6,12 +6,13 @@ import { promisify, parseEnv } from 'node:util';
 import { randomUUID } from 'node:crypto';
 import { resolve } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
+import { Installation } from '../../deploy/agent/agentctl.mjs';
 if(!process.argv.includes('--run')) { console.log('Usage: node test/acceptance/accept-agent-operations.mjs --run --release release.json [--hold]');process.exit(0); }
 const root=resolve(import.meta.dirname,'../..'), id=randomUUID(), work=resolve(root,'output/tests/operations',id), directory=work+'/install', restored=work+'/restored';
 const report={id,passed:false,stage:'preflight',checks:[],callsPaidModel:false}, exec=promisify(execFile);
 const command=async(cmd,args,options={})=>(await exec(cmd,args,{cwd:root,timeout:300000,maxBuffer:6*1024*1024,...options})).stdout.trim();
-const cliPath=resolve(root,'deploy/agent/agentctl.py');
-const cli=async(args,dir=directory)=>JSON.parse(await command('python3',[cliPath,'--directory',dir,...args]));
+const cliPath=resolve(root,'deploy/agent/agentctl.mjs');
+const cli=async(args,dir=directory)=>JSON.parse(await command(process.execPath,[cliPath,'--directory',dir,...args]));
 let project,cloneProject,instance,cloneInstance,interrupted=false;
 for(const signal of ['SIGTERM','SIGINT'])process.on(signal,()=>{interrupted=true;});
 await mkdir(work,{recursive:true,mode:0o700});
@@ -43,7 +44,7 @@ try {
   await cp(work+'/mail.crt',directory+'/config/test-ca.pem');
   let yaml=await readFile(directory+'/compose.yaml','utf8');yaml=yaml.replace('  agent:\n','  agent:\n    environment:\n      NODE_EXTRA_CA_CERTS: /config/test-ca.pem\n');await writeFile(directory+'/compose.yaml',yaml,{mode:0o600});
   // Render before starting the fixture on the install-owned network.
-  await command('python3',['-c',`import importlib.util;from pathlib import Path;s=importlib.util.spec_from_file_location('ctl',${JSON.stringify(cliPath)});m=importlib.util.module_from_spec(s);s.loader.exec_module(m);m.Installation(Path(${JSON.stringify(directory)})).render()`]);
+  await new Installation(directory).render();
   await compose(['create']);
   for(const name of ['model-fixture.mjs','mail-fixture.mjs'])await cp(resolve(root,'test/acceptance/fixtures',name),work+'/'+name);
   await writeFile(work+'/fixture.mjs',"import './model-fixture.mjs'; import './mail-fixture.mjs';\n",{mode:0o600});
@@ -68,7 +69,7 @@ try {
   const accepted=await cli(['mail-test','--to','capture@example.test']);assert.equal(accepted.accepted,true);
   // Configuration changes use the installed operator. Release upgrades below
   // explicitly use the new bundle's operator and replace its Compose template.
-  await command('python3',[directory+'/agentctl.py','--directory',directory,'apply']);
+  await command(process.execPath,[directory+'/agentctl.mjs','--directory',directory,'apply']);
   assert.equal((await call('/api/config')).emailEnabled,true);
   await call('/api/auth/requestPasswordReset',{body:{email:user.email}});
   const captured=JSON.parse(await compose(['exec','-T','agent','node','-e',"fetch('http://fixture:9001').then(r=>r.text()).then(console.log)"]));
