@@ -74,7 +74,7 @@ try {
   await writeFile(resolve(directory,'.env'),[
     `AGENT_PROJECT=${project}`,`AGENT_IMAGE=${images.agent}`,`BROWSER_IMAGE=${images.browser}`,`RUNTIME_IMAGE=${images.runtime}`,
     `GATEWAY_IMAGE=${images.gateway}`,`MONGO_IMAGE=${images.mongo}`,`REDIS_IMAGE=${images.redis}`,
-    `AGENT_UID=${uid}`,`AGENT_GID=${gid}`,`DOCKER_GID=${socketGroup}`,'AGENT_PORT=3334',`AGENT_DATA_DIR=${directory}/data`,`AGENT_ORIGIN=${origin}`,'BROWSER_MAX_SESSIONS=1',''].join('\n'),{mode:0o600});
+    `AGENT_UID=${uid}`,`AGENT_GID=${gid}`,`DOCKER_GID=${socketGroup}`,'AGENT_PORT=3334',`AGENT_CONFIG_DIR=${directory}/config`,`AGENT_DATA_DIR=${directory}/data`,`AGENT_ORIGIN=${origin}`,'BROWSER_MAX_SESSIONS=1',''].join('\n'),{mode:0o600});
   await mkdir(resolve(directory,'data'),{mode:0o700});
   for(const name of ['browser-data','mongo-data','redis-data','uploads','images','logs']) await mkdir(resolve(directory,'data',name),{mode:0o700});
   await mkdir(resolve(directory,'config'),{mode:0o700});
