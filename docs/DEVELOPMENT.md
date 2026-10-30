@@ -19,7 +19,7 @@ git merge origin/main
 
 Browser Service、内部协议、队列、隔离运行时在 `src/`。LibreChat 应用由 `integrations/librechat/source.lock.json` 和 `customizations.patch` 定义，包含聊天、同屏浏览器、本地账号、原生 tools、credits、预算和管理员功能。上游 MIT 许可证在同目录保留。
 
-安装模板与工具在 `deploy/agent/`：`agentctl.mjs` 是管理入口，`maintenance.mjs` 管理备份调度，`bundle.mjs` 校验发行包，`lib/system.mjs` 提供文件、进程和锁工具；`app/` 是 Agent 镜像内的配置、初始化和运维入口。它们属于当前产品，不是迁移脚本。组件关系见 [架构](ARCHITECTURE.md)。
+部署模板在 `deploy/compose/`，唯一运维入口是容器内 `operations.mjs`。`deploy/agent/app/` 保存镜像内配置、启动、邮件和账号逻辑，`deploy/agent/lib/` 提供共享文件、归档和进程工具。组件关系见 [架构](ARCHITECTURE.md)。
 
 ## 修改 LibreChat
 
@@ -76,7 +76,7 @@ npm test
 
 ```bash
 node --import tsx --test test/browser-service.test.ts
-node --test test/tooling/bundle.test.mjs
+node --test test/tooling/compose-operations.test.mjs
 ```
 
 `.github/workflows/ci.yml` 在 push、pull request 或手动触发时，在 Ubuntu 24.04 amd64、Ubuntu 24.04 arm64 和 macOS 14 上使用 Node.js 24 执行 `npm ci`、类型检查和上述测试。工作流只有源码读取权限，不需要部署密钥，不构建或发布镜像。CI 文件在本地提交后，需推送至 GitHub 才会运行；单元测试通过也不能替代镜像构建及完整安装验收。
@@ -88,13 +88,8 @@ node --test test/tooling/bundle.test.mjs
 | `npm run runtime:fetch -- --arch arm64` | 下载并验证锁定浏览器资源 |
 | `npm run build:agent -- --help` | 构建 Agent、Browser Service、Chrome runtime |
 | `npm run publish:agent -- --help` | 发布预检、GHCR 上传、匿名拉取验证 |
-| `npm run package:agent -- --help` | 生成含独立 Node 工具的安装包 |
-| `npm run agent -- --help` | 源码环境中的安装和运维 CLI |
 | `npm run test:runtime` | 真实 Chrome 沙箱、进程/文件/网络隔离及故障清理，需 Docker |
 | `npm run test:extensions` | 容器内两个扩展加载及页面检查，需 Docker / Bash |
-| `npm run accept:agent -- --release /path/to/release.json` | 完整业务流程：账号、预算、排队、接管、退出 |
-| `npm run accept:agent-ops -- --release /path/to/release.json` | 邮件找回、备份、恢复、升级与失败保护 |
-| `npm run accept:bundle -- --bundle /absolute/bundle --work /absolute/new-test-directory` | 仅用已生成安装包执行完整验收 |
 
 `test:runtime` 和 `test:extensions` 通过 `BROWSER_RUNTIME_IMAGE` 指定待验收的固定本机镜像。单独构建开发用 runtime 也使用统一构建器，明确目标架构，例如：
 
@@ -105,7 +100,7 @@ BROWSER_RUNTIME_IMAGE=agentic-browser-runtime:development-arm64 npm run test:ext
 
 amd64 主机将上述架构和镜像后缀改成 `amd64`。构建器自动获取锁定资源，输出架构镜像与构建报告。可选 `node --import tsx test/acceptance/accept-browser-soak.ts --run --capacity=1 --hold-seconds=300` 做持续负载与排队检查。这些测试有不同隔离断言，不能用普通页面打开测试替代。
 
-完整验收创建独立 Compose project、数据目录和模拟模型，Chrome 访问公网 HTTP 测试页。业务验收占用 3334，运维验收占用 3335/3336，包验收占用 3340/3341/3342；在空闲 Linux 测试机运行。运维验收还需要宿主 `openssl` 生成测试邮件证书，并要求可用内存超过 6 GiB。它们不读取站点密钥；成功后清理测试数据，失败诊断留在私密 `output/tests/` 或指定目录，只公开汇总报告。`accept:agent` 和 `accept:agent-ops` 的 `--hold` 可保留实例检查，结束时向进程发送 SIGTERM 清理。
+完整验收创建独立 Compose 项目，使用模拟模型、TLS 邮件服务和访问公网测试页的 Chrome。默认占用 3350 / 3351；测试机需 OpenSSL 和约 6 GiB 可用内存。它不读取站点密钥，结束时清理 Docker 资源，诊断留在私密工作目录，只有汇总报告用于发行。
 
 `scripts/build/bundle-tools.mjs` 是打包器内部的 esbuild 入口，无需单独调用。准备、下载、构建、发布和打包工具分别对应 npm 命令，保留职责分离。完整发行流程见 [发布](RELEASING.md)。
 
@@ -113,21 +108,21 @@ amd64 主机将上述架构和镜像后缀改成 `amd64`。构建器自动获取
 
 指南统一放在 `docs/`，根 README 只做入口。操作步骤使用当前 Node CLI 和 npm 参数；历史记录由 Git 保存，当前验收和未完成事项只维护 [STATUS.md](STATUS.md)。不要将服务器特有路径、迁移过程或已废弃命令混入通用安装流程。
 
-部署、配置、运维文档同时进入安装包，修改相对链接时检查源码和包内两种位置。文件搬迁还需核对 `scripts/build/package-agent.mjs` 的白名单、Docker COPY 和 `.dockerignore`；修改镜像输入后必须重新构建对应发行镜像。
+部署、配置、运维文档同时进入发行目录，修改相对链接时检查源码和包内两种位置。文件搬迁还需核对 `scripts/build/package-compose.mjs` 的白名单、Docker COPY 和 `.dockerignore`；修改镜像输入后必须重新构建对应发行镜像。
 
 ## Docker-only Compose 入口
 
-`deploy/compose/compose.template.yaml` 定义独立的命名卷部署，`deploy/agent/app/compose-init.mjs` 在容器内校验输入、生成并持久化密钥、渲染网关配置。`src/compose-service.ts` 自动读取容器内 Docker socket 的组，并在运行浏览器服务前降权至 UID 1000。`deploy/compose/operations.mjs` 随 Agent 镜像打包，用同一入口提供一次性 `ops` 管理任务和每日 `backup` 服务；Docker CLI、Compose 插件及其许可证随镜像提供。原安装器继续使用 `deploy/agent/compose.yaml`，两种数据布局不混用。
+`deploy/compose/compose.template.yaml` 定义独立的命名卷部署，`deploy/agent/app/compose-init.mjs` 在容器内校验输入、生成并持久化密钥、渲染网关配置。`src/compose-service.ts` 自动读取容器内 Docker socket 的组，并在运行浏览器服务前降权至 UID 1000。`deploy/compose/operations.mjs` 随 Agent 镜像打包，用同一入口提供一次性 `ops` 管理任务和每日 `backup` 服务；Docker CLI、Compose 插件及其许可证随镜像提供。全部部署使用此模板，不再维护宿主 Node 安装器。
 
 维护者在包含新入口的镜像构建完成后生成部署文件，并执行隔离验收：
 
 ```bash
-node scripts/build/package-compose.mjs --release /absolute/release.json --output output/compose
-node test/acceptance/verify-compose.mjs --release /absolute/release.json --work output/compose-test
+npm run package:compose -- --release /absolute/release.json --output output/compose
+npm run accept:compose -- --release /absolute/release.json --work output/compose-test
 ```
 
 测试本地镜像时两条命令可加 `--development`，正式发行必须使用固定 digest。验收使用 3350 / 3351 端口，可用 `--port` 指定主端口，恢复实例使用下一端口；不要占用当前站点端口。部署子进程的 PATH 仅包含 Docker，没有 Node/npm。
 
-验收只使用模拟模型，覆盖未配置拒绝启动、真实 Chrome 接管继续、重复启动和错误配置恢复；还验证独立配置目录、账号创建/重置、活动任务拒绝备份、停写备份与数据保留、升级失败完整回退、强杀备份后恢复、新项目恢复及损坏备份拒绝、每日备份轮转和同日重启去重。启用备份后继续检查正常升级，以及备份服务启动失败时完整回退数据和调度服务。结束时包含全部 profiles 清理容器、网络及测试数据卷；汇总报告必须同时为 `passed: true`、`cleanup.passed: true`、`cleanup.remaining: 0`。
+验收使用模拟模型和本地 TLS 邮件服务，包含账号隔离、额度与预算、排队、登出清理和密码找回检查；覆盖未配置拒绝启动、真实 Chrome 接管继续、重复启动和错误配置恢复；还验证独立配置目录、账号创建/重置、活动任务拒绝备份、停写备份与数据保留、升级失败完整回退、强杀备份后恢复、新项目恢复及损坏备份拒绝、每日备份轮转和同日重启去重。启用备份后继续检查正常升级，以及备份服务启动失败时完整回退数据和调度服务。结束时包含全部 profiles 清理容器、网络及测试数据卷；汇总报告必须同时为 `passed: true`、`cleanup.passed: true`、`cleanup.remaining: 0`。
 
 用户无需运行这些维护者脚本，也无需宿主 Node.js。发布 CI 在两个原生平台上执行此验收，通过后将部署文件、MIT 许可证、指南和验收报告加入 Release。

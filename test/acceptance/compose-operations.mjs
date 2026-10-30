@@ -51,7 +51,8 @@ export async function verifyOperations({compose, deployment, release, env, port,
   checks.push('killed_backup_controller_recovers_lock_helpers_and_services');
   const restored=path.join(deployment,'restore-test');writeCompose(release,restored,{development});
   fs.mkdirSync(path.join(restored,'backups'));fs.cpSync(path.join(deployment,backup.backup),path.join(restored,'backups','copy'),{recursive:true});
-  for(const name of ['compose.override.yaml','model-fixture.mjs'])fs.copyFileSync(path.join(deployment,name),path.join(restored,name));
+  fs.copyFileSync(path.join(deployment,'compose.override.yaml'),path.join(restored,'compose.override.yaml'));
+  fs.cpSync(path.join(deployment,'fixtures'),path.join(restored,'fixtures'),{recursive:true});
   const restoreProject='restore-'+randomUUID().slice(0,12), restoreEnv={...env,COMPOSE_PROJECT_NAME:restoreProject,AGENT_CONFIG_DIR:restored,AGENT_PORT:String(port+1)};
   const restoredCompose=(...args)=>run(['docker','compose',...args],{cwd:restored,env:restoreEnv,timeout:360000});
   try {

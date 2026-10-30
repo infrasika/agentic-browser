@@ -4,11 +4,11 @@ import { createRequire } from 'node:module';
 import { build } from 'esbuild';
 import { atomic, exists } from '../../deploy/agent/lib/system.mjs';
 const ROOT = path.resolve(import.meta.dirname, '../..');
-export const ENTRIES = { agentctl: 'deploy/agent/agentctl.mjs', bundle: 'deploy/agent/bundle.mjs', 'acceptance/verify': 'test/acceptance/verify-bundle.mjs', operations: 'deploy/compose/operations.mjs' };
+const ENTRY = 'deploy/compose/operations.mjs';
 
 // Source tools use npm dependencies; release tools carry those dependencies in
 // their own single-file modules. No npm registry access is needed at deployment.
-export async function bundleTools(destination, { source = ROOT, only = ['agentctl', 'bundle', 'acceptance/verify'] } = {}) {
+export async function bundleTools(destination, { source = ROOT } = {}) {
   const notices = new Map();
   function includeLicense(entry) {
     let directory = path.dirname(entry);
@@ -33,8 +33,9 @@ export async function bundleTools(destination, { source = ROOT, only = ['agentct
     }
     throw new Error('Cannot identify bundled dependency: ' + entry);
   }
-  for (const name of only) {
-    const result = await build({ entryPoints: [path.join(source, ENTRIES[name])], absWorkingDir: source, nodePaths: [path.join(ROOT, 'node_modules')], bundle: true, platform: 'node', format: 'esm', target: 'node24', write: false, metafile: true, legalComments: 'inline', define: { AGENT_BUNDLED: 'true' }, banner: { js: "import { createRequire as __createRequire } from 'node:module'; const require = __createRequire(import.meta.url);" }, logLevel: 'silent' });
+  {
+    const name = 'operations';
+    const result = await build({ entryPoints: [path.join(source, ENTRY)], absWorkingDir: source, nodePaths: [path.join(ROOT, 'node_modules')], bundle: true, platform: 'node', format: 'esm', target: 'node24', write: false, metafile: true, legalComments: 'inline', define: { AGENT_BUNDLED: 'true' }, banner: { js: "import { createRequire as __createRequire } from 'node:module'; const require = __createRequire(import.meta.url);" }, logLevel: 'silent' });
     const file = path.join(destination, name + '.mjs'); fs.mkdirSync(path.dirname(file), { recursive: true, mode: 0o700 }); atomic(file, result.outputFiles[0].contents);
     for (const input of Object.keys(result.metafile.inputs)) {
       if (!input.includes('node_modules/')) continue;

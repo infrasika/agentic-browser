@@ -19,8 +19,9 @@ export function composeFiles(release, { source = root, development = false } = {
   return {
     'compose.yaml': template,
     'settings.json': fs.readFileSync(path.join(source, 'config/settings.example.json'), 'utf8'),
-    'secrets.env': fs.readFileSync(path.join(source, 'deploy/compose/secrets.env.example'), 'utf8'),
-    'COMPOSE.md': fs.readFileSync(path.join(source, 'docs/COMPOSE.md'), 'utf8'),
+    'secrets.env': fs.readFileSync(path.join(source, 'config/secrets.env.example'), 'utf8'),
+    ...Object.fromEntries(['DEPLOYMENT.md', 'CONFIGURATION.md', 'OPERATIONS.md'].map(name => [name, fs.readFileSync(path.join(source, 'docs', name), 'utf8')])),
+    'nginx.host.conf': fs.readFileSync(path.join(source, 'deploy/agent/nginx.host.conf'), 'utf8'),
     'LICENSE': fs.readFileSync(path.join(source, 'LICENSE'), 'utf8'),
   };
 }

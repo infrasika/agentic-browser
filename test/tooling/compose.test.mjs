@@ -53,7 +53,7 @@ test('Compose refuses placeholder credentials and corrupt identity instead of ro
 test('Compose distribution pins all images, rejects mutable releases and never overwrites user files', () => fixture(async (options, settings, root) => {
   const images = Object.fromEntries(['agent', 'browser', 'runtime', 'gateway', 'mongo', 'redis'].map(name => [name, 'example/' + name + '@sha256:' + 'a'.repeat(64)]));
   const files = composeFiles({ images });
-  assert.deepEqual(Object.keys(files).sort(), ['COMPOSE.md', 'LICENSE', 'compose.yaml', 'secrets.env', 'settings.json']);
+  assert.deepEqual(Object.keys(files).sort(), ['CONFIGURATION.md', 'DEPLOYMENT.md', 'LICENSE', 'OPERATIONS.md', 'compose.yaml', 'nginx.host.conf', 'secrets.env', 'settings.json']);
   assert.ok(!files['compose.yaml'].includes('@@'));
   assert.ok(!files['compose.yaml'].includes('driver_opts'));
   assert.throws(() => composeFiles({ images: { ...images, agent: 'example/agent:latest' } }), /Immutable/);

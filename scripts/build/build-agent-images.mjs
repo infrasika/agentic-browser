@@ -83,7 +83,7 @@ export async function main() {
           fs.cpSync(source, context, { recursive: true, filter: file => path.basename(file) !== '.git', dereference: false });
           if (component === 'agent') {
             fs.cpSync(path.join(sources.browser, 'deploy/agent/app'), path.join(context, 'selfhost'), { recursive: true });
-            await bundleTools(path.join(context, 'selfhost'), { source: sources.browser, only: ['operations'] });
+            await bundleTools(path.join(context, 'selfhost'), { source: sources.browser });
             fs.copyFileSync(path.join(sources.browser, 'LICENSE'), path.join(context, 'selfhost/LICENSE'));
             fs.cpSync(path.join(sources.browser, 'deploy/compose/licenses'), path.join(context, 'selfhost/LICENSES/docker'), { recursive: true });
           }

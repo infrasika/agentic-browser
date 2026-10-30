@@ -2,7 +2,7 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { INFRA, ROOT, validateImageSources, validateReport } from './package-agent.mjs';
+import { INFRA, ROOT, validateImageSources, validateReport } from './release-images.mjs';
 import { argumentsFor, cli, exists, Failure, json, mainModule, run, same, sha } from '../../deploy/agent/lib/system.mjs';
 export const NAMES = { agent: 'agentic-browser-agent', browser: 'agentic-browser-service', runtime: 'agentic-browser-runtime' };
 const ACCEPT = ['application/vnd.oci.image.index.v1+json', 'application/vnd.oci.image.manifest.v1+json', 'application/vnd.docker.distribution.manifest.list.v2+json', 'application/vnd.docker.distribution.manifest.v2+json'].join(', ');
