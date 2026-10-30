@@ -10,6 +10,8 @@ The [GitHub demo](docs/AGENT_DEMO.md) asks you to sign in inside the remote brow
 
 ## Self-host
 
+The new [Compose deployment](docs/COMPOSE.md) on `feature` needs only Docker and Compose on the host: download `compose.yaml`, `settings.json` and `secrets.env` from the matching release, fill in your settings and run `docker compose up -d`. Initialization and generated keys live inside containers and named volumes. This requires new images; published preview.9 images do not include this entrypoint yet.
+
 Deploy a versioned installation bundle on Linux with Node.js 24+, Docker and flock. The [deployment guide](docs/DEPLOYMENT.md) covers Cloudflare, HTTPS, model settings, secrets, first login and acceptance. MongoDB, Redis and browser control remain private; persistent data lives in the installation directory, and configuration can use a separate private directory.
 
 New clones include public examples in [config/settings.example.json](config/settings.example.json) and [config/secrets.env.example](config/secrets.env.example). Review them to see which settings and keys you need. For source deployments, `agentctl init --config-directory "$PWD/config/local"` generates private configuration and unique application keys under the repository’s `config/`; edit those generated files using the [configuration guide](docs/CONFIGURATION.md). Building images requires no model or Cloudflare keys. The installation tools regenerate `.deployment/` state; a new clone never needs a copy of another server’s deployment directory.

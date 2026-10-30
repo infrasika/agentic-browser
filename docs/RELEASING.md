@@ -175,3 +175,7 @@ done
 可以使用分别标注 `amd64/`、`arm64/` 的下载目录；若使用同一个 GitHub Release，应给交付归档增加架构后缀，并同步生成与这些文件名对应的校验文件，说明解压后的目录名不变。保留原候选产物，重新验证实际下载文件；不要修改包内文件后沿用旧摘要。
 
 首次公开发行前确认项目主许可证，并保留组件和依赖的适用许可证。交付物不得含站点配置、密钥、浏览器登录档案或用户数据。发行记录集中在版本说明与 [STATUS.md](STATUS.md)，不把某台测试服务器的配置复制进通用安装文档。
+
+## Docker-only Compose 分发
+
+新镜像包含 Compose 初始化入口。发布流水线在原生 amd64 / arm64 上分别验证直接 `docker compose up -d` 的部署流程，通过后额外提供 `compose.yaml`、`settings.json`、`secrets.env`、`COMPOSE.md` 和 `compose-acceptance-*.json`，均纳入 SHA256SUMS。Compose 中六种镜像由本次 publication 的固定 digest 填写，不能复用缺少新入口的 preview.9 镜像。维护者本地生成与验收命令见 [开发指南](DEVELOPMENT.md)，用户步骤见 [Compose 部署](COMPOSE.md)。

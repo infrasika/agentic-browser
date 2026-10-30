@@ -2,6 +2,16 @@
 
 更新：2026-10-30（北京时间）。此处只记录当前交付范围、已验证版本和未完成事项，历史实现过程由 Git 保存。
 
+## feature：Docker-only 部署
+
+新增 [Compose 部署入口](COMPOSE.md)：用户取得三份发行文件、填写站点和模型配置后执行 `docker compose up -d`。容器内完成配置校验、随机密钥生成、网关渲染与数据卷初始化，宿主无需 Node.js。现有安装器继续保留；两种持久化布局独立，尚不支持自动迁移。
+
+本机 Docker Desktop 的 Linux arm64 引擎已完成 7 项隔离验收：模板未配置时阻止启动、管理员登录、浏览器进程降权、内部端口与密钥隔离、真实 Chrome 快照及接管继续、重复 up / down-up 保留密钥账号聊天额度、错误配置修复后恢复。部署子进程的 PATH 仅包含 Docker，不含 Node/npm；测试使用模拟模型，清理后剩余资源为 0。证据：`output/compose-validation/run-5/report.json`。
+
+测试 Agent / Browser Service 镜像基于已核对源码和依赖的本地缓存，覆盖本次完整 app / src 文件；未重新编译 LibreChat 前端，也未上传镜像。该结果不代表独立 Linux 主机或 amd64 完整部署验收。发布 CI 已增加两个原生平台的 Compose 验收关卡和发行文件生成，仍须在下一次发布时执行。当前公开的 preview.9 不包含新入口。
+
+本机类型检查及 actionlint 通过；79 项源码测试中 77 项通过、2 项 Linux flock 测试在 Mac 跳过。
+
 ## 已交付
 
 聊天与浏览器同屏、本地账号、每用户一个会话、排队、人工接管归还后继续、credits、全站日预算、管理员入口、Turnstile 和可选 SMTP 找回已实现。完整 Compose 支持本机目录持久化、一次填写配置、账号管理、停写备份、定时轮转、新实例恢复及失败升级保护。GitHub 私有仓库数量/名称和邮件到达已由用户核对。

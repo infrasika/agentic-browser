@@ -1,0 +1,160 @@
+# Release tooling replaces image placeholders with verified immutable digests.
+name: ${COMPOSE_PROJECT_NAME:-agentic-browser}
+services:
+  init:
+    image: @@AGENT_IMAGE@@
+    user: '0:0'
+    network_mode: none
+    read_only: true
+    cap_drop: [ALL]
+    cap_add: [CHOWN, FOWNER, DAC_OVERRIDE]
+    security_opt: [no-new-privileges:true]
+    entrypoint: [node, /app/selfhost/compose-init.mjs]
+    restart: 'no'
+    mem_limit: 256m
+    volumes:
+      - {type: bind, source: ./settings.json, target: /input/settings.json, read_only: true, bind: {create_host_path: false}}
+      - {type: bind, source: ./secrets.env, target: /input/secrets.env, read_only: true, bind: {create_host_path: false}}
+      - {type: volume, source: config, target: /config, volume: {nocopy: true}}
+      - {type: volume, source: browser-config, target: /browser-config, volume: {nocopy: true}}
+      - {type: volume, source: gateway-config, target: /gateway-config, volume: {nocopy: true}}
+      - {type: volume, source: browser-data, target: /state/browser, volume: {nocopy: true}}
+      - {type: volume, source: uploads, target: /state/uploads, volume: {nocopy: true}}
+      - {type: volume, source: images, target: /state/images, volume: {nocopy: true}}
+      - {type: volume, source: logs, target: /state/logs, volume: {nocopy: true}}
+  runtime-image:
+    # Ensure Compose pulls the runtime before Browser Service starts.
+    image: @@RUNTIME_IMAGE@@
+    user: '1000:1000'
+    entrypoint: [node, -e, 'process.exit(0)']
+    network_mode: none
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    restart: 'no'
+    mem_limit: 64m
+    depends_on:
+      init: {condition: service_completed_successfully}
+  gateway:
+    image: @@GATEWAY_IMAGE@@
+    user: '1000:1000'
+    entrypoint: [nginx, -c, /etc/nginx/agent/nginx.conf, -g, 'daemon off;']
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    ports: ['${AGENT_BIND:-127.0.0.1}:${AGENT_PORT:-3333}:8080']
+    volumes:
+      - {type: volume, source: gateway-config, target: /etc/nginx/agent, read_only: true, volume: {nocopy: true}}
+    tmpfs: ['/tmp:rw,nosuid,nodev,size=32m,mode=1777']
+    networks: [front]
+    depends_on:
+      agent: {condition: service_healthy}
+      browser: {condition: service_healthy}
+    restart: unless-stopped
+    mem_limit: 128m
+  agent:
+    image: @@AGENT_IMAGE@@
+    user: '1000:1000'
+    init: true
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    volumes:
+      - {type: volume, source: config, target: /config, read_only: true, volume: {nocopy: true}}
+      - {type: volume, source: config, target: /run/secrets, read_only: true, volume: {nocopy: true}}
+      - {type: volume, source: uploads, target: /app/uploads, volume: {nocopy: true}}
+      - {type: volume, source: images, target: /app/client/public/images, volume: {nocopy: true}}
+      - {type: volume, source: logs, target: /app/logs, volume: {nocopy: true}}
+    tmpfs: ['/tmp:rw,nosuid,nodev,size=128m,mode=1777']
+    networks: [front, database]
+    depends_on:
+      init: {condition: service_completed_successfully}
+      mongo: {condition: service_healthy}
+      redis: {condition: service_healthy}
+      browser: {condition: service_healthy}
+    healthcheck:
+      test: [CMD, node, -e, "fetch('http://127.0.0.1:3080/readyz',{signal:AbortSignal.timeout(3000)}).then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 5s
+      timeout: 5s
+      start_period: 120s
+      retries: 24
+    stop_grace_period: 90s
+    restart: unless-stopped
+    mem_limit: 2g
+  browser:
+    image: @@BROWSER_IMAGE@@
+    # Entrypoint discovers socket GID and drops to UID/GID 1000 before serving.
+    user: '0:0'
+    entrypoint: [node, --import, tsx, src/compose-service.ts]
+    init: true
+    read_only: true
+    cap_drop: [ALL]
+    cap_add: [SETUID, SETGID]
+    security_opt: [no-new-privileges:true]
+    environment:
+      BROWSER_CONTROL_HOST: 0.0.0.0
+      BROWSER_DATA_HOST: 0.0.0.0
+      BROWSER_DATA_DIR: /data
+      BROWSER_DATA_VOLUME: ${COMPOSE_PROJECT_NAME:-agentic-browser}-browser
+      BROWSER_RUNTIME_IMAGE: @@RUNTIME_IMAGE@@
+    volumes:
+      - {type: volume, source: browser-config, target: /service-config, read_only: true, volume: {nocopy: true}}
+      - {type: volume, source: browser-data, target: /data, volume: {nocopy: true}}
+      - {type: bind, source: /var/run/docker.sock, target: /var/run/docker.sock, bind: {create_host_path: false}}
+    tmpfs: ['/tmp:rw,nosuid,nodev,size=64m,mode=1777']
+    networks: [front]
+    depends_on:
+      init: {condition: service_completed_successfully}
+      runtime-image: {condition: service_completed_successfully}
+    healthcheck:
+      test: [CMD, node, -e, "Promise.all([8081,8082].map(p=>fetch('http://127.0.0.1:'+p+'/health',{signal:AbortSignal.timeout(3000)}))).then(rs=>process.exit(rs.every(r=>r.ok)?0:1)).catch(()=>process.exit(1))"]
+      interval: 5s
+      timeout: 5s
+      retries: 24
+    stop_grace_period: 90s
+    restart: unless-stopped
+    mem_limit: 768m
+  mongo:
+    image: @@MONGO_IMAGE@@
+    environment:
+      GLIBC_TUNABLES: glibc.pthread.rseq=1
+    volumes: [mongo-data:/data/db]
+    networks: [database]
+    depends_on:
+      init: {condition: service_completed_successfully}
+    restart: unless-stopped
+    command: [mongod, --wiredTigerCacheSizeGB, '0.25']
+    mem_limit: 1g
+    healthcheck:
+      test: [CMD, mongosh, --quiet, --eval, 'db.adminCommand({ping:1}).ok']
+      interval: 5s
+      timeout: 5s
+      retries: 24
+  redis:
+    image: @@REDIS_IMAGE@@
+    command: [redis-server, --appendonly, 'yes', --appendfsync, everysec, --maxmemory-policy, noeviction]
+    volumes: [redis-data:/data]
+    networks: [database]
+    depends_on:
+      init: {condition: service_completed_successfully}
+    restart: unless-stopped
+    mem_limit: 256m
+    healthcheck:
+      test: [CMD, redis-cli, ping]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+networks:
+  front: {}
+  database: {internal: true}
+volumes:
+  config: {}
+  browser-config: {}
+  gateway-config: {}
+  browser-data:
+    name: ${COMPOSE_PROJECT_NAME:-agentic-browser}-browser
+  mongo-data: {}
+  redis-data: {}
+  uploads: {}
+  images: {}
+  logs: {}

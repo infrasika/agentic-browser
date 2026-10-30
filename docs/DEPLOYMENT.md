@@ -1,5 +1,7 @@
 # 在自己的服务器上部署 Agentic Browser
 
+新部署的 Docker-only 入口见 [Compose 部署](COMPOSE.md)：下载配置模板后直接 `docker compose up -d`，宿主无需 Node.js。该入口尚在 feature 验证，需要新镜像；本页保留现有安装器与 preview.9 的步骤，两种数据布局不要混用。
+
 本指南从一台 Linux 服务器开始，安装完整的聊天 Agent、同屏远程浏览器、本地账号、credits 和全站预算。应用、MongoDB、Redis 等都运行在 Docker 中；安装包自带 Node 管理工具，无需另装 LibreChat，也无需下载源码或执行 `npm install`。
 
 **安装具体版本的预发布包。** 从 [GitHub Releases](https://github.com/infrasika/agentic-browser/releases) 下载与服务器匹配的 `agentic-browser-agent-VERSION-linux-amd64.tar.gz` 或 `-linux-arm64.tar.gz` 以及 `SHA256SUMS`，先执行 `sha256sum --ignore-missing -c SHA256SUMS` 再解压；解压目录名不带架构后缀。私有仓库的资产下载需要仓库访问权限。镜像由包内固定 digest 指定。支持和验收范围以该版本说明及所附验收报告为准；不要使用旧 Controller 架构的安装包覆盖新 Agent。
