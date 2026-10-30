@@ -30,7 +30,9 @@ flowchart LR
 | `src/docker-runtime.ts` | 创建、隔离和清理 Chrome / egress 容器 |
 | `src/runtime-worker.ts`、`src/desktop.ts`、`src/browser.ts` | 容器内 Chrome、扩展、CDP 和 VNC 生命周期 |
 | `src/egress-*` | 公网出口代理与目标地址限制 |
-| `deploy/agent/` | 完整 Agent 的 Compose 安装、配置、备份、恢复和升级 |
+| `deploy/agent/app/` | Agent 镜像内的配置、初始化、邮件与账号管理 |
+| `deploy/compose/` | Docker-only Compose 模板、备份、恢复、升级和调度入口 |
+| `deploy/agent/` 中的安装工具 | 现有 Node 安装布局的运维；迁移验收完成前保留 |
 | `runtime/` | Chrome 镜像构建、扩展版本锁定、沙箱规则及许可证 |
 | `scripts/build/` | 资源下载、镜像构建、发行打包与 GHCR 发布 |
 | `test/acceptance/` | 完整 Agent、运维和浏览器验收；`fixtures/` 保存模拟模型、邮件和测试账号工具 |
@@ -57,12 +59,16 @@ MongoDB 保存 LibreChat 账号、密码摘要、聊天、个人 credits、全�
 
 ## 部署
 
-所有部署使用同一套完整 Agent Compose，见 [部署指南](DEPLOYMENT.md)。宿主 Nginx 将域名转到 gateway 的回环端口；Mongo、Redis、浏览器状态与应用文件绑定安装目录的 `data/`，重建容器保留数据。配置和密钥通过 `--config-directory` 指定位置，源码部署使用根目录 `config/local/`；Compose 通过 `AGENT_CONFIG_DIR` 挂载同一目录的 secret 和只读配置；`agentctl.mjs` 生成 Compose 插值文件并管理生命周期。对应关系见 [配置](CONFIGURATION.md)，备份恢复见 [运维](OPERATIONS.md)。
+新部署使用 [Docker-only Compose](COMPOSE.md)。宿主 Nginx 将域名转到 gateway 的回环端口；数据库、浏览器状态、应用文件和生成的配置使用项目专属命名卷，重建容器保留数据。用户填写 `settings.json` 和 `secrets.env`，可通过 `AGENT_CONFIG_DIR` 放在独立目录。首次启动由 `init` 生成应用身份密钥，以后保留同一身份；用户输入与镜像构建无关。
+
+容器内 `ops` 通过 Docker socket 管理该项目，和可选每日 `backup` 服务共享内核操作锁。备份先关闭入口并排空请求，确认没有浏览器任务后停止写入者，归档全部持久卷和输入配置，校验成功才将临时目录标记为完成。恢复默认只接受新项目；升级失败保留维护状态，回退恢复升级前完整数据。中断操作的状态在独立卷持久化，不以简单重启代替恢复确认。运维容器无公网入口，与 Browser Service 一样只允许服务器管理员控制。
+
+当前测试站的 Node 安装器仍使用安装目录的 `data/` 绑定卷和 `config/local/`。此布局的工具与指南暂时保留，迁移验收及新版发布完成后统一收敛；两种备份格式不直接混用。实际站点版本与迁移进度见 [当前状态](STATUS.md)。
 
 官方公网安装路径统一为 Cloudflare DNS/代理 → 宿主 HTTPS Nginx（Full strict）→ Compose gateway，公开注册使用 Turnstile。这样统一入口模板和验收，不给应用增加 Cloudflare DNS/证书管理 SDK、Tunnel 服务或另一套 Compose。关闭注册只是本地账号系统的策略开关，保留自用和隔离验收能力。
 
 密码找回共用一套 TLS SMTP 实现，官方指南提供 Cloudflare Email Sending 配置；发信服务不是核心启动的硬依赖。源站证书归宿主，模型与应用密钥归安装目录，构建和发布均不依赖这些部署参数。
 
-`deploy/` 是版本控制中的部署源码，`.deployment/` 是不提交的本地运行状态和数据，根目录 `config/local/` 保存本机配置；两者均可由新 clone 的安装工具初始化。构建日志和报告在 `output/build/`，临时验收安装在 `output/tests/`。完整目录约定见 [文档导航](README.md)。
+`deploy/` 是版本控制中的部署源码，`.deployment/` 是不提交的本地运行状态，根目录 `config/local/` 可以保存本机配置。新部署从发行文件及公开示例开始，不依赖本站的私密目录。构建日志和报告在 `output/build/`，临时验收安装在 `output/tests/`。完整目录约定见 [文档导航](README.md)。
 
 发行清单包含 Agent、Browser Service、Chrome runtime、gateway、MongoDB、Redis 六个不可变镜像。Chrome runtime 由 Browser Service 按会话启动，并非常驻 Compose 服务。源码工具将管理 CLI 及其依赖编译为独立 Node 文件；源码准备、镜像构建、GHCR 上传和安装包制作分别见 [开发](DEVELOPMENT.md)、[构建](BUILD.md) 和 [发布](RELEASING.md)。已验收平台和剩余工作见 [当前状态](STATUS.md)。

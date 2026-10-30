@@ -180,4 +180,4 @@ done
 
 ## Docker-only Compose 分发
 
-新镜像包含 Compose 初始化入口。发布流水线在原生 amd64 / arm64 上分别验证直接 `docker compose up -d` 的部署流程，通过后额外提供 `compose.yaml`、`settings.json`、`secrets.env`、`COMPOSE.md` 和 `compose-acceptance-*.json`，均纳入 SHA256SUMS。Compose 中六种镜像由本次 publication 的固定 digest 填写，不能复用缺少新入口的 preview.9 镜像。维护者本地生成与验收命令见 [开发指南](DEVELOPMENT.md)，用户步骤见 [Compose 部署](COMPOSE.md)。
+新镜像包含 Compose 初始化与容器运维入口。发布流水线在原生 amd64 / arm64 上分别验证 `docker compose up -d`、备份恢复、升级回退及定时备份，通过后额外提供 `compose.yaml`、`settings.json`、`secrets.env`、`COMPOSE.md`、`LICENSE` 和 `compose-acceptance-*.json`，均纳入 SHA256SUMS。Compose 中六种镜像由本次 publication 的固定 digest 填写；preview.9 缺少 Compose 入口，preview.10 缺少 `ops`，不能套用新模板。维护者本地生成与验收命令见 [开发指南](DEVELOPMENT.md)，用户步骤见 [Compose 部署](COMPOSE.md)。

@@ -117,7 +117,7 @@ amd64 主机将上述架构和镜像后缀改成 `amd64`。构建器自动获取
 
 ## Docker-only Compose 入口
 
-`deploy/compose/compose.template.yaml` 定义独立的命名卷部署，`deploy/agent/app/compose-init.mjs` 在容器内校验输入、生成并持久化密钥、渲染网关配置。`src/compose-service.ts` 自动读取容器内 Docker socket 的组，并在运行浏览器服务前降权至 UID 1000。原安装器继续使用 `deploy/agent/compose.yaml`，两种数据布局不混用。
+`deploy/compose/compose.template.yaml` 定义独立的命名卷部署，`deploy/agent/app/compose-init.mjs` 在容器内校验输入、生成并持久化密钥、渲染网关配置。`src/compose-service.ts` 自动读取容器内 Docker socket 的组，并在运行浏览器服务前降权至 UID 1000。`deploy/compose/operations.mjs` 随 Agent 镜像打包，用同一入口提供一次性 `ops` 管理任务和每日 `backup` 服务；Docker CLI、Compose 插件及其许可证随镜像提供。原安装器继续使用 `deploy/agent/compose.yaml`，两种数据布局不混用。
 
 维护者在包含新入口的镜像构建完成后生成部署文件，并执行隔离验收：
 
@@ -126,4 +126,8 @@ node scripts/build/package-compose.mjs --release /absolute/release.json --output
 node test/acceptance/verify-compose.mjs --release /absolute/release.json --work output/compose-test
 ```
 
-测试本地镜像时两条命令可加 `--development`，正式发行必须使用固定 digest。验收只使用模拟模型，检查未配置拒绝启动、真实 Chrome 接管继续、重复启动、数据保留及错误配置恢复，最后清理该测试项目。用户无需运行这些维护者脚本，也无需宿主 Node.js。发布 CI 在两个原生平台上执行此验收，通过后将三份部署文件、指南和验收报告加入 Release。
+测试本地镜像时两条命令可加 `--development`，正式发行必须使用固定 digest。验收使用 3350 / 3351 端口，可用 `--port` 指定主端口，恢复实例使用下一端口；不要占用当前站点端口。部署子进程的 PATH 仅包含 Docker，没有 Node/npm。
+
+验收只使用模拟模型，覆盖未配置拒绝启动、真实 Chrome 接管继续、重复启动和错误配置恢复；还验证独立配置目录、账号创建/重置、活动任务拒绝备份、停写备份与数据保留、升级失败完整回退、强杀备份后恢复、新项目恢复及损坏备份拒绝、每日备份轮转和同日重启去重。结束时包含全部 profiles 清理容器、网络及测试数据卷；汇总报告必须同时为 `passed: true`、`cleanup.passed: true`、`cleanup.remaining: 0`。
+
+用户无需运行这些维护者脚本，也无需宿主 Node.js。发布 CI 在两个原生平台上执行此验收，通过后将部署文件、MIT 许可证、指南和验收报告加入 Release。

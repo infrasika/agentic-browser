@@ -82,5 +82,21 @@ export async function verifyOperations({compose, deployment, release, env, port,
     assert.equal((await ops('status')).dailyBackup.backup,receipt.backup);
     assert.deepEqual(await snapshot(compose),before);assert.equal(await identity(compose),key);
     checks.push('daily_backup_container_retention_and_same_day_restart_deduplication');
+    fs.writeFileSync(path.join(root,'compose.yaml'),original);
+    assert.equal((await ops('upgrade','releases/test/compose.yaml')).status,'upgraded');
+    const backupID=(await compose('ps','-q','backup')).trim();assert.ok(backupID,'Enabled backup service must survive upgrade');
+    assert.equal(JSON.parse(await run(['docker','inspect',backupID]))[0].State.Running,true);
+    assert.equal((await ops('status')).dailyBackup.backup,receipt.backup);
+    assert.deepEqual(await snapshot(compose),before);assert.equal(await identity(compose),key);
+    checks.push('upgrade_keeps_enabled_daily_backup_running');
+    const brokenBackup=original.replace('  backup:\n    <<: *operations\n','  backup:\n    <<: *operations\n    entrypoint: [/missing-backup-binary]\n');assert.notEqual(brokenBackup,original);
+    fs.writeFileSync(path.join(root,'compose.yaml'),brokenBackup);
+    await assert.rejects(ops('upgrade','releases/test/compose.yaml'));
+    const failedBackup=await ops('status');assert.equal(failedBackup.maintenance,true);assert.equal(failedBackup.operation.backupEnabled,true);
+    assert.equal((await ops('rollback')).status,'rolled_back');
+    const restoredBackup=(await compose('ps','-q','backup')).trim();assert.ok(restoredBackup);
+    assert.equal(JSON.parse(await run(['docker','inspect',restoredBackup]))[0].State.Running,true);
+    assert.deepEqual(await snapshot(compose),before);assert.equal(await identity(compose),key);
+    checks.push('backup_service_start_failure_rolls_back_data_and_scheduler');
   } finally {await scheduler('stop','backup');}
 }

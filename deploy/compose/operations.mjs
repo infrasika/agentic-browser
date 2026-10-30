@@ -100,6 +100,10 @@ export class ComposeOperations {
   }
   volume(name) { return this.config.volumes[name].name; }
   inputFile(name) { return childPath(name === 'compose.yaml' ? this.root : this.input, name); }
+  async backupRunning() {
+    const cid = (await this.compose(['ps', '--all', '-q', 'backup'])).trim();
+    return Boolean(cid && JSON.parse(await this.docker(['inspect', cid]))[0].State.Running);
+  }
   async probe(status = 200) {
     const host = new URL(readJSON(this.inputFile('settings.json')).origin).host;
     await this.compose(['exec', '-T', 'agent', 'node', '-e', `const q=require('http').get('http://gateway:8080/api/config',{headers:{Host:${JSON.stringify(host)}}},r=>{r.resume();process.exit(r.statusCode===${status}${status === 503 ? "&&r.headers['x-agent-maintenance']==='1'" : ''}?0:1)});q.setTimeout(4000,()=>q.destroy());q.on('error',()=>process.exit(1));`]);
@@ -138,10 +142,14 @@ export class ComposeOperations {
     }
     write(this.intent, { operation, phase: 'stopping' }); await this.stop();
   }
-  async resume() {
+  async resume({ backup = false } = {}) {
     // The maintenance gate remains visible until all writers and the gateway
     // are healthy. Power loss or an exception never silently opens the site.
     await this.compose(['up', '-d', '--wait', '--wait-timeout', '240', ...SERVICES]);
+    if (backup) {
+      await this.compose(['up', '-d', '--no-deps', 'backup']);
+      if (!await this.backupRunning()) throw new Failure('backup_service_not_running');
+    }
     await this.health(true); fs.rmSync(this.gate, { force: true });
     try { await this.health(); } catch (error) { write(this.gate, 'maintenance\n'); throw error; }
     fs.rmSync(this.intent, { force: true }); return { status: 'recovered' };
@@ -152,7 +160,7 @@ export class ComposeOperations {
     if (!['drain', 'stopping', 'backup', 'restored'].includes(intent.phase)) throw new Failure('unsafe_to_restart; use rollback or restore a verified backup');
     const helpers = (await this.docker(['ps', '-aq', '--filter', 'label=dev.agentic-browser.operation=' + this.project])).split(/\s+/).filter(Boolean);
     if (helpers.length) await this.docker(['rm', '-f', ...helpers]);
-    const result = await this.resume();
+    const result = await this.resume({ backup: intent.phase === 'restored' && intent.backupEnabled });
     if (/^backups\/\.pending-\d{8}T\d{6}Z-[a-f0-9]{8}$/.test(intent.partial ?? '')) fs.rmSync(childPath(this.root, intent.partial), { recursive: true, force: true });
     return result;
   }
@@ -197,15 +205,15 @@ export class ComposeOperations {
   async upgrade(relative) {
     this.requireReady(); const file = childPath(this.root, relative); plainFile(file);
     const target = await this.render(file); await this.pull(target);
+    const backupEnabled = await this.backupRunning();
     const { backup } = await this.backup({ stay: true });
-    write(this.intent, { operation: 'upgrade', phase: 'upgrading', backup });
+    write(this.intent, { operation: 'upgrade', phase: 'upgrading', backup, backupEnabled });
     try {
       write(path.join(this.root, 'compose.yaml'), fs.readFileSync(file), this.owner); this.config = target; this.image = target.services.agent.image;
       await this.compose(['up', '-d', '--force-recreate', '--wait', '--wait-timeout', '240', ...SERVICES]);
-      await this.resume();
-      if ((await this.compose(['ps', '--all', '-q', 'backup'])).trim()) await this.compose(['up', '-d', '--no-deps', 'backup']);
+      await this.resume({ backup: backupEnabled });
       return { status: 'upgraded', backup, version: target.services.ops.environment.AGENT_RELEASE };
-    } catch { write(this.gate, 'maintenance\n'); write(this.intent, { operation: 'upgrade', phase: 'upgrade_failed', backup }); throw new Failure('upgrade_failed; maintenance retained; run ops rollback'); }
+    } catch { write(this.gate, 'maintenance\n'); write(this.intent, { operation: 'upgrade', phase: 'upgrade_failed', backup, backupEnabled }); throw new Failure('upgrade_failed; maintenance retained; run ops rollback'); }
   }
   async restore(relative, replace = false) {
     const folder = childPath(this.root, relative); await verifyBackup(folder);
@@ -213,8 +221,9 @@ export class ComposeOperations {
     const containers = (await this.docker(['ps', '-aq', '--filter', 'label=com.docker.compose.project=' + this.project, '--filter', 'label=com.docker.compose.oneoff=False'])).trim();
     const existing = await this.docker(['volume', 'ls', '-q', '--filter', 'label=com.docker.compose.project=' + this.project]);
     if (!replace && (containers || VOLUMES.some(n => existing.split('\n').includes(this.volume(n))))) throw new Failure('restore_requires_fresh_project; explicit --replace overwrites current data');
+    const backupEnabled = this.pending()?.backupEnabled ?? await this.backupRunning();
     if (replace && !this.pending()) await this.enter('restore');
-    write(this.gate, 'maintenance\n'); write(this.intent, { operation: 'restore', phase: 'restoring', backup: relative });
+    write(this.gate, 'maintenance\n'); write(this.intent, { operation: 'restore', phase: 'restoring', backup: relative, backupEnabled });
     // Remove the old containers, never the ops container or its state volume.
     await this.compose(['stop', '-t', '60', ...SERVICES]);
     await this.compose(['rm', '-f', 'init', 'runtime-image', ...SERVICES]);
@@ -228,7 +237,7 @@ export class ComposeOperations {
     await this.compose(['create', 'init', 'runtime-image', ...SERVICES]);
     for (const volume of VOLUMES) await transferVolume(this.image, this.volume(volume), this.project, path.join(folder, volume + '.tar.gz'), true);
     await this.docker(['run', '--rm', '--network=none', '--read-only', '--user=1000:1000', '--cap-drop=ALL', '--mount', 'type=volume,src=' + this.volume('browser-data') + ',dst=/volume', '--entrypoint=node', this.image, '-e', "require('fs').writeFileSync('/volume/runtimes/instance-id',require('crypto').randomUUID(),{mode:0o600})"]);
-    write(this.intent, { operation: 'restore', phase: 'restored', backup: relative });
+    write(this.intent, { operation: 'restore', phase: 'restored', backup: relative, backupEnabled });
     return { status: 'restored_stopped', next: 'Review settings.json and secrets.env, then run ops recover. Target project name and port come from its own .env.' };
   }
   async rollback() {
