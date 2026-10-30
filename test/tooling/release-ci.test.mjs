@@ -11,10 +11,10 @@ test('release collection requires both native receipts and checksums every deliv
   const images=Object.fromEntries(['agent','browser','runtime','gateway','mongo','redis'].map(n=>[n,'example/'+n+'@sha256:'+'b'.repeat(64)]));
   fs.mkdirSync(path.join(root,'publication'));fs.mkdirSync(path.join(root,'delivery'));
   const write=(name,value)=>fs.writeFileSync(path.join(root,name),JSON.stringify(value));
-  write('publication/release.json',{version,images});write('publication/publication.json',{version,images});
+  write('publication/release.json',{version,images});write('publication/publication.json',{version,images,published:true,namespace:'fixture',toolCommit:commit});
   for(const arch of ['amd64','arm64']) {
     write('delivery/public-pull-'+arch+'.json',{version,images,anonymousPullVerified:true});
-    write('delivery/compose-acceptance-'+arch+'.json',{passed:true,cleanup:{passed:true},version,images,packageCommit:commit,architecture:arch==='amd64'?'x64':'arm64',hostPlatform:'linux',hostNodeOnDeploymentPath:false});
+    write('delivery/compose-acceptance-'+arch+'.json',{passed:true,cleanup:{passed:true,remaining:0},version,images,packageCommit:commit,architecture:arch==='amd64'?'x64':'arm64',hostPlatform:'linux',hostNodeOnDeploymentPath:false});
   }
   const collect=()=>run([process.execPath,script,'collect'],{cwd:root,env:{...process.env,RELEASE_VERSION:version,GITHUB_REPOSITORY_OWNER:'fixture',GITHUB_SHA:commit}});
   await collect();
@@ -24,6 +24,8 @@ test('release collection requires both native receipts and checksums every deliv
   const lines=fs.readFileSync(path.join(output,'SHA256SUMS'),'utf8').trim().split('\n');
   assert.equal(lines.length,names.length-1);
   for(const line of lines){const [hash,name]=line.split('  ');assert.equal(hash,await digest(path.join(output,name)));}
+  write('publication/release.json',{version:'v9.0.0-preview.1',images});await assert.rejects(collect());
+  write('publication/release.json',{version,images});
   const reportFile=path.join(root,'delivery/compose-acceptance-arm64.json'), original=JSON.parse(fs.readFileSync(reportFile));
   for(const change of [{passed:false},{cleanup:{passed:false}},{architecture:'x64'},{packageCommit:'changed'},{images:{}}]) {
     fs.writeFileSync(reportFile,JSON.stringify({...original,...change}));await assert.rejects(collect());

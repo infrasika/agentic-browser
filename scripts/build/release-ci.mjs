@@ -76,13 +76,17 @@ async function main() {
     write('delivery/compose-acceptance-'+arch+'.json',evidence);
     assert.equal(evidence.passed,true,'Compose acceptance failed');
   } else if (command === 'collect') {
+    const release=json('publication/release.json'), publication=json('publication/publication.json');
+    assert.equal(release.version,version);assert.equal(publication.version,version);
+    assert.equal(publication.published,true);assert.equal(publication.namespace,namespace);
+    assert.equal(publication.toolCommit,process.env.GITHUB_SHA);
     for (const platform of ['amd64', 'arm64']) {
       const publicPull=json('delivery/public-pull-'+platform+'.json');
       assert.equal(publicPull.anonymousPullVerified,true);
       assert.equal(publicPull.version,version);
       assert.deepEqual(publicPull.images,json('publication/release.json').images);
       const compose = json('delivery/compose-acceptance-' + platform + '.json');
-      assert.equal(compose.passed, true); assert.equal(compose.cleanup.passed, true);
+      assert.equal(compose.passed, true); assert.equal(compose.cleanup.passed, true); assert.equal(compose.cleanup.remaining, 0);
       assert.equal(compose.version, version); assert.equal(compose.packageCommit, process.env.GITHUB_SHA);
       assert.equal(compose.architecture, platform === 'amd64' ? 'x64' : 'arm64');
       assert.equal(compose.hostPlatform, 'linux'); assert.equal(compose.hostNodeOnDeploymentPath, false);
