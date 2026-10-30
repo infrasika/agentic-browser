@@ -8,7 +8,17 @@
 
 源码、构建、发布、打包和运维共用 Node.js 24+。安装包包含独立工具与依赖许可证，不需源码或 npm 安装。Mac / Ubuntu 使用同一源码和双架构构建入口，站点密钥仅在部署时填写。源码与新发行包均提供 `config/settings.example.json`、`config/secrets.env.example`；源码部署使用 `init --config-directory "$PWD/config/local"` 生成实际配置和独立密钥，运行目录保存在 `.deployment/`。构建、备份、恢复和定时器均支持独立配置位置。
 
-## 已验证的候选版本
+## 已发布 v0.1.0-preview.9
+
+[GitHub 预发布](https://github.com/infrasika/agentic-browser/releases/tag/v0.1.0-preview.9)已创建；[发布 Actions](https://github.com/infrasika/agentic-browser/actions/runs/41015832885)中 Linux amd64、Linux arm64 和 macOS 源码检查通过。三个 GHCR 项目镜像 Agent、Browser Service、Chrome Runtime 均公开，`v0.1.0-preview.9` 标签包含原生构建的 amd64 / arm64。源码仓库保持私有，Release 安装包下载仍需要仓库访问权限。
+
+两个全新原生 Linux runner 均匿名拉取六个镜像，并在源码目录外解压实际交付归档。两平台各 9 项包验收通过，覆盖真实 Chrome 快照、接管继续、账号及额度、空闲备份、新实例恢复、同构建升级流程、备份中断恢复和失败升级保护；清理结果均为 `passed: true`、剩余资源为 0。报告、固定镜像清单和 SHA256SUMS 随 Release 提供。
+
+应用镜像源码为 `7f8db885ff7401e4a3f5891531f3196887ea3388`，LibreChat 为 `61892206974618971b9001d109485d994dac2816`；安装工具与标签源码为 `bb4b6a7d1d4a4bd145159c5cae26f93c5825a3f6`。工具修复续用了相同应用镜像，流水线已比较全部镜像输入。MongoDB 固定为 8.0.34，使用 per-thread 缓存兼容当前 Ubuntu 内核；两平台都验证了实际缓存模式，见[部署说明](DEPLOYMENT.md)。
+
+重构前 GHCR 中旧 Controller 包及 Runtime 共 44 个版本已删除；本次失败候选的 9 个版本也已清理。此次发布没有升级现有测试站。验收使用模拟模型，不代表真实模型、公网 HTTPS、真实 SMTP、Mac Docker 构建或旧 Controller 数据迁移已完成。
+
+## 既有候选版本证据
 
 `v0.2.0-rc.8` 已完成本机双架构构建、amd64 完整验收和当前测试站升级。以下证据仅对应指定的候选版，不表示未执行的平台和环境也已通过。
 
@@ -39,14 +49,12 @@
 
 ## 下一步
 
-当前功能和本机发行验证已完成。已有 Agent 切换模型按当前需求暂不开发，不作为本阶段交付条件；配置限制保留在 [配置说明](CONFIGURATION.md)。公开发行前主要剩余实机、外部服务和发行验证。
+当前预发布、GitHub 三平台源码检查及原生 Linux 双架构安装验收已完成。已有 Agent 切换模型按当前需求暂不开发；配置限制保留在 [配置说明](CONFIGURATION.md)。后续仍需完成下列环境与运维验收。
 
 | 工作 | 完成条件 |
 | --- | --- |
-| 远程 CI | 核对 `main` / `feature` 上 GitHub Ubuntu amd64 / arm64、macOS 工作流的实际结果，不能以本地检查代替。源码测试不包含 Mac Docker 构建 |
-| Mac / 原生 ARM64 | 在 Mac 实机执行源码构建；在原生 ARM64 Linux 完成安装和运行验收，QEMU 构建不能替代 |
-| 独立主机 | 新 Linux 主机或干净 CI runner 完成候选包安装/恢复；`.github/workflows/accept-agent-bundle.yml` 已提供 amd64 / arm64 原生 runner 选择和平台核对，尚未远程执行 |
-| 公开发行 | 维护者确认项目主许可证；按当前约定在 Mac 发布 GHCR 与安装包，验证匿名下载和拉取。组件的第三方许可保留，尚无项目主许可证 |
+| Mac 构建 | 在 Mac 实机执行源码构建；macOS 源码测试不代替 Mac Docker 构建 |
+| 项目许可证 | 镜像已按维护者授权公开；第三方许可保留，项目主许可证仍待维护者明确 |
 | 公网安装 | 当前测试站暂缓源站 TLS 变更，沿用现有入口；新用户公网部署指南仍使用 Full (strict)。正式开放前核对源站证书及公网全链路，已有覆盖该域名的 Origin CA 证书可复用 |
 | 运维演练 | 配置受控异地备份并跨机恢复；在维护窗口验证整机重启；数据库升级时单独验证实际跨版本迁移 |
 
