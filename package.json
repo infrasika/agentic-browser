@@ -7,6 +7,7 @@
     "node": ">=24"
   },
   "scripts": {
+    "release": "node scripts/build/dispatch-release.mjs",
     "test:service": "tsx --test test/browser-session.test.ts test/browser-service.test.ts",
     "dev": "tsx watch src/service.ts",
     "start": "tsx src/service.ts",
