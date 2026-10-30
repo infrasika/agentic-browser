@@ -1,145 +1,155 @@
-# Release maintenance
+# 发布镜像与安装包
 
-This guide covers browser assets, GitHub Actions, image publication and the official deployment. For source structure and local development, see [Technical architecture](ARCHITECTURE.md). For installation and operator backup procedures, see [Self-hosting](SELF_HOST.md).
+本指南面向维护者：把 [构建指南](BUILD.md) 产生的镜像发布到 GHCR，并交付可独立安装的版本包。**构建、打包、上传在 Mac 或 Ubuntu 执行；运行验收在匹配架构的 Linux 主机执行。** 全程不需要部署站点的模型、Turnstile 或 SMTP 密钥。
 
-## Release verification
+当前公开分发与验收状态见 [STATUS.md](STATUS.md)。以下命令中的版本、构建目录和 GitHub namespace 都需要替换，不表示示例版本已发布。
 
-The accepted stable release is **v0.1.1**, built from `683b26aece0751e1923407f17e4073e189d07d68`. Both public images support native Linux amd64/arm64, and their `latest` aliases match the immutable version indexes. This maintenance release updates both images and CI to Node.js 24.22.1, with Chrome and extension locks unchanged. The official site and installer use the same digests in [deploy/release.env](../deploy/release.env).
+## 1. 固定本次发布输入
 
-| Evidence | Verified scope |
-| --- | --- |
-| [Publication and anonymous pulls](../deploy/releases/v0.1.1-public-verification.json) | Native isolation, handoff, capacity/recovery, both public platforms, stable/latest equality |
-| [Fresh installation](../deploy/releases/v0.1.1-install-verification.json) | Native amd64/arm64 account/token setup, workspace diagnostics, handoff and saved profiles |
-| [Upgrade and rollback](../deploy/releases/v0.1.1-upgrade-verification.json) | v0.1.0 to v0.1.1, offline backup and fresh-volume restore on both platforms |
-| [Official HTTPS demo](../deploy/releases/v0.1.1-demo-verification.json) | MCP, live WSS display, takeover, handback, Agent reading, cleanup and setup downloads |
-| [Previous physical Apple Silicon Mac acceptance](../deploy/releases/v0.1.0-mac-verification.json) | v0.1.0 only: installation, real GitHub handoff, saved-login retention and same-version backup/restore on Mac16,10 / macOS 26.6.2 / Docker Desktop 4.95.0 |
+在源码仓库根目录设置变量，后续在同一终端执行：
 
-The release source passed 63 unit/API/packaging tests. Physical Apple Silicon acceptance for v0.1.1 has not been run; native Linux arm64 CI and the previous v0.1.0 Mac receipt do not replace that check. The older Mac run's same-version restore does not establish Mac upgrade/downgrade or Chrome/profile-format migration compatibility. Long-duration and optional-client checks from older releases are not new v0.1.1 evidence. Live zkPass proofs remain outside these results and are skipped by request. Keep these limits explicit in release notes.
-
-## GitHub Actions
-
-All release and acceptance workflows are manually dispatched. The two matrix runners are `ubuntu-24.04` (amd64) and `ubuntu-24.04-arm` (arm64); builds run natively rather than emulating ARM on x86.
-
-| Workflow file | Input and purpose |
-| --- | --- |
-| `.github/workflows/publish-images.yml` | Required unused `version`; checks source, builds and validates both images, then publishes indexes and a GitHub Release; advances `latest` only for a newer stable release |
-| `.github/workflows/accept-self-host.yml` | No inputs; verifies anonymous image installation using the official installer |
-| `.github/workflows/accept-upgrade.yml` | No inputs; verifies the version pair in `test/upgrade.integration.ts`, including backup/restore |
-| `.github/workflows/accept-soak.yml` | `minutes` (default 120); sustained public/authenticated browser workloads |
-| `.github/workflows/accept-experience.yml` | `minutes` (default 15); desktop input, changing display, reconnect and website tasks |
-| `.github/workflows/accept-remote-client.yml` | No inputs; optional stdio client without server-volume/socket mounts |
-| `.github/workflows/accept-https.yml` | No inputs; HTTPS/WSS, secure cookies and proxy failure handling |
-
-The publication build jobs need `packages: write`; the publication job also needs `contents: write` to create the release. Acceptance workflows need only `contents: read`, use anonymous registry pulls and create disposable installations. Actions are commit-pinned. Publication is serialized across versions to protect the moving channel; acceptance artifacts are finite-retention reports, not permanent release evidence.
-
-## Fixed inputs and public artifacts
-
-Keep the source repository private. These two GHCR packages are public:
-
-- `ghcr.io/infrasika/agentic-browser-controller`
-- `ghcr.io/infrasika/agentic-browser-runtime`
-
-`deploy/release.env` selects the accepted multi-platform image-index digests. Base images, npm versions and `runtime/assets.lock.json` pin build inputs. Do not refresh browser/extension locks implicitly. Deployment by digest fixes image bytes; source rebuilds using Debian repositories are not guaranteed byte-identical.
-
-For a Node maintenance update, use the same exact Node version and multi-platform base-image digest in both runtime Dockerfiles, and update `actions/setup-node` in the release and acceptance workflows. Both the controller and browser runtime execute Node services. Run the verifiers on that Node version too; changing only the controller leaves the browser processes and CI on older versions. Keep Chrome and extension locks unchanged unless their upgrade is explicitly in scope.
-
-Published version tags, release manifests and archives are immutable. Keep current stable receipts and the baseline records read by upgrade acceptance in `deploy/releases/`. Older intermediate reports remain in Git history and published release artifacts. Temporary logs, reports, build helpers and screenshots belong in ignored `output/`; they are not public distribution files.
-
-`latest` is the only moving image tag. Both controller and runtime point to the highest published stable `vX.Y.Z` release; versions with a suffix such as `-preview.5` never update it. The publication workflow serializes releases, verifies both immutable multi-platform indexes, copies those exact indexes to `latest`, then marks the GitHub release as Latest. Older stable releases cannot move this channel backward. Existing deployments keep their pinned digests until explicitly upgraded.
-
-Registry updates across two repositories are not atomic. If channel promotion fails, keep using the immutable version references. Retry only `python3 scripts/release-manifest.py latest VERSION output/release` with the original `RELEASE.json`, its matching `GITHUB_SHA`, and authorized GHCR/GitHub credentials; serialize it with other publications. This operation is idempotent. Do not rebuild or overwrite the published version to repair an alias.
-
-The standalone installer writes just `compose.yaml` and `.env`, with literal accepted image references. `npm run package:self-host` generates `/install.sh`, the backup helper, user-guide downloads and a source-free configuration archive. The controller image build runs this packager automatically. The allowlist in `scripts/release-manifest.py` must exclude private settings, source, browser data and local artifacts.
-
-`SETUP.json` records file hashes and image pins; `SHA256SUMS` covers the reproducible setup archive. Documentation may advance without changing pins only when the pinned images support the documented operations. Do not describe a local website UI build as a newly published GHCR version. GitHub Release assets inherit the private repository's access controls; users obtain the public installer and guides from the website.
-
-Image-bundled guides are build-time snapshots. Public download kits may contain newer documentation without changing published image bytes. The old `AGENT_CLIENT.md` and `STATUS.md` download URLs are generated compatibility aliases for the consolidated architecture and release guides; they are not separate maintained documents and are excluded from the configuration archive.
-
-## Browser assets and runtime builds
-
-`runtime/assets.lock.json` pins Chrome 155.0.8059.79 for both architectures, TransGate 0.5.5 and Schema Validator 0.1.3. The runtime installs the original signed extensions locally into clean profiles and contains no personal website state.
-
-```sh
-npm run runtime:build
+```bash
+AGENT_VERSION='v0.2.0-rc.9'
+BUILD_DIR="$PWD/output/build/build-XXXXXX"
+GHCR_NAMESPACE='your-github-user-or-org'
+CANDIDATE_DIR="$PWD/output/agent/candidates/$AGENT_VERSION"
+PUBLISH_DIR="$PWD/output/agent/ghcr/$AGENT_VERSION"
+RELEASE_DIR="$PWD/output/agent/releases/$AGENT_VERSION"
 ```
 
-The first asset fetch needs network access; later builds reuse `output/runtime/packages/` only when hashes match. A changed upstream package fails verification. For an intentional browser/extension update, run `python3 scripts/fetch-runtime-assets.py --refresh-lock`, review the lock changes and run appropriate native acceptance. Keep verified caches because upstream URLs may stop serving older packages.
+`BUILD_DIR` 使用构建命令实际输出的目录。双架构发行需 `amd64/report.json` 和 `arm64/report.json`：二者均为完整三镜像构建，`passed: true`、`sourceMode: committed`，源码提交和 LibreChat tree 相同；对应镜像仍在当前 Docker daemon 中。只发行单架构时，仅传该平台报告，并在版本说明中标明支持范围。
 
-Dedicated zkPass acceptance is excluded from the normal publication workflow. The optional `scripts/test-extensions.sh` uses offline, disposable containers and synthetic data to check bundled extension UI/storage, sandbox state and handoff. It mounts no real profile or Docker socket. These checks do not establish live TransGate proof success, external-node availability or cross-version profile compatibility. Run them only as part of a specifically scoped extension change.
+打包工具从**当前 Git HEAD**读取安装工具、模板和文档。先提交要交付的改动；纯文档改动可重新打包，镜像输入发生变化则必须重新构建。所有 `--output` 必须指向尚不存在的目录，工具不会覆盖以前的产物。以下循环遇到错误会停止；先解决失败并核对两平台产物完整，再进入下一步。
 
-Keep the Chrome sandbox enabled and preserve [distribution notices](../runtime/DISTRIBUTION-NOTICES.md), [Playwright's license](../runtime/PLAYWRIGHT-LICENSE) and applicable dependency licenses. Runtime and network boundaries are documented in [Architecture](ARCHITECTURE.md#5-authentication-and-isolation-invariants).
+## 2. 生成离线候选包并验收
 
-## Acceptance commands
+先在构建机生成两个平台的候选包，不上传任何内容：
 
-Tests use disposable installations and synthetic identities. Select candidate images explicitly for source-image tests; published-installer tests use the accepted digests. Do not point acceptance fixtures at a real workspace or load its `.env`.
+```bash
+for arch in amd64 arm64; do
+  npm run package:agent -- \
+    --build-report "$BUILD_DIR/$arch/report.json" \
+    --version "$AGENT_VERSION" \
+    --output "$CANDIDATE_DIR/$arch" || break
+done
+```
 
-| Check | Command | Scope |
+每个目录包含解压后的安装包、同名 `.tar.gz` 归档及归档的 `SHA256SUMS`。离线包内有六个镜像的 `images.tar.gz`，不需要 GHCR 登录。**两架构归档名相同，必须保存在不同目录。**
+
+将某一架构的归档和同目录 `SHA256SUMS` 复制到匹配架构的 Linux 测试机。在该机的下载目录执行；版本与路径换成本次值：
+
+```bash
+AGENT_VERSION='v0.2.0-rc.9'
+sha256sum -c SHA256SUMS
+tar -xzf "agentic-browser-agent-${AGENT_VERSION}.tar.gz"
+cd "agentic-browser-agent-${AGENT_VERSION}"
+node bundle.mjs verify
+node bundle.mjs load-images
+node acceptance/verify.mjs --work "$HOME/agent-acceptance-$AGENT_VERSION"
+```
+
+测试机需要 Node.js 24+、Docker、Compose 和 `flock`；完整要求见 [部署指南](DEPLOYMENT.md)。工作目录必须是新目录。验收使用真实 Chrome、模拟模型，创建三个临时实例，默认占用回环端口 3340–3342 及约 4–6 GiB 内存，不消耗 LLM 额度或发送邮件。成功后清理测试实例，只保留报告；核对 `passed` 与 `cleanup.passed` 均为 `true`。
+
+两个平台分别执行，QEMU 构建不替代原生运行验收。还应记录目标站点的真实模型、域名 HTTPS、Turnstile、可选邮件，以及有数据的升级/恢复结果；自动化包验收不能代替这些检查。更细的业务与运维验收入口见 [开发指南](DEVELOPMENT.md)。
+
+### 可选：使用 GitHub 原生 runner
+
+`.github/workflows/accept-agent-bundle.yml` 可在全新 Linux runner 上执行同一套包验收，不 checkout 项目源码、不安装 npm 依赖。
+
+1. 将工作流放到 GitHub 默认分支，使手动触发入口可用；运行时选择待验收分支。[GitHub 手动运行说明](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/manually-run-a-workflow)
+2. 把**完整离线包**放到受信任的公开 HTTPS 地址。不要使用不含镜像的 registry 包，或在 URL 中携带私密凭据。
+3. 在 Actions 中分别运行 `architecture: amd64` 和 `architecture: arm64`，填写对应 `bundle_url` 和从可信发布渠道取得的归档 `sha256`。
+4. 下载 `complete-agent-candidate-acceptance-amd64` / `-arm64` artifact，核对 `host-evidence.json`、`BUILD.json`、`release.json`、`report.json` 的架构、提交、摘要和通过状态。
+
+工作流分别使用 `ubuntu-24.04`、`ubuntu-24.04-arm`，导入前检查宿主与镜像架构一致；需要仓库具备相应 Actions 权限和额度。工作流文件存在不代表已完成验收。
+
+## 3. 准备 Docker 的 GHCR 登录
+
+仅上传项目维护的三个镜像仓库：
+
+| 组件 | 地址 |
+| --- | --- |
+| Agent | `ghcr.io/<namespace>/agentic-browser-agent` |
+| Browser Service | `ghcr.io/<namespace>/agentic-browser-service` |
+| Chrome runtime | `ghcr.io/<namespace>/agentic-browser-runtime` |
+
+Nginx、MongoDB、Redis 直接引用官方固定 digest，不重复上传。
+
+发布工具读取 Docker 的 `credHelpers` / `credsStore`，可以使用 Mac Docker Desktop 的 Keychain；已有可用登录就直接继续。Git 的登录凭据与 Docker 的 GHCR 登录分别管理。首次登录时，准备有 `write:packages` 权限的 GitHub Personal access token **classic**，确保账号能写入目标 namespace；组织启用 SSO 时还需授权该 token。交互执行：
+
+```bash
+docker login ghcr.io --username YOUR_GITHUB_USERNAME
+```
+
+在密码提示中输入 token，不把它写进命令、源码或站点 `secrets.env`。Docker 负责保存凭据，无需 `publish.env`。CI 可通过具有 `packages: write` 权限的 `GITHUB_TOKEN` 登录 Docker；仓库现有验收工作流不会自动发布。[GHCR 认证说明](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry#authenticating-to-the-container-registry)
+
+## 4. 预检并上传镜像
+
+先在本机预检；此命令检查报告和本机镜像，不读发布凭据、不访问 registry：
+
+```bash
+npm run publish:agent -- \
+  --build-report "$BUILD_DIR/amd64/report.json" \
+  --build-report "$BUILD_DIR/arm64/report.json" \
+  --version "$AGENT_VERSION" --namespace "$GHCR_NAMESPACE"
+```
+
+确认目标地址和两平台信息正确、运行验收通过后上传：
+
+```bash
+npm run publish:agent -- \
+  --build-report "$BUILD_DIR/amd64/report.json" \
+  --build-report "$BUILD_DIR/arm64/report.json" \
+  --version "$AGENT_VERSION" --namespace "$GHCR_NAMESPACE" \
+  --run --output "$PUBLISH_DIR"
+```
+
+工具先上传 `VERSION-amd64` / `VERSION-arm64` 标签，再生成同一个 `VERSION` 多平台标签，核对远程镜像和 index，最后输出：
+
+- `release.json`：六个固定 registry digest，供安装和打包使用。
+- `publication.json`：上传回执，记录本次发布结果。
+
+不会更新 `latest`，也拒绝把已有版本改为不同镜像。部分上传成功后，用原镜像和原报告重试；跨仓库发布不是事务，同一 namespace 同时只运行一个发布进程。
+
+准备公开分发时，在 GitHub Packages 中将三个 package 设为公开，再验证匿名拉取：
+
+```bash
+npm run publish:agent -- --verify-public "$PUBLISH_DIR/release.json"
+```
+
+发布成功与匿名可读是两项独立检查；私有仓库的 Git 权限不会自动让镜像公开。
+
+## 5. 生成面向部署者的安装包
+
+使用上传后生成的固定清单，按架构打包：
+
+```bash
+for arch in amd64 arm64; do
+  npm run package:agent -- \
+    --build-report "$BUILD_DIR/$arch/report.json" \
+    --version "$AGENT_VERSION" \
+    --release "$PUBLISH_DIR/release.json" \
+    --output "$RELEASE_DIR/$arch" || break
+done
+```
+
+| 包类型 | 打包参数 | 部署时获取镜像 |
 | --- | --- | --- |
-| Type safety | `npm run check` | TypeScript source/tests |
-| Unit/API and packaging | `npm test` | Ownership, limits, installer/archive hashes, secret exclusion |
-| Native viewer | `npm run test:desktop` | Keyboard, handback, reconnect, persistence |
-| Candidate controller | `npm run test:controller` | Member/profile isolation and container deployment |
-| Public MCP | `npm run test:public-mcp` | Five-browser capacity, guest isolation, direct input, handoff and cleanup |
-| Failure recovery | `npm run test:reliability` | Repeated capacity cycles, natural expiry, browser/controller interruption and revocation |
-| Published installation | `npm run test:self-host` | Anonymous pulls, native platform, downloaded installer, account/token/profile lifecycle |
-| Published upgrade | `npm run test:upgrade` | The version pair in the verifier, plus fresh-volume restore from an offline backup |
-| Sustained workload | `npm run test:soak` | Two measured active hours, split between public/authenticated five-browser workloads |
-| Desktop/site experience | `npm run test:experience` | 15 measured minutes of changing pixels/input, reconnect and public website tasks |
-| Optional stdio client | `npm run test:remote-client` | Published client image without host/server/socket mounts |
-| HTTPS proxy | `npm run test:https` | Certificate validation, secure cookies, HTTP MCP, WSS, proxy recovery and rate limits |
+| Registry 包 | 传 `--release` | `init` 根据固定 digest 拉取 |
+| 离线候选包 | 不传 `--release` | 先 `load-images`，再 `init --development` |
 
-For candidate controller/runtime tests:
+两种包共用安装工具和配置方式。包内包含独立 Node 工具、Compose/Nginx 模板、配置示例、部署/配置/运维指南、校验清单与依赖许可证；部署者不需要源码或 `npm install`。`docs/DEPLOYMENT.md` 会成为包内 `README.md`，其中的版本占位符会替换为实际版本；发布前同步其分发状态、下载说明与仓库 README、STATUS，避免把旧候选状态带进正式包。`BUILD.json` 记录镜像源码与工具源码提交；打包成功仍只表示候选产物生成，不代表已公开发行。
 
-```sh
-AB_CONTROLLER_IMAGE=agentic-browser:controller-preview \
-AB_RUNTIME_IMAGE=agentic-browser:zkpass-prototype \
-npm run test:public-mcp
-```
+在干净 Linux 环境按 [部署指南](DEPLOYMENT.md) 再验证要交付的 registry 包：匿名下载、完整性校验、镜像拉取、初始化、启动和真实任务。每个平台只宣称已完成的验收范围。
 
-Install host Playwright/native-browser dependencies before applicable tests. HTTPS verification additionally needs Nginx, OpenSSL and `libnss3-tools`; it uses an isolated local CA/trust store and loopback proxy, without disabling TLS validation or reloading the host's real proxy. See the corresponding scripts for bounded-run options such as `npm run test:experience -- --minutes=1`.
+## 6. 交付下载渠道与版本说明
 
-Separate `accept-self-host.yml`, `accept-upgrade.yml`, `accept-soak.yml`, `accept-experience.yml`, `accept-remote-client.yml` and `accept-https.yml` workflows run native Ubuntu amd64/arm64 checks. The external verifier needs a checkout and test dependencies; the resulting self-hosted installation does not. Existing-host, fresh Linux runner and physical Mac evidence must remain distinct. Rollback acceptance with unchanged Chrome assets does not establish browser-format migration compatibility.
+工具不会自动创建 GitHub Release 或上传安装包。维护者需向用户提供：
 
-## Publish a future version
+1. 每个架构的归档下载地址与对应 `SHA256SUMS`。
+2. 版本、架构、源码提交、固定镜像摘要和验收范围。
+3. 宿主要求、安装步骤、已知限制以及升级/恢复说明。
 
-After a future release is requested:
+可以使用分别标注 `amd64/`、`arm64/` 的下载目录；若使用同一个 GitHub Release，应给交付归档增加架构后缀，并同步生成与这些文件名对应的校验文件，说明解压后的目录名不变。保留原候选产物，重新验证实际下载文件；不要修改包内文件后沿用旧摘要。
 
-1. Review and commit the exact candidate. Choose a new unused `vX.Y.Z[-suffix]` version.
-2. Dispatch **Publish verified browser images** (`publish-images.yml`) at that commit. Native Ubuntu amd64/arm64 runners build/test both images and record their digests; both must pass before indexes are published.
-3. Use the workflow's scoped `GITHUB_TOKEN`; no server-side registry login or personal token is required. The workflow needs package publication permissions and native ARM runner availability.
-4. Verify **only the two GHCR packages** are Public, then verify anonymous pulls of both platforms. Keep the source repository private.
-5. Preserve the original `RELEASE.json`, `agentic-browser-deploy.tar.gz` and `SHA256SUMS`. Add separate verification receipts; never rewrite publication evidence to claim checks that ran later.
-6. Update `deploy/release.env` after acceptance. Regenerate setup files, verify public downloads and run clean-install and upgrade workflows. Record the version, verifier revision, platforms, outcomes and cleanup in a new receipt; update this guide's release-verification table and README.
-
-Published versions cannot be overwritten. A partially published run needs another unused version. Authentication/network failures do not establish that a version tag is available.
-
-CI artifacts expire; preserve sanitized accepted reports in versioned receipts and private Release attachments before that happens. Do not retain raw credentials, cookies, page contents, private backup archives or desktop streams as shared evidence.
-
-## Update the official website
-
-Wait for active public sessions to reach zero before recreating the controller. Preserve its `.env`, runtime pin, mounts, origin and quotas; keep the previous image available for rollback. Verify health, `/api/public/capacity`, `/mcp`, homepage prompts, `/self-host`, guide downloads and archive checksums after deployment. Record the source revision/image identity and check that temporary test sessions release their slots.
-
-For a real sign-in test, use the ordinary user handoff and wait for explicit handback. Never record account data as public test artifacts. Source/UI deployments do not silently update the accepted public image pins. Use [Self-hosting](SELF_HOST.md#backup-and-upgrade) for workspace backup and rollback procedures.
-
-## Small maintenance release policy
-
-- Review Chrome, base-image and dependency updates monthly and when a relevant security fix is announced. This is a maintainer procedure, not an enabled automatic updater or scheduled task.
-- Record the candidate version, exact source commit and changed locks. Keep old images, manifests and receipts immutable. Do not silently refresh deployed images.
-- For controller/UI fixes with unchanged runtime assets, run type/unit checks and native amd64/arm64 controller, public MCP and failure-recovery acceptance. Then verify anonymous pulls, fresh installation and backup-based upgrade/rollback for both architectures.
-- Browser or profile-format changes require an offline backup and a synthetic saved-profile migration test against the exact old/new Chrome versions. Do not infer compatibility from controller-only upgrades.
-- Follow the physical Mac checklist in [Self-hosting](SELF_HOST.md#apple-silicon-release-check). Keep Linux arm64 and physical Mac evidence distinct; record pending results honestly.
-- Publish release notes with changed behavior, image references, passed checks and remaining limitations. Deploy the same GHCR controller/runtime used by the installer after active demo sessions reach zero.
-- The image's embedded installer may name its immutable release tags because an image cannot embed its own future digest. It resolves pulled references and writes digest-only Compose. Generate the official download kit after publication with the accepted digests, and mount that kit read-only at `/app/web/self-host-downloads` when deploying the official site. Application code stays in the published controller image.
-
-Dedicated zkPass checks remain skipped. Native runtime startup and its existing isolation checks are retained; no live proof success is claimed.
-
-## Official-site setup files
-
-The site serves the same published controller as self-hosted installations. Build its post-publication download kit in a persistent deployment directory, separate from disposable `output/` reports:
-
-```sh
-python3 scripts/package-self-host.py --output .deployment/public-setup
-bash scripts/compose.sh -f deploy/compose.site.yaml up -d --force-recreate --wait
-```
-
-Select the accepted controller/runtime digests in the site's private `.env` first. Wait for zero active sessions before recreation. The optional override mounts only the public setup files, read-only. Keep `.deployment/public-setup` while the site uses this override, and include the override on subsequent site restarts. Ordinary personal installations do not need this file or directory.
+首次公开发行前确认项目主许可证，并保留组件和依赖的适用许可证。交付物不得含站点配置、密钥、浏览器登录档案或用户数据。发行记录集中在版本说明与 [STATUS.md](STATUS.md)，不把某台测试服务器的配置复制进通用安装文档。

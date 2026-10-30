@@ -1,0 +1,2 @@
+# Patch context includes single-space empty lines; validate applied source with git apply.
+integrations/librechat/*.patch -whitespace text eol=lf

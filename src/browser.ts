@@ -1,61 +1,13 @@
 import { randomUUID } from "node:crypto";
 import {
-  chromium,
-  type Browser,
   type BrowserContext,
   type Page,
 } from "playwright";
 import {
   ServiceError,
   type BrowserAction,
-  type BrowserEngine,
   type BrowserWorkspace,
 } from "./contracts.js";
-
-export class ChromiumEngine implements BrowserEngine {
-  private browser?: Promise<Browser>;
-  constructor(
-    private options: { headless?: boolean; executablePath?: string } = {},
-  ) {}
-
-  async create() {
-    if (!this.browser) {
-      this.browser = chromium.launch(this.options).catch((error) => {
-        this.browser = undefined;
-        throw error;
-      });
-    }
-    const browser = await this.browser;
-    if (!browser.isConnected()) {
-      this.browser = undefined;
-      throw new ServiceError(
-        503,
-        "browser_unavailable",
-        "Browser disconnected; create a new session",
-      );
-    }
-    const context = await browser.newContext({
-      viewport: { width: 1280, height: 800 },
-      acceptDownloads: false,
-    });
-    context.setDefaultTimeout(8000);
-    context.setDefaultNavigationTimeout(15000);
-    const workspace = new ChromiumWorkspace(context);
-    try {
-      await context.newPage();
-      return workspace;
-    } catch (error) {
-      await context.close();
-      throw error;
-    }
-  }
-
-  async close() {
-    const browser = this.browser;
-    this.browser = undefined;
-    if (browser) await (await browser).close();
-  }
-}
 
 export class ChromiumWorkspace implements BrowserWorkspace {
   private pages = new Map<string, Page>();

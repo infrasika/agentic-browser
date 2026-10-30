@@ -1,15 +1,13 @@
-import { ProfileStore, type ProfileLease } from "./profiles.js";
 import { spawn, execFile, type ChildProcess } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { once } from "node:events";
-import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
+import { mkdir, rm, writeFile } from "node:fs/promises";
 import {
   createConnection,
   createServer,
   type AddressInfo,
   type Socket,
 } from "node:net";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Readable } from "node:stream";
 import { setTimeout as delay } from "node:timers/promises";
@@ -20,7 +18,6 @@ import {
   ServiceError,
   type Actor,
   type BrowserAction,
-  type BrowserEngine,
   type BrowserWorkspace,
 } from "./contracts.js";
 
@@ -55,36 +52,6 @@ async function stop(child?: ChildProcess) {
   }
 }
 
-export class DesktopEngine implements BrowserEngine {
-  constructor(private options: { executablePath?: string; profiles?: ProfileStore } = {}) {}
-  get profiles() { return this.options.profiles; }
-
-  async create(options?: { profileId?: string; ownerId?: string }) {
-    if (options?.profileId && !this.profiles)
-      throw new ServiceError(400, "profiles_unavailable", "Saved profiles are not configured");
-    const directory = await mkdtemp(join(tmpdir(), "agentic-desktop-"));
-    let lease: ProfileLease | undefined;
-    try {
-      if (options?.profileId) lease = await this.profiles!.acquire(options.profileId, options.ownerId);
-    } catch (error) {
-      await rm(directory, { recursive: true, force: true });
-      throw error;
-    }
-    const workspace = new DesktopWorkspace(directory, lease);
-    try {
-      await workspace.start(
-        this.options.executablePath ?? "/usr/bin/google-chrome-stable",
-      );
-      return workspace;
-    } catch (error) {
-      await workspace.close();
-      throw error;
-    }
-  }
-
-  async close() {} // SessionRegistry owns and closes every workspace.
-}
-
 export class DesktopWorkspace implements BrowserWorkspace {
   readonly transport = "desktop" as const;
   private children: ChildProcess[] = [];
@@ -93,15 +60,13 @@ export class DesktopWorkspace implements BrowserWorkspace {
   private browser?: Browser;
   private automation?: ChromiumWorkspace;
   private vnc?: ChildProcess;
-  private chrome?: ChildProcess;
   private vncPort = 0;
   private human = false;
   private sockets = new Set<Socket>();
   private closing?: Promise<void>;
   private disposed = false;
 
-  constructor(private directory: string, private lease?: ProfileLease) {}
-  get profile() { return this.lease?.info; }
+  constructor(private directory: string) {}
 
   private async launch(command: string, args: string[], displayFd = false) {
     if (this.disposed) throw new Error("Desktop is closed");
@@ -195,7 +160,7 @@ export class DesktopWorkspace implements BrowserWorkspace {
       '<openbox_config xmlns="http://openbox.org/3.4/rc"><applications><application class="*"><maximized>yes</maximized></application></applications></openbox_config>',
     );
     await this.launch("openbox", ["--config-file", wmConfig]);
-    const profile = this.lease?.directory ?? join(this.directory, "profile");
+    const profile = join(this.directory, "profile");
     await mkdir(join(profile, "Default"), { recursive: true, mode: 0o700 });
     await writeFile(
       join(profile, "Default", "Preferences"),
@@ -223,7 +188,6 @@ export class DesktopWorkspace implements BrowserWorkspace {
       ...chromeArgs,
       "about:blank",
     ]);
-    this.chrome = chrome;
     this.endpoint = `http://127.0.0.1:${port}`;
     await this.ready(async () => {
       try {
@@ -385,40 +349,16 @@ export class DesktopWorkspace implements BrowserWorkspace {
     return this.automation.screenshot(maskPasswords);
   }
 
-  private async flushProfile() {
-    const chrome = this.chrome;
-    if (!this.lease || !chrome || chrome.exitCode !== null || chrome.signalCode !== null) return;
-    let connection: Browser | undefined;
-    let timer: NodeJS.Timeout | undefined;
-    const exited = once(chrome, "exit");
-    // Browser.close asks Chrome to flush SQLite/cookie stores. SIGTERM to its
-    // process group can terminate the storage subprocess before that flush.
-    try {
-      connection = this.browser ?? await chromium.connectOverCDP(this.endpoint, { timeout: 2000, noDefaults: true });
-      const cdp = await connection.newBrowserCDPSession();
-      await Promise.race([
-        (async () => { await cdp.send("Browser.close").catch(() => {}); await exited; })(),
-        new Promise<void>((resolve) => { timer = setTimeout(resolve, 5000); }),
-      ]);
-    } catch { /* A crashed browser still needs its processes and lease reclaimed. */ }
-    finally {
-      clearTimeout(timer);
-      await connection?.close().catch(() => {});
-    }
-  }
-
   close(): Promise<void> {
     if (!this.closing) {
       this.disposed = true;
       this.revokeHumanInput();
       this.automation = undefined;
       this.closing = (async () => {
-        await this.flushProfile();
-        // Close Chrome before its display so it can flush the saved profile.
+        // Stop browser processes before deleting the disposable workspace.
         for (const child of [...this.children].reverse()) await stop(child);
         await this.browser?.close().catch(() => {});
-        try { await rm(this.directory, { recursive: true, force: true }); }
-        finally { await this.lease?.release(); }
+        await rm(this.directory, { recursive: true, force: true });
       })();
     }
     return this.closing;
