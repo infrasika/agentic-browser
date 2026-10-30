@@ -11,7 +11,7 @@ import { argumentsFor, cli, digest, exists, Failure, json, mainModule, run, same
 export const ROOT = path.resolve(import.meta.dirname, '../..');
 export const INFRA = {
   gateway: 'nginx@sha256:47928bf67eb62a1863cb08d9ecb52d3e704304ba614eaee17884204677702951',
-  mongo: 'mongo:8.0@sha256:4a4ab5d4834207389e0d7270fac988e21ffedccecba77991a552f755df229907',
+  mongo: 'mongo:8.0.34@sha256:b9924c330a8bbc5800fe9c69f04a84e221eca7b28fd049a0354147d9908fa142',
   redis: 'redis:7.4-alpine@sha256:57e4255cc971b1c8d6f8a6ca283ac01bc3ecdd914273ef6bfaede87aaecd6541',
 };
 export const FILES = {
