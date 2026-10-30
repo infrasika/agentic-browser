@@ -23,6 +23,8 @@ runs:
         sudo install -m 644 "$RUNNER_TEMP/docker-release.json" /etc/docker/daemon.json
         sudo systemctl restart docker
         echo 'DOCKER_HOST=unix:///var/run/docker.sock' >> "$GITHUB_ENV"
+        uname -r
+        if test -f /proc/version_signature; then cat /proc/version_signature; fi
         docker --host unix:///var/run/docker.sock version
         docker --host unix:///var/run/docker.sock buildx version
         docker --host unix:///var/run/docker.sock compose version
