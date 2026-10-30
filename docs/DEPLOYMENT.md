@@ -47,6 +47,8 @@ docker --host unix:///var/run/docker.sock compose version
 
 云安全组和主机防火墙放行管理员 SSH、站点 TCP 80/443。入口 3333 只绑定回环；MongoDB、Redis、浏览器控制、CDP/VNC 不需公网端口。使用 Cloudflare 代理时，可把源站 80/443 限制为 [Cloudflare IP 段](https://www.cloudflare.com/ips/)，保留自己的 SSH 通道。
 
+安装包固定 MongoDB 8.0.34，并设置 `GLIBC_TUNABLES=glibc.pthread.rseq=1`，让其使用 per-thread 内存缓存。该配置避免 per-CPU 分配器在新内核上的兼容问题，也避免 Ubuntu 内核版本号被旧检查误判；代价是暂不使用 per-CPU 缓存优化。无需修改宿主内核或数据库二进制。后续升级 MongoDB 时，应重新验证此配置与性能。[MongoDB 缓存模式说明](https://www.mongodb.com/docs/v8.0/administration/tcmalloc-performance/)、[Ubuntu 内核识别修复](https://jira.mongodb.org/browse/SERVER-131779)。
+
 ## 2. 准备 Cloudflare 配置
 
 1. 在已激活的 zone 内新增站点 A 记录，指向服务器公网 IPv4，启用 **Proxied（橙云）**。只有服务器支持 IPv6 时才添加 AAAA。

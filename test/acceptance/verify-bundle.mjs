@@ -93,6 +93,8 @@ export async function main() {
     await new control.Installation(source).render(); await compose(source, 'create'); fixture = projects.get(source) + '-fixture';
     await run([...DOCKER, 'run', '-d', '--name', fixture, '--network', projects.get(source) + '_front', '--network-alias', 'fixture', '--read-only', '--user', `${process.getuid()}:${process.getgid()}`, '--cap-drop=ALL', '--security-opt=no-new-privileges', '--memory=192m', '--cpus=.5', '--mount', 'type=bind,src=' + path.join(bundle, 'acceptance/model-fixture.mjs') + ',dst=/fixture.mjs,readonly', '--entrypoint=node', build.images.agent.id, '/fixture.mjs']);
     await command(source, 'up'); await command(source, 'doctor');
+    report.mongoAllocator = JSON.parse(await compose(source, 'exec', '-T', 'mongo', 'mongosh', '--quiet', '--eval', 'JSON.stringify({version:db.version(),usingPerCPUCaches:db.serverStatus().tcmalloc.usingPerCPUCaches})'));
+    assert.equal(report.mongoAllocator.usingPerCPUCaches, false, 'MongoDB must use the compatible per-thread allocator');
     const replica = path.join(work, 'replica'); fs.mkdirSync(replica, { mode: 0o700 });
     await command(source, 'schedule', '--timezone', 'Asia/Shanghai', '--hour', '0', '--retry-minutes', '1', '--copy-to', replica);
     const identity = await compose(source, 'exec', '-T', 'browser', 'cat', '/data/runtimes/instance-id'); instances.add(identity);
