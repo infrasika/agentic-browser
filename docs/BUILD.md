@@ -8,7 +8,7 @@
 | --- | --- |
 | Node.js / npm | Node.js 24+，使用随附的 npm |
 | Git / tar | 用于读取已提交源码和处理归档 |
-| Docker / Buildx | Docker Engine 28+、API 1.49+、Buildx；Mac 使用运行中的 Docker Desktop |
+| Docker / Buildx | Docker Engine 28+、API 1.48+、Buildx；Mac 使用运行中的 Docker Desktop |
 | 资源与网络 | 至少 30 GiB 可用空间，双架构镜像和离线包需另留空间；可访问 GitHub、npm、镜像仓库、Google 浏览器和扩展下载服务 |
 
 默认临时构建器限制为 2 CPU / 5 GiB；Docker Desktop 的 VM 内存还应给 daemon 和其他容器留出余量。宿主不需要 Python：上游原生 npm 模块需要的 Python、make、g++ 在 Docker 构建阶段安装。

@@ -18,7 +18,7 @@ gh workflow run release-agent.yml --ref main -f version=v0.1.0-preview.9
 
 首次创建的 GHCR package 默认可能是私有的。维护者须将 `agentic-browser-agent`、`agentic-browser-service`、`agentic-browser-runtime` 三个包设置为 public；否则匿名拉取关卡会停止，调整可见性后只重试失败作业。私有源码仓库的 Release 资产仍需要仓库访问权限，不承诺匿名下载。镜像写入使用作业内 `GITHUB_TOKEN`，不需要站点密钥。
 
-如果部分任务失败，检查 artifact 内的构建或验收报告；重跑失败作业以复用本次已验证的构建。跨包上传不是事务，失败可能留下架构标签；不要移动已有版本标签。旧 Controller 架构的发行物不适用于新 Agent 安装器，旧镜像清理由维护者单独执行。
+如果部分任务失败，检查 artifact 内的构建或验收报告；重跑失败作业以复用本次已验证的构建。如果需要修复 CI 或打包工具，合并修复后以同一版本和 `build_run_id`（原运行 ID）重新触发；工作流下载原构建报告和不可变 digest，逐项比较镜像输入与新提交，输入发生变化就拒绝续跑。安装包记录原镜像源码和新工具源码，不覆盖镜像。跨包上传不是事务，失败可能留下架构标签；不要移动已有版本标签。旧 Controller 架构的发行物不适用于新 Agent 安装器，旧镜像清理由维护者单独执行。
 
 以下保留同一套工具的本机构建与手动发布路径。
 

@@ -11,7 +11,7 @@ const version = process.env.RELEASE_VERSION;
 const namespace = process.env.GITHUB_REPOSITORY_OWNER?.toLowerCase();
 const arch = process.env.RELEASE_ARCH;
 const command = process.argv[2];
-const script = (file, args) => run([process.execPath, 'scripts/build/' + file + '.mjs', ...args], { timeout: 7_200_000, maxBuffer: 8 * 1024 * 1024 });
+const script = (file, args) => run([process.execPath, 'scripts/build/' + file + '.mjs', ...args], { timeout: 7_200_000, stdout: 1, maxBuffer: 8 * 1024 * 1024 });
 const write = (file, value) => fs.writeFileSync(file, JSON.stringify(value, null, 2) + '\n');
 const artifact = platform => path.join('artifacts', 'build-' + platform);
 
@@ -38,7 +38,8 @@ async function main() {
       const receipt = json(path.join(artifact(platform), 'publication.json'));
       validateReport(report);
       assert.equal(report.platform, 'linux/' + platform);
-      assert.equal(report.sourceCommits.browser, process.env.GITHUB_SHA);
+      // plan() below compares all image inputs with HEAD. This permits a CI or
+      // packaging-only repair to resume immutable builds from an earlier run.
       assert.equal(receipt.version, version); assert.equal(receipt.namespace, namespace); assert.equal(receipt.staged, true);
       for (const [name, image] of Object.entries(report.images)) {
         const child = receipt.images[name].platforms[report.platform];
@@ -56,8 +57,10 @@ async function main() {
     const release = json('publication/release.json');
     assert.equal(release.version, version);
     // No registry credentials: each new native host must pull all six images anonymously.
+    console.log('Verifying anonymous pulls for linux/' + arch);
     const publicReceipt = await verifyPublic({ ...release, platforms: ['linux/' + arch] });
     const output = path.resolve('output/registry-bundle');
+    console.log('Packaging the verified platform digests');
     await script('package-agent', ['--build-report', path.join(artifact(arch), 'report.json'), '--version', version, '--release', 'publication/release.json', '--output', output]);
     const bundle = path.join(output, 'agentic-browser-agent-' + version);
     fs.mkdirSync('delivery');
@@ -71,6 +74,7 @@ async function main() {
     const hostTools = path.join(extracted, 'host-tools'); fs.mkdirSync(hostTools);
     for (const tool of ['node', 'docker', 'flock']) fs.symlinkSync(await run(['which', tool]), path.join(hostTools, tool));
     const work = path.join(extracted, 'acceptance');
+    console.log('Running the delivered archive on a fresh native host');
     try {
       console.log(await run([process.execPath, path.join(installed, 'acceptance/verify.mjs'), '--work', work], { cwd: extracted, env: { ...process.env, PATH: hostTools }, timeout: 2_700_000, maxBuffer: 8 * 1024 * 1024 }));
     } finally {
