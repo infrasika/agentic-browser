@@ -45,7 +45,11 @@ export async function platformReference(ref, platform, command = run) {
 }
 export async function inspectImage(name, ref, platform, command = run) {
   if (name in INFRA && ref.includes('@sha256:')) { ref = await platformReference(ref, platform, command); await command(['docker', 'pull', '--platform', platform, ref], { timeout: 900_000 }); }
-  return JSON.parse(await command(['docker', 'image', 'inspect', '--platform', platform, ref]))[0];
+  // ref is a platform manifest digest (or an exact local image ID), so the
+  // API 1.49-only --platform option is unnecessary. Verify the result instead.
+  const image = JSON.parse(await command(['docker', 'image', 'inspect', ref]))[0];
+  if (image.Os + '/' + image.Architecture !== platform) throw new Failure('inspected image platform mismatch');
+  return image;
 }
 async function exportImages(file, refs, platform) {
   const child = spawn('docker', ['save', '--platform', platform, ...new Set(Object.values(refs))], { stdio: ['ignore', 'pipe', 'pipe'] }); child.stderr.resume();

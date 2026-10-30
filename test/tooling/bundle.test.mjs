@@ -43,8 +43,10 @@ test('platform selection needs exactly one matching manifest',async()=>{
   assert.equal(await platformReference('example/image@sha256:'+'a'.repeat(64),'linux/arm64',async()=>JSON.stringify({manifests:[child]})),'example/image@'+child.digest);
 });
 test('official images are pulled by child digest before platform inspect/export',async()=>{
-  const calls=[],digest='sha256:'+'c'.repeat(64),command=async args=>{calls.push(args);if(args.includes('imagetools'))return JSON.stringify({manifests:[{digest,platform:{os:'linux',architecture:'arm64'}}]});return args.includes('inspect')?'[{"Id":"fixture"}]':'';};
-  assert.equal((await inspectImage('mongo','mongo@sha256:'+'a'.repeat(64),'linux/arm64',command)).Id,'fixture');assert.deepEqual(calls[1],['docker','pull','--platform','linux/arm64','mongo@'+digest]);assert.ok(calls[2].includes('linux/arm64'));
+  const calls=[],digest='sha256:'+'c'.repeat(64),command=async args=>{calls.push(args);if(args.includes('imagetools'))return JSON.stringify({manifests:[{digest,platform:{os:'linux',architecture:'arm64'}}]});return args.includes('inspect')?'[{"Id":"fixture","Os":"linux","Architecture":"arm64"}]':'';};
+  assert.equal((await inspectImage('mongo','mongo@sha256:'+'a'.repeat(64),'linux/arm64',command)).Id,'fixture');assert.deepEqual(calls[1],['docker','pull','--platform','linux/arm64','mongo@'+digest]);
+  assert.deepEqual(calls[2],['docker','image','inspect','mongo@'+digest]);
+  await assert.rejects(inspectImage('agent','sha256:'+'a'.repeat(64),'linux/amd64',async()=>JSON.stringify([{Id:'fixture',Os:'linux',Architecture:'arm64'}])),/platform mismatch/);
 });
 test('installer accepts native Linux amd64/arm64 and refuses desktop or unsupported CPUs',()=>{
   assert.equal(hostPlatform('linux','x64'),'linux/amd64');assert.equal(hostPlatform('linux','arm64'),'linux/arm64');for(const [os,arch]of[['darwin','arm64'],['linux','ia32']])assert.throws(()=>hostPlatform(os,arch));
