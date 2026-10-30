@@ -27,7 +27,13 @@ export async function main() {
   const source = path.join(work, 'installation'), restored = path.join(work, 'restored'), rollback = path.join(work, 'rollback');
   const projects = new Map(), instances = new Set(); let fixture;
   const report = { passed: false, stage: 'init', checks: [], hostApplicationDependencies: ['Node.js 24+', 'Docker Engine', 'Docker Compose', 'flock'], hostTools: { node: process.versions.node, docker: await run([...DOCKER, 'version', '--format', '{{.Server.Version}}']), compose: await run([...DOCKER, 'compose', 'version', '--short']) }, scope: 'bundle-only disposable projects; independent-host status requires external evidence', callsPaidModel: false, bundleVersion: build.version, imageSources: build.sourceCommits, packageCommit: build.packageCommit, images: build.images };
-  const command = async (directory, ...args) => JSON.parse(await run([process.execPath, path.join(bundle, 'agentctl.mjs'), '--directory', directory, ...args], { timeout: 360_000 }));
+  const command = async (directory, ...args) => {
+    report.operation = args[0];
+    const diagnostics = process.env.AGENT_ACCEPTANCE_DIAGNOSTICS === '1';
+    if (diagnostics) console.log('Installer operation: ' + args[0]);
+    // agentctl's CLI emits sanitized failure codes, never child stderr or secrets.
+    return JSON.parse(await run([process.execPath, path.join(bundle, 'agentctl.mjs'), '--directory', directory, ...args], { timeout: 360_000, stderr: diagnostics ? 2 : undefined }));
+  };
   const compose = (directory, ...args) => run([...DOCKER, 'compose', '--project-directory', directory, '--env-file', path.join(directory, '.env'), '-f', path.join(directory, 'compose.yaml'), ...args], { timeout: 360_000 });
   const control = await import(pathToFileURL(path.join(bundle, 'agentctl.mjs')).href);
   async function request(route, { token, body, target = port, expected = 200 } = {}) {

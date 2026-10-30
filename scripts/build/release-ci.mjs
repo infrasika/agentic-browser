@@ -76,7 +76,7 @@ async function main() {
     const work = path.join(extracted, 'acceptance');
     console.log('Running the delivered archive on a fresh native host');
     try {
-      console.log(await run([process.execPath, path.join(installed, 'acceptance/verify.mjs'), '--work', work], { cwd: extracted, env: { ...process.env, PATH: hostTools }, timeout: 2_700_000, maxBuffer: 8 * 1024 * 1024 }));
+      await run([process.execPath, path.join(installed, 'acceptance/verify.mjs'), '--work', work], { cwd: extracted, env: { ...process.env, PATH: hostTools, AGENT_ACCEPTANCE_DIAGNOSTICS: '1' }, stdout: 1, stderr: 2, timeout: 2_700_000, maxBuffer: 8 * 1024 * 1024 });
     } finally {
       if (fs.existsSync(path.join(work, 'report.json'))) fs.copyFileSync(path.join(work, 'report.json'), 'delivery/acceptance-' + arch + '.json');
     }
