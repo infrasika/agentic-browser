@@ -11,6 +11,24 @@ import { writeCompose } from '../../scripts/build/package-compose.mjs';
 import { run, sleep } from '../../deploy/agent/lib/system.mjs';
 import { generationPending } from './verify-bundle.mjs';
 const root = path.resolve(import.meta.dirname, '../..');
+export async function waitForGateway(base, { fetcher = fetch, pause = sleep, attempts = 60 } = {}) {
+  for (let attempt = 0; attempt < attempts; attempt++) {
+    try {
+      const response = await fetcher(base + '/api/config', { signal: AbortSignal.timeout(3000) });
+      if (response.status === 200) return await response.json();
+      await response.arrayBuffer();
+      if (![502, 503].includes(response.status)) throw new Error('Unexpected gateway readiness status: ' + response.status);
+    } catch (error) {
+      if (!['ECONNREFUSED', 'ECONNRESET', 'UND_ERR_SOCKET'].includes(error.cause?.code) && error.name !== 'TimeoutError') throw error;
+    }
+    if (attempt + 1 < attempts) await pause(1000);
+  }
+  throw new Error('Gateway did not become ready within the startup deadline');
+}
+export function redactDiagnostics(text, values) {
+  for (const value of values.filter(value => typeof value === 'string' && value.length >= 4).sort((a, b) => b.length - a.length)) text = text.replaceAll(value, '[REDACTED]');
+  return text.replace(/eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/g, '[REDACTED_JWT]');
+}
 export async function verifyCompose({ release, work, port = 3350, development = false }) {
   const project = 'compose-test-' + randomUUID().slice(0, 12);
   const report = { passed: false, checks: [], hostPlatform: process.platform, architecture: process.arch, version: release.version, images: release.images, callsPaidModel: false, hostDeploymentTools: ['Docker', 'Docker Compose'], stage: 'prepare' };
@@ -59,15 +77,19 @@ export async function verifyCompose({ release, work, port = 3350, development = 
     fs.writeFileSync(path.join(deployment, 'secrets.env'), 'QWEN_API_KEY=synthetic-compose-key\nDEMO_ADMIN_PASSWORD=' + password + '\n', { mode: 0o600 });
     report.stage = 'startup'; console.log('Compose acceptance: docker compose up -d');
     await compose('up', '-d');
-    await request('/api/config'); await request('/mcp', { expected: 404 });
+    report.stage = 'gateway_ready'; await waitForGateway(base); await request('/mcp', { expected: 404 });
+    report.stage = 'browser_identity';
     identity = (await compose('exec', '-T', '--user', '1000:1000', 'browser', 'cat', '/data/runtimes/instance-id')).trim();
+    report.stage = 'browser_privileges';
     const processState = JSON.parse(await compose('exec', '-T', '--user', '1000:1000', 'browser', 'node', '-e', "const s=require('fs').readFileSync('/proc/1/status','utf8'); const rows=require('fs').readdirSync('/proc').filter(p=>/^\\d+$/.test(p)).map(p=>{try {return {cmd:require('fs').readFileSync('/proc/'+p+'/cmdline','utf8'),status:require('fs').readFileSync('/proc/'+p+'/status','utf8')}}catch{return null}}).filter(r=>r?.cmd.includes('src/compose-service.ts')); console.log(JSON.stringify(rows.map(r=>({uid:r.status.match(/^Uid:\\s+(\\d+)/m)?.[1],cap:r.status.match(/^CapEff:\\s+(\\w+)/m)?.[1]}))))"));
     // Exclude the diagnostic process itself (its command line contains the needle).
     assert.ok(processState.some(p => p.uid === '1000' && /^0+$/.test(p.cap)));
+    report.stage = 'compose_shape';
     const rendered = JSON.parse(await compose('config', '--format', 'json'));
     for (const name of ['agent', 'browser', 'mongo', 'redis']) assert.equal(rendered.services[name].ports, undefined);
     assert.ok(!rendered.services.browser.volumes.some(v => ['config', project + '_config'].includes(v.source)));
     const beforeHash = await configurationHash();
+    report.stage = 'admin_login';
     let token = await login();
     report.checks.push('healthy_gateway_and_admin_login', 'browser_process_drops_root_and_capabilities', 'private_ports_and_separate_browser_credentials');
     report.stage = 'real_browser'; console.log('Compose acceptance: real Chrome task and handoff');
@@ -93,7 +115,7 @@ export async function verifyCompose({ release, work, port = 3350, development = 
     const beforeMessages = await request('/api/messages/' + start.conversationId, { token });
     report.stage = 'repeat'; console.log('Compose acceptance: repeated up and down/up preserve data');
     await compose('up', '-d'); assert.equal(await configurationHash(), beforeHash);
-    await compose('down'); await compose('up', '-d');
+    await compose('down'); await compose('up', '-d'); await waitForGateway(base);
     token = await login();
     assert.equal(await configurationHash(), beforeHash);
     assert.deepEqual(await request('/api/balance', { token }), beforeBalance);
@@ -107,15 +129,24 @@ export async function verifyCompose({ release, work, port = 3350, development = 
     await assert.rejects(compose('up', '-d'));
     const logs = await compose('logs', '--no-color', 'init');
     assert.match(logs, /model.promptRate/); assert.ok(!logs.includes(password) && !logs.includes('synthetic-compose-key'));
-    fs.writeFileSync(settingsFile, JSON.stringify(settings)); await compose('up', '-d');
+    fs.writeFileSync(settingsFile, JSON.stringify(settings)); await compose('up', '-d'); await waitForGateway(base);
     assert.equal(await configurationHash(), beforeHash); await login();
     report.checks.push('invalid_configuration_rejected_without_secret_logs_or_key_rotation');
     report.passed = true;
   } catch (error) {
     fs.writeFileSync(path.join(deployment, 'private-error.log'), error.stack ?? String(error), { mode: 0o600 });
+    report.failure = { type: error.name, code: error.code, cause: error.cause?.code };
   } finally {
     const cleanup = [];
     try { fs.writeFileSync(path.join(deployment, 'private-containers.log'), await compose('logs', '--no-color', '--tail', '80'), { mode: 0o600 }); } catch {}
+    if (!report.passed) {
+      try {
+        const stored = JSON.parse(await compose('run', '--rm', '--no-deps', '--entrypoint', 'node', 'init', '-e', "const fs=require('fs'); console.log(fs.existsSync('/config/identity.json')?fs.readFileSync('/config/identity.json','utf8'):'{}')"));
+        const values = [password, 'synthetic-compose-key', ...Object.values(stored)];
+        report.diagnostics = {};
+        for (const [key, file] of Object.entries({ compose: 'private-compose.log', containers: 'private-containers.log' })) if (fs.existsSync(path.join(deployment, file))) report.diagnostics[key] = redactDiagnostics(fs.readFileSync(path.join(deployment, file), 'utf8'), values).slice(-8000);
+      } catch { report.diagnostics = { unavailable: true }; }
+    }
     try { await compose('down', '--volumes', '--remove-orphans'); } catch { cleanup.push('compose'); }
     if (identity && /^[a-f0-9-]{36}$/.test(identity)) {
       const ids = (await run(['docker', 'ps', '-aq', '--filter', 'label=dev.agentic-browser.instance=' + identity])).split(/\s+/).filter(Boolean);
