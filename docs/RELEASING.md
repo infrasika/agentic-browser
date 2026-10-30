@@ -122,7 +122,7 @@ npm run publish:agent -- \
   --run --output "$PUBLISH_DIR"
 ```
 
-工具先上传 `VERSION-amd64` / `VERSION-arm64` 标签，再生成同一个 `VERSION` 多平台标签，核对远程镜像和 index，最后输出：
+工具先上传带完整镜像 ID 的 `VERSION-ARCH-IMAGE_ID` 暂存标签，再生成同一个 `VERSION` 多平台标签，核对远程镜像和 index，最后输出：
 
 - `release.json`：六个固定 registry digest，供安装和打包使用。
 - `publication.json`：上传回执，记录本次发布结果。
