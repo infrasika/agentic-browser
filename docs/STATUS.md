@@ -14,7 +14,7 @@
 
 Linux 双架构和 macOS 源码检查通过。本机 81 项测试中 79 项通过、2 项 Linux flock 测试按平台跳过；类型检查通过。正式发布后重新下载全部 15 份文件，核对 14 份文件摘要、两个归档内部完整性、Compose 的固定镜像引用、版本标签及双架构报告，并匿名核对三个 GHCR 版本索引。独立复核记录：`output/releases/v0.1.0-preview.10/final-verification.json`（本机未跟踪产物）。
 
-验收使用模拟模型，未调用付费模型；不代表真实模型、公网 HTTPS、真实 SMTP、Mac Docker 构建或旧 Controller 数据迁移已完成。此次发布没有升级现有测试站。preview.9 的早期失败告警对应旧运行；该版后来已成功发布，见下方历史记录。
+发行验收使用模拟模型，未调用付费模型；不代表真实模型、公网 HTTPS、真实 SMTP、Mac Docker 构建或旧 Controller 数据迁移已完成。现有测试站随后已升级至本版，验证范围见下方“当前测试站”。preview.9 的早期失败告警对应旧运行；该版后来已成功发布，见下方历史记录。
 
 ## 已交付
 
@@ -45,7 +45,7 @@ Linux 双架构和 macOS 源码检查通过。本机 81 项测试中 79 项通�
 | rc.8 独立包 | amd64 9 项通过，包含真实 Chrome、接管继续、定时备份、强杀恢复和错误升级保护；`output/tests/bundle-v0.2.0-rc.8-amd64/report.json` |
 | rc.8 包与发布预检 | 工具来源 `bb44d66`，两架构安装包分别位于 `output/agent/releases/v0.2.0-rc.8-{amd64,arm64}/`；双架构发布预检通过，未读取发布凭据、未上传 GHCR |
 | 实际数据升级演练 | 在本机隔离实例用测试站完整备份演练 rc.6 → rc.8，配置、业务数据和数据卷保持一致；`output/build/rc8-upgrade-rehearsal.json` |
-| 当前站点升级 | 完整备份后就地升级 rc.6 → rc.8，数据、配置、数据卷和备份策略保持一致，公网入口及定时器正常；`output/build/rc8-site-upgrade.json` |
+| rc.8 站点升级（历史） | 完整备份后就地升级 rc.6 → rc.8，数据、配置、数据卷和备份策略保持一致，公网入口及定时器正常；`output/build/rc8-site-upgrade.json` |
 
 总记录为 `output/build/rc8-verification.json`，31 项业务、运维及独立包验收的明细索引为 `output/build/rc8-acceptance.json`。本轮使用模拟模型和邮件服务，没有调用付费模型或发送真实邮件。记录和候选包属于本机未跟踪产物，新 clone 不包含它们；按 [构建](BUILD.md)、[发布](RELEASING.md) 重新生成自己的证据。
 
@@ -55,7 +55,11 @@ Linux 双架构和 macOS 源码检查通过。本机 81 项测试中 79 项通�
 
 ## 当前测试站
 
-`https://agentic-browser.zkpass.org` 运行 rc.8 镜像，运行目录为 `.deployment/agent-site/`，真实配置位于仓库根目录 `config/local/`。数据和备份保存在运行目录的 `data/`、`backups/`。每用户一个浏览器，实际放行 5、硬上限 10；新用户 200,000 credits、默认全站日预算 20,000,000 credits，管理页面保存的预算优先。
+`https://agentic-browser.zkpass.org` 已于 2026-10-30 从 rc.8 升级至 `v0.1.0-preview.10`，使用发行包固定 digest 的镜像。运行目录为 `.deployment/agent-site/`，真实配置位于仓库根目录 `config/local/`。数据和备份保存在运行目录的 `data/`、`backups/`。本站继续使用安装器管理原有持久化布局，没有迁移到新建站点的 Docker-only Compose 布局。每用户一个浏览器，实际放行 5、硬上限 10；新用户 200,000 credits、默认全站日预算 20,000,000 credits，管理页面保存的预算优先。
+
+本次同步源码至 `54ce061`，类型检查与 83 项测试通过。先用完整备份完成隔离升级，验证真实 Chrome 页面快照、接管、归还及释放，再空闲停写备份并就地升级。65 个数据库集合的业务数据、配置与密钥、六个数据卷及备份策略保持一致；权限记录仅由启动初始化刷新 `grantedAt` / `updatedAt` 时间，已逐字段核对权限内容与记录标识不变。六个镜像的平台和固定引用正确，首页与 `/api/config` 公网 HTTPS 返回 200，服务健康及备份定时器正常。本轮未调用付费模型或发送邮件。
+
+验收记录位于 `output/deploy/site-update-20261030T142238Z/`：`upgrade-rehearsal.json`、`permissions-verification.json`、`browser-smoke.json`、`site-data-verification.json`、`site-check.json` 和 `cleanup.json`。升级前完整备份为 `.deployment/agent-site/backups/20261030T144117Z-309e6501/`；另保留演练前备份。隔离副本及其容器、网络、数据卷已清理，证据属于本机未跟踪产物。
 
 本站使用安装包内的 Node 管理工具和备份定时器，在仓库根目录执行 `node .deployment/agent-site/agentctl.mjs --directory .deployment/agent-site` 管理。外层 Nginx 仍沿用 HTTP 源站入口，尚未应用新部署指南的 Full (strict) HTTPS 模板。当前配置、数据和有效完整备份不作为构建缓存清理。
 
