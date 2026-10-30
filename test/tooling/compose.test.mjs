@@ -68,3 +68,17 @@ test('Compose preserves literal dollar signs, hashes, quotes and backslashes in 
   await initializeCompose(options);
   assert.equal(parseEnv(await fs.readFile(path.join(options.config, 'agent'), 'utf8')).DEMO_ADMIN_PASSWORD, password);
 }));
+
+const { waitForGateway, redactDiagnostics } = await import('../acceptance/verify-compose.mjs');
+test('Compose readiness waits for connection and proxy startup but rejects permanent errors', async () => {
+  const pending = [new TypeError('fetch failed', { cause: { code: 'ECONNREFUSED' } }), new Response('', { status: 502 }), new Response('{"ready":true}')];
+  let pauses = 0;
+  assert.deepEqual(await waitForGateway('http://127.0.0.1:3350', { fetcher: async () => { const next = pending.shift(); if (next instanceof Error) throw next; return next; }, pause: async () => { pauses++; }, attempts: 3 }), { ready: true });
+  assert.equal(pauses, 2);
+  await assert.rejects(waitForGateway('http://127.0.0.1:3350', { fetcher: async () => new Response('', { status: 421 }), pause: async () => assert.fail('Permanent errors must not retry') }), /421/);
+  await assert.rejects(waitForGateway('http://127.0.0.1:3350', { fetcher: async () => new Response('', { status: 503 }), pause: async () => {}, attempts: 2 }), /deadline/);
+});
+test('Compose diagnostics redact supplied and generated secrets and session tokens', () => {
+  const result = redactDiagnostics('password=synthetic-password key=' + 'a'.repeat(64) + ' token=eyJabc.def.ghi', ['synthetic-password', 'a'.repeat(64)]);
+  assert.equal(result, 'password=[REDACTED] key=[REDACTED] token=[REDACTED_JWT]');
+});
