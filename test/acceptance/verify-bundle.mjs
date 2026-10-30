@@ -140,7 +140,34 @@ export async function main() {
       try {
         const helpers = (await run([...DOCKER, 'ps', '-aq', '--filter', 'label=dev.agentic-browser.operation=' + project])).split(/\s+/).filter(Boolean); if (helpers.length) await run([...DOCKER, 'rm', '-f', ...helpers]);
         if (exists(path.join(directory, '.env'))) {
-          atomic(path.join(work, project + '-logs.txt'), await compose(directory, 'logs', '--no-color', '--tail', '80')); await compose(directory, 'down', '--volumes', '--remove-orphans');
+          const logs = await compose(directory, 'logs', '--no-color', '--tail', '80');
+          atomic(path.join(work, project + '-logs.txt'), logs);
+          if (!report.passed && process.env.AGENT_ACCEPTANCE_DIAGNOSTICS === '1') {
+            // This harness creates only disposable instances with a synthetic
+            // model key. Redact every generated configuration secret before
+            // exposing bounded startup diagnostics in the CI report.
+            const configuration = json(path.join(directory, 'installation.json')).configDirectory ?? path.join(directory, 'config');
+            const secrets = [];
+            for (const name of ['secrets.env', 'browser-token']) {
+              const file = path.join(configuration, name);
+              if (exists(file)) for (const line of fs.readFileSync(file, 'utf8').split('\n')) {
+                const value = name === 'secrets.env' ? line.slice(line.indexOf('=') + 1) : line;
+                if (value.length >= 4) secrets.push(value);
+              }
+            }
+            let sanitized = logs;
+            for (const secret of secrets.sort((a, b) => b.length - a.length)) sanitized = sanitized.replaceAll(secret, '[REDACTED]');
+            sanitized = sanitized.replace(/eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/g, '[REDACTED_JWT]');
+            report.startupDiagnostics ??= [];
+            const ids = (await compose(directory, 'ps', '--all', '-q')).split(/\s+/).filter(Boolean);
+            const states = [];
+            for (const cid of ids) {
+              const container = JSON.parse(await run([...DOCKER, 'inspect', cid]))[0];
+              states.push({ service: container.Config.Labels['com.docker.compose.service'], status: container.State.Status, exitCode: container.State.ExitCode, oomKilled: container.State.OOMKilled, health: container.State.Health?.Status, error: container.State.Error });
+            }
+            report.startupDiagnostics.push({ states, logs: sanitized.slice(-16000) });
+          }
+          await compose(directory, 'down', '--volumes', '--remove-orphans');
           await run([...DOCKER, 'run', '--rm', '--network=none', '--read-only', '--user=0:0', '--cap-drop=ALL', '--cap-add=CHOWN', '--cap-add=DAC_OVERRIDE', '--security-opt=no-new-privileges', '--volume', path.join(directory, 'data') + ':/data', '--entrypoint=chown', build.images.agent.id, '-R', `${process.getuid()}:${process.getgid()}`, '/data']);
         }
         for (const command of [['ps', '-aq'], ['volume', 'ls', '-q'], ['network', 'ls', '-q']]) if (await run([...DOCKER, ...command, '--filter', 'label=com.docker.compose.project=' + project])) cleanup.push(project + ':' + command[0]);

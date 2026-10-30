@@ -60,20 +60,21 @@ Cloudflare 控制台的边缘证书用于浏览器到 Cloudflare；源站证书�
 
 ## 3. 校验安装包并初始化
 
-从可信渠道取得**对应架构**的归档与 `SHA256SUMS`，放到服务器同一个下载目录，例如 `~/agent-downloads/`。可以直接下载，也可从构建机用 `scp` 传入；校验文件必须对应实际下载的归档名。每个架构单独存放，避免同名覆盖。
+从可信渠道取得**对应架构**的归档与 `SHA256SUMS`，放到服务器同一个下载目录，例如 `~/agent-downloads/`。可以直接下载，也可从构建机用 `scp` 传入；校验文件必须对应实际下载的归档名。GitHub Release 归档名带架构后缀；手动构建的同名归档应按架构分目录存放。
 
 ```bash
 cd "$HOME/agent-downloads"
 AGENT_VERSION='vX.Y.Z'   # 换成实际版本
-AGENT_ARCHIVE="agentic-browser-agent-${AGENT_VERSION}.tar.gz"
-sha256sum -c SHA256SUMS
+AGENT_ARCH='amd64'      # ARM64 服务器改为 arm64
+AGENT_ARCHIVE="agentic-browser-agent-${AGENT_VERSION}-linux-${AGENT_ARCH}.tar.gz"
+sha256sum --ignore-missing -c SHA256SUMS
 tar -xzf "$AGENT_ARCHIVE"
 cd "agentic-browser-agent-${AGENT_VERSION}"
 AGENT_BUNDLE="$PWD"
 node bundle.mjs verify
 ```
 
-如果发布渠道为文件名增加了架构后缀，修改 `AGENT_ARCHIVE`，解压后的目录名仍以包内结构为准。校验应显示归档 `OK`、包验证 `verified: true`；摘要校验不能代替对下载渠道的信任。包内 `BUILD.json` 记录平台和源码，`release.json` 固定六个镜像。不要修改包内文件或把个人配置放进去。
+如果使用手动构建的无架构后缀归档，按实际文件名修改 `AGENT_ARCHIVE`；解压后的目录名仍以包内结构为准。校验应显示归档 `OK`、包验证 `verified: true`；摘要校验不能代替对下载渠道的信任。包内 `BUILD.json` 记录平台和源码，`release.json` 固定六个镜像。不要修改包内文件或把个人配置放进去。
 
 在同一终端选择安装位置和访问域名：
 
