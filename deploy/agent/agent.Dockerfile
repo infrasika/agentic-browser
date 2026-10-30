@@ -13,7 +13,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates
 WORKDIR /app
 COPY --from=build --chown=node:node /app /app
 COPY --chown=node:node selfhost/ /app/selfhost/
-RUN find /app -type d ! -perm -005 -exec chmod 755 {} +
+# The installation runs as the host owner's UID, which need not be node (1000).
+# Build contexts are private (umask 0077); application code must remain readable
+# and existing executables traversable after COPY --chown=node:node.
+RUN chmod -R a+rX /app
 RUN mkdir -p /app/uploads /app/client/public/images /app/logs && chown -R node:node /app/uploads /app/client/public/images /app/logs
 USER node
 ENV NODE_ENV=production NODE_OPTIONS=--max-old-space-size=1536

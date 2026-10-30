@@ -28,6 +28,9 @@ async function main() {
     const builds = fs.readdirSync('output/build').filter(name => name.startsWith('build-'));
     assert.equal(builds.length, 1, 'Use a fresh CI workspace');
     const report = json(path.join('output/build', builds[0], arch, 'report.json'));
+    console.log('Checking Agent source access under a non-default UID');
+    await run(['docker', 'run', '--rm', '--network=none', '--read-only', '--user=65534:65534', '--cap-drop=ALL', '--security-opt=no-new-privileges', '--memory=256m', '--entrypoint=node', report.images.agent.id,
+      '--input-type=module', '-e', "import fs from 'node:fs'; for (const file of ['/app/package.json','/app/api/server/index.js','/app/client/dist/index.html']) fs.accessSync(file, fs.constants.R_OK); await import('/app/selfhost/settings.mjs');"], { stderr: 2 });
     const prepared = await plan([report], version, namespace);
     const [, receipt] = await publish(prepared, new Registry(await credentials()), run, inspect, { stageOnly: true });
     fs.mkdirSync('handoff'); write('handoff/report.json', report); write('handoff/publication.json', receipt);
@@ -76,7 +79,7 @@ async function main() {
     const work = path.join(extracted, 'acceptance');
     console.log('Running the delivered archive on a fresh native host');
     try {
-      console.log(await run([process.execPath, path.join(installed, 'acceptance/verify.mjs'), '--work', work], { cwd: extracted, env: { ...process.env, PATH: hostTools }, timeout: 2_700_000, maxBuffer: 8 * 1024 * 1024 }));
+      await run([process.execPath, path.join(installed, 'acceptance/verify.mjs'), '--work', work], { cwd: extracted, env: { ...process.env, PATH: hostTools, AGENT_ACCEPTANCE_DIAGNOSTICS: '1' }, stdout: 1, stderr: 2, timeout: 2_700_000, maxBuffer: 8 * 1024 * 1024 });
     } finally {
       if (fs.existsSync(path.join(work, 'report.json'))) fs.copyFileSync(path.join(work, 'report.json'), 'delivery/acceptance-' + arch + '.json');
     }
