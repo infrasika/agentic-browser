@@ -9,12 +9,16 @@
 | 阶段 | 状态 / 完成条件 |
 | --- | --- |
 | 容器内运维 | 已实现 `ops`：停写备份、归档校验、新项目恢复、升级失败保护与完整回退、账号管理、每日备份和保留份数；支持独立配置目录 |
-| 自动化验收与指南 | 89 项单元测试和类型检查通过；开发镜像的 14 项完整 Compose 验收通过，清理后剩余资源为 0；正式源码镜像构建后再验收 |
-| 发布与本站迁移 | 本站完整备份的隔离迁移演练通过，65 个集合逐字段核对、密钥和新备份校验通过；正式镜像验收及发布后再切换原域名入口 |
+| 自动化验收与指南 | 89 项单元测试和类型检查通过；三个 amd64 镜像从已提交源码构建，16 项完整 Compose 验收通过，清理后剩余资源为 0 |
+| 发布与本站迁移 | 最终源码镜像的真实备份迁移演练通过，65 个集合逐字段核对、密钥和新备份校验通过；等待 GitHub 同步与双架构发布后再切换原域名入口 |
 | 收敛旧入口 | 仅在新运维及迁移验收通过后，移除旧安装器和重复指南、测试、打包流程 |
 | 外部环境 | Mac 实机 Docker 构建、跨机恢复和整机重启仍需要对应环境；源码公开单独处理 |
 
-本轮开发提交 `59e172b`；开发镜像验收为 `output/tests/compose-operations-20261030-c/report.json`，迁移演练为 `output/deploy/compose-migration-rehearsal-20261031-c/report.json`。迁移仅允许应用初始化刷新 `accessroles.updatedAt`、`aclentries.grantedAt/updatedAt`、`systemgrants.updatedAt`，其余字段和记录标识全部相同。演练使用真实备份的独立副本，模型与邮件禁用，结束后复制的数据和 Docker 资源均清理，原站点及有效备份保留。这些本机记录不是正式双架构发布证据。
+最终镜像源码为 `ca91288`，构建报告为 `output/build/build-aiayDf/amd64/report.json`。验收记录为 `output/tests/compose-final-20261031/report.json`，真实备份演练为 `output/deploy/compose-migration-source-20261031/report.json`。新入口覆盖账号创建与重置、活跃任务拒绝备份、停写备份、独立配置、新项目恢复、强杀恢复、错误升级完整回退、每日轮转与同日去重；还验证启用备份后的正常升级，以及备份服务启动失败时同时回退数据和调度服务。
+
+迁移核对仅发现应用初始化刷新 `accessroles.updatedAt`、`aclentries.grantedAt/updatedAt`、`systemgrants.updatedAt`，其余字段和记录标识全部相同。演练使用真实备份的独立副本，模型与邮件禁用，结束后复制的数据和 Docker 资源均清理，原站点及有效备份保留。非默认 UID 的应用文件读取、镜像内 MIT/组件许可证和 Docker/Compose 工具均验证通过。构建已改为在复制时设置文件权限，避免再生成整份应用的权限修改层。
+
+上述是本机 Linux amd64 证据，不能代替 GitHub 原生双架构发布或 Mac Docker 验收。服务器已有 GitHub 凭据的 GPG 缓存待用户解锁，因此本轮尚未推送、触发发布或切换测试站。当前站点复核为健康、非维护状态，公网 `/api/config` 返回 200，放行量仍为 5。
 
 ## 已发布 v0.1.0-preview.10：Docker-only 部署
 
