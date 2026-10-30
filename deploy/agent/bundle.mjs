@@ -6,7 +6,7 @@ import { createGunzip } from 'node:zlib';
 import { pipeline } from 'node:stream/promises';
 import { argumentsFor, cli, digest, Failure, json, mainModule, run, walk } from './lib/system.mjs';
 const DOCKER = ['docker', '--host', 'unix:///var/run/docker.sock'];
-export const REQUIRED = ['agentctl.mjs', 'bundle.mjs', 'nginx.host.conf', 'compose.yaml', 'release.json', 'BUILD.json', 'README.md', 'OPERATIONS.md', 'CONFIGURATION.md', 'config/settings.example.json', 'config/secrets.env.example', 'acceptance/verify.mjs', 'acceptance/model-fixture.mjs', 'LICENSES/TOOLS.txt', 'LICENSES/LibreChat.txt', 'LICENSES/DISTRIBUTION-NOTICES.md', 'LICENSES/PLAYWRIGHT-LICENSE'];
+export const REQUIRED = ['agentctl.mjs', 'bundle.mjs', 'nginx.host.conf', 'compose.yaml', 'release.json', 'BUILD.json', 'README.md', 'OPERATIONS.md', 'CONFIGURATION.md', 'config/settings.example.json', 'config/secrets.env.example', 'acceptance/verify.mjs', 'acceptance/model-fixture.mjs', 'LICENSES/TOOLS.txt', 'LICENSES/LibreChat.txt', 'LICENSES/PLAYWRIGHT-LICENSE'];
 export async function verify(directory) {
   directory = fs.realpathSync(directory); const sums = path.join(directory, 'SHA256SUMS');
   if (fs.lstatSync(sums).isSymbolicLink()) throw new Failure('symlink checksum file');

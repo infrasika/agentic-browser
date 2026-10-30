@@ -15,7 +15,7 @@
 | 范围 | 结果 / 证据 |
 | --- | --- |
 | rc.8 镜像 | Ubuntu amd64 上生成两平台共六个应用镜像，ARM64 使用 QEMU；源码 `e11c84e`，`output/build/build-MeY0Ot/{amd64,arm64}/report.json` |
-| 源码回归与 CI | 本机 Linux 73 项及 TypeScript 检查通过；Ubuntu / macOS 工作流通过 actionlint；`output/build/rc8-ci-verification.json`。GitHub 与 macOS 实际运行待推送后核对 |
+| 源码回归与 CI | 本机 Linux 73 项及 TypeScript 检查通过；Ubuntu / macOS 工作流通过 actionlint；`output/build/rc8-ci-verification.json`。集成分支已推送至 GitHub，远程运行结果尚待核对 |
 | rc.8 业务 | 12 项通过：真实 Chrome、账号隔离、额度与日预算、排队、接管恢复、重启和登出清理 |
 | rc.8 运维 | 10 项通过：独立配置、模拟模型、TLS SMTP、备份恢复和错误升级保护 |
 | rc.8 独立包 | amd64 9 项通过，包含真实 Chrome、接管继续、定时备份、强杀恢复和错误升级保护；`output/tests/bundle-v0.2.0-rc.8-amd64/report.json` |
@@ -43,10 +43,10 @@
 
 | 工作 | 完成条件 |
 | --- | --- |
-| 远程 CI | 推送源码后核对 GitHub Ubuntu amd64 / arm64、macOS 工作流；当前 GitHub 连接无法访问仓库，尚未运行。源码测试不包含 Mac Docker 构建 |
+| 远程 CI | 核对 `main` / `feature` 上 GitHub Ubuntu amd64 / arm64、macOS 工作流的实际结果，不能以本地检查代替。源码测试不包含 Mac Docker 构建 |
 | Mac / 原生 ARM64 | 在 Mac 实机执行源码构建；在原生 ARM64 Linux 完成安装和运行验收，QEMU 构建不能替代 |
 | 独立主机 | 新 Linux 主机或干净 CI runner 完成候选包安装/恢复；`.github/workflows/accept-agent-bundle.yml` 已提供 amd64 / arm64 原生 runner 选择和平台核对，尚未远程执行 |
-| 公开发行 | 维护者确认项目主许可证；按当前约定在 Mac 发布 GHCR 与安装包，验证匿名下载和拉取。仓库目前保留第三方许可，尚无项目主许可证 |
+| 公开发行 | 维护者确认项目主许可证；按当前约定在 Mac 发布 GHCR 与安装包，验证匿名下载和拉取。组件的第三方许可保留，尚无项目主许可证 |
 | 公网安装 | 当前测试站暂缓源站 TLS 变更，沿用现有入口；新用户公网部署指南仍使用 Full (strict)。正式开放前核对源站证书及公网全链路，已有覆盖该域名的 Origin CA 证书可复用 |
 | 运维演练 | 配置受控异地备份并跨机恢复；在维护窗口验证整机重启；数据库升级时单独验证实际跨版本迁移 |
 

@@ -1,140 +1,177 @@
 # 在自己的服务器上部署 Agentic Browser
 
-本指南面向部署者：从一台 Linux 服务器开始，安装完整聊天 Agent、远程浏览器、本地账号、credits 和全站预算。管理工具使用 Node.js 24+，发行包自带依赖，无需额外安装 LibreChat 或 npm 依赖。
+本指南从一台 Linux 服务器开始，安装完整的聊天 Agent、同屏远程浏览器、本地账号、credits 和全站预算。应用、MongoDB、Redis 等都运行在 Docker 中；安装包自带 Node 管理工具，无需另装 LibreChat，也无需下载源码或执行 `npm install`。
 
-**分发状态：当前仍是安装候选版本，完整 Agent 镜像和安装包尚未公开发布。** 以下使用已取得的可信发行包；`vX.Y.Z`、`agent.example.com` 和邮箱必须换成自己的值。不要直接拉取未发布的 GHCR 地址。自行构建见源码仓库的 `docs/BUILD.md`，Mac 和 Ubuntu 共用同一套构建命令，部署不依赖构建机密钥。目前完整流程已在 Linux amd64 验收，原生 arm64 和独立新服务器验收待完成。
+**当前仍处于安装候选阶段，完整 Agent 镜像和安装包尚未公开发行。** 先取得维护者提供的可信候选包，或按源码仓库的 `docs/BUILD.md`、`docs/RELEASING.md` 自行构建和打包；不要把文档示例当成已经存在的下载地址。支持和验收范围以具体版本说明为准。
 
-源码和新发行包的 `config/settings.example.json`、`config/secrets.env.example` 提供公开参数清单，可在安装前查看。第 3 步 `init` 会在你选择的安装目录生成真实配置及独立密钥，第 4 步再填写；无需取得本项目服务器的 `.deployment/` 或配置文件。字段与源码 clone 后的操作见 [配置指南](CONFIGURATION.md)。
+本文主流程使用 Linux + Cloudflare + 宿主 Nginx，先关闭注册完成验收，再决定是否公开。只供自己使用可以始终关闭注册；仅通过 SSH 隧道测试的简化方式见文末。
 
-## 1. 准备服务器、域名与账号
-
-官方公网安装路径统一为：
+## 1. 准备服务器和外部服务
 
 ```text
-用户浏览器 → Cloudflare（HTTPS）→ 服务器 Nginx（HTTPS）
-                                  → 127.0.0.1:3333 → Agent / Browser Service
-                                                       └ 私有 MongoDB / Redis
+用户浏览器 → Cloudflare HTTPS → 宿主 Nginx HTTPS → 127.0.0.1:3333
+                                                   └ Compose gateway
+                                                      ├ LibreChat Agent
+                                                      ├ Browser Service / Chrome
+                                                      └ MongoDB / Redis
 ```
 
-| 准备项 | 要求 |
+| 项目 | 要求 |
 | --- | --- |
-| Linux 服务器 | 与安装包匹配的 amd64 或 arm64；建议从 4 vCPU、8 GiB 内存、30 GiB 可用磁盘、1 个浏览器开始，另外留出备份空间 |
-| CPU | amd64 需 AVX；arm64 需 ARMv8.2-A 或更高，见 [MongoDB 要求](https://www.mongodb.com/docs/manual/administration/production-notes/#platform-support) |
-| 宿主软件 | Node.js 24+、flock（util-linux）、Docker Engine 26+、Compose v2/v5、Nginx；Docker 使用系统 `/var/run/docker.sock`，不使用 rootless 或远程 daemon |
-| 系统用户 | 固定一个有 Docker 权限的普通用户管理安装目录；之后的 `agentctl` 也用这个用户运行 |
-| 域名和 Cloudflare | 官方公网流程要求 Cloudflare 账号、已接入其 DNS 的域名、代理记录及 Turnstile widget |
-| 模型账号 | Qwen 可用 API key、对应区域的模型 ID、兼容 API base URL、输入/输出费率 |
-| 网络 | 可下载镜像、访问模型 API、Cloudflare 验证端点和目标网站；启用邮件时还需访问 SMTP |
+| 服务器 | Linux amd64 或 arm64，与安装包匹配；建议从 4 vCPU、8 GiB 内存、至少 30 GiB 可用磁盘、1 个浏览器开始，另留镜像和备份空间 |
+| CPU | amd64 需 AVX；arm64 需 ARMv8.2-A 或更高，见 [MongoDB 平台要求](https://www.mongodb.com/docs/manual/administration/production-notes/#platform-support) |
+| 宿主软件 | Node.js 24+、Docker Engine 26+、Compose plugin v2/v5、`flock`、Nginx；新主机建议安装当前受支持的 Docker 版本 |
+| Docker 运行方式 | 本机系统 daemon，socket 为 `/var/run/docker.sock`；不使用 rootless 或远程 daemon |
+| 部署用户 | 一个固定的普通 Linux 用户，拥有 Docker 访问权限；系统软件和 Nginx 设置另用 sudo |
+| 域名 | 接入 Cloudflare DNS 的域名，例如 `agent.example.com`，以及服务器公网 IP |
+| 模型 | Qwen API key、可用的模型 ID、同一区域的兼容 API base URL、输入和输出费率 |
+| Turnstile | 开放注册时必填；关闭注册可将公私钥同时留空 |
+| 邮件 | 可选；未配置时由部署者通过服务器命令恢复账号密码 |
 
-Cloudflare 是官方公网流程的前置条件，不参与构建。Turnstile 有免费方案，也可独立于 Cloudflare DNS 使用；本指南统一入口是为了减少部署组合，并非 Turnstile 的技术限制。[Turnstile 方案](https://developers.cloudflare.com/turnstile/plans/)
+Mac 可以构建和发布镜像，**安装器仅在 Linux 上运行**。服务器需要访问镜像仓库、模型 API、目标网站；使用 Turnstile 或 SMTP 时还需访问相应服务。
 
-先按 [Node.js 官方安装说明](https://nodejs.org/en/download) 安装 Node.js 24 或更新的受支持版本（使用稳定安装路径，供 systemd 定时器调用）。Ubuntu 按 [Docker 官方步骤](https://docs.docker.com/engine/install/ubuntu/) 安装 Engine 和 Compose plugin，再安装宿主工具：
+以下以 Ubuntu 为例。先按 [Node.js 安装说明](https://nodejs.org/en/download) 安装 Node.js 24+，按 [Docker Ubuntu 安装说明](https://docs.docker.com/engine/install/ubuntu/) 安装 Engine 和 Compose plugin。Node 使用稳定的安装路径，后续定时备份会记录该路径。再安装宿主工具并检查：
 
 ```bash
 sudo apt update
 sudo apt install -y util-linux nginx ca-certificates curl nano
 node --version
+command -v node
+command -v flock
+uname -m
 docker --host unix:///var/run/docker.sock version
 docker --host unix:///var/run/docker.sock compose version
 ```
 
-Docker 权限不足时按 [官方后续设置](https://docs.docker.com/engine/install/linux-postinstall/) 配置用户组并重新登录。Docker 组相当于宿主管理权限，只授予部署者；不要交替使用普通用户和 `sudo agentctl`。
+`x86_64` 选择 amd64 包，`aarch64` 选择 arm64 包。Docker 检查应能显示 Server；普通用户权限不足时按 [Docker 用户组设置](https://docs.docker.com/engine/install/linux-postinstall/) 操作并重新登录。Docker 组具有宿主管理权限，只给部署者使用。之后不要交替用普通用户与 `sudo` 运行 `agentctl`。
 
-云安全组和主机防火墙允许管理员 SSH、入口 TCP 80/443。3333 仅绑定本机；数据库、控制 API、CDP/VNC 均不需对外开端口。建议将源站 80/443 的来源限制为 [Cloudflare IP 段](https://www.cloudflare.com/ips/)，保留自己的 SSH 通道。
+云安全组和主机防火墙放行管理员 SSH、站点 TCP 80/443。入口 3333 只绑定回环；MongoDB、Redis、浏览器控制、CDP/VNC 不需公网端口。使用 Cloudflare 代理时，可把源站 80/443 限制为 [Cloudflare IP 段](https://www.cloudflare.com/ips/)，保留自己的 SSH 通道。
 
-## 2. 在 Cloudflare 准备入口和 Turnstile
+## 2. 准备 Cloudflare 配置
 
-1. 将域名接入 Cloudflare，等待 zone 激活。添加 `agent.example.com` 的 A 记录指向服务器公网 IPv4，并启用 **Proxied（橙云）**；仅在服务器配置 IPv6 时添加 AAAA。[DNS 设置](https://developers.cloudflare.com/dns/manage-dns-records/how-to/create-dns-records/)
-2. 在 SSL/TLS → Origin Server 创建覆盖 `agent.example.com` 的 Origin CA 证书，选择 PEM，保存证书和私钥。第 6 步装到服务器后，再启用 **Full (strict)**，不要用 Flexible。[Origin CA](https://developers.cloudflare.com/ssl/origin-configuration/origin-ca/)、[Full (strict)](https://developers.cloudflare.com/ssl/origin-configuration/ssl-modes/full-strict/)
-3. 创建 Managed Turnstile widget，hostname 填 `agent.example.com`，不带协议或路径。记录 **Site key** 和 **Secret key**，后面分别填入两个文件。上线使用正式 key。[创建 widget](https://developers.cloudflare.com/turnstile/get-started/)、[hostname 规则](https://developers.cloudflare.com/turnstile/additional-configuration/hostname-management/)
-4. 在 Cache Rules 为 `Hostname equals agent.example.com` 设置 **Bypass cache**，确保没有后续规则覆盖它。整个应用域名不缓存，避免缓存登录状态和聊天响应。[缓存规则](https://developers.cloudflare.com/cache/how-to/cache-rules/create-dashboard/)
-5. 确认 Network 中 WebSockets 已启用，浏览器画面和人工输入需要它。[WebSocket 设置](https://developers.cloudflare.com/network/websockets/)
+1. 在已激活的 zone 内新增站点 A 记录，指向服务器公网 IPv4，启用 **Proxied（橙云）**。只有服务器支持 IPv6 时才添加 AAAA。
+2. 准备覆盖该站点域名的**源站证书和私钥**。已有有效证书可复用；否则在 SSL/TLS → Origin Server → Create Certificate 创建 Origin CA 证书，保存 PEM 证书和私钥。第 6 步装好 Nginx 后再设置 **Full (strict)**。[Origin CA 配置](https://developers.cloudflare.com/ssl/origin-configuration/origin-ca/)
+3. 若计划开放注册，创建 Managed Turnstile widget，hostname 填站点域名，不带协议或路径。保存 Site key 与 Secret key；正式站点使用正式 key。Turnstile 提供免费方案。[创建 widget](https://developers.cloudflare.com/turnstile/get-started/)、[方案](https://developers.cloudflare.com/turnstile/plans/)
+4. 为该 hostname 创建 **Bypass cache** 缓存规则，确保没有后续规则覆盖；检查 WebSockets 已启用，聊天流与远程浏览器需要持续连接。[缓存规则](https://developers.cloudflare.com/cache/how-to/cache-rules/create-dashboard/)、[WebSockets](https://developers.cloudflare.com/network/websockets/)
 
-无需把 Cloudflare Global API Key、DNS 管理 token 或账号 ID 交给应用。源站证书私钥归宿主 Nginx 管理；应用只接收 Turnstile 私钥，以及启用发信时的有限权限 token。
+Cloudflare 控制台的边缘证书用于浏览器到 Cloudflare；源站证书用于 Cloudflare 到服务器。已有覆盖当前域名且能取得配套私钥的源站证书，无需重新申请。若同一个 zone 还有未准备好源站 HTTPS 的其他站点，仅对本应用设置 Full (strict)，不要直接改变所有站点的模式。具体设置见 [Origin CA 的 SSL 模式步骤](https://developers.cloudflare.com/ssl/origin-configuration/origin-ca/#3-change-ssltls-mode)。
+
+应用不需要 Cloudflare Global API Key、DNS 管理 token 或账号 ID。证书私钥由宿主 Nginx 保管；应用只接收 Turnstile 密钥和可选发信凭据。
 
 ## 3. 校验安装包并初始化
 
-从可信发布渠道取得对应架构的 `.tar.gz` 和同目录 `SHA256SUMS`。公开发布前，由维护者提供候选包或按构建文档生成。摘要校验完整性，不替代对下载渠道的信任。
+从可信渠道取得**对应架构**的归档与 `SHA256SUMS`，放到服务器同一个下载目录，例如 `~/agent-downloads/`。可以直接下载，也可从构建机用 `scp` 传入；校验文件必须对应实际下载的归档名。每个架构单独存放，避免同名覆盖。
 
 ```bash
-# 换成实际取得的版本，在下载目录执行
-AGENT_VERSION='vX.Y.Z'
+cd "$HOME/agent-downloads"
+AGENT_VERSION='vX.Y.Z'   # 换成实际版本
+AGENT_ARCHIVE="agentic-browser-agent-${AGENT_VERSION}.tar.gz"
 sha256sum -c SHA256SUMS
-tar -xzf "agentic-browser-agent-${AGENT_VERSION}.tar.gz"
+tar -xzf "$AGENT_ARCHIVE"
 cd "agentic-browser-agent-${AGENT_VERSION}"
+AGENT_BUNDLE="$PWD"
 node bundle.mjs verify
 ```
 
-`BUILD.json` 记录架构、源码和镜像身份，`release.json` 固定六个镜像。不要修改包内文件或放入个人配置，校验器会拒绝多余文件。安装数据单独放置：
+如果发布渠道为文件名增加了架构后缀，修改 `AGENT_ARCHIVE`，解压后的目录名仍以包内结构为准。校验应显示归档 `OK`、包验证 `verified: true`；摘要校验不能代替对下载渠道的信任。包内 `BUILD.json` 记录平台和源码，`release.json` 固定六个镜像。不要修改包内文件或把个人配置放进去。
+
+在同一终端选择安装位置和访问域名：
 
 ```bash
 AGENT_DIR="$HOME/my-agent"
-node agentctl.mjs --directory "$AGENT_DIR" init --release release.json --port 3333
+AGENT_CONFIG="$AGENT_DIR/config"
+AGENT_HOST='agent.example.com'   # 换成自己的域名
 ```
 
-上述适用于 registry digest 包，会拉取固定镜像。公开 GHCR 镜像不需登录；私有镜像需部署用户先配置 Docker 登录。
+**运行目录和配置目录都必须尚不存在**，让 `init` 创建它们；不要先复制空配置示例。需要分开存放配置时，只在这里把 `AGENT_CONFIG` 改成另一个绝对路径，例如源码部署的 `/home/ubuntu/agentic-browser/config/local`。工具会记住该路径，后续无需重复传入。
 
-**若收到含 `images.tar.gz` 的离线候选包**，先执行 `node bundle.mjs load-images`，再在上述 `init` 命令末尾加 `--development`，允许本机 image ID。不要先普通 `init` 再重复初始化。离线导入不表示模型和网站能离线工作；按发行说明匹配镜像存储格式。
+查看 `bundle.mjs verify` 输出的 `distribution`，**只执行对应的一组初始化命令**：
 
-`AGENT_DIR` 必须是不存在的新目录，安装器拒绝覆盖。若希望配置与运行目录分开，在 `init` 增加 `--config-directory /absolute/path/to/config/local`，该目录也必须不存在。之后编辑这个独立目录内的配置；路径已记录在实例元数据，无需在每个命令重复传入。源码部署推荐使用仓库 `config/local/`，详细步骤见 [配置指南](CONFIGURATION.md)。初始化不需模型密钥，启动前必须配置完整。初始化后，日常使用安装目录内的工具：
+### Registry 包：`registry-candidate`
+
+```bash
+node "$AGENT_BUNDLE/agentctl.mjs" --directory "$AGENT_DIR" init \
+  --config-directory "$AGENT_CONFIG" \
+  --release "$AGENT_BUNDLE/release.json" --port 3333
+```
+
+会拉取固定 digest 的镜像。公开镜像不需登录；私有镜像先由同一部署用户完成 Docker registry 登录。
+
+### 离线包：`offline-candidate`
+
+```bash
+node "$AGENT_BUNDLE/bundle.mjs" load-images
+node "$AGENT_BUNDLE/agentctl.mjs" --directory "$AGENT_DIR" init \
+  --config-directory "$AGENT_CONFIG" \
+  --release "$AGENT_BUNDLE/release.json" --port 3333 --development
+```
+
+`--development` 在这里允许使用离线包记录的本机 image ID，不会关闭账号或额度控制。离线包只省去拉取镜像，模型和目标网站仍需网络。
+
+成功后返回 `status: initialized`。以下是默认位置；独立配置目录则以选定路径为准：
 
 ```text
 ~/my-agent/
-├── agentctl.mjs          # 管理入口
+├── agentctl.mjs         # 安装后的管理入口
+├── installation.json   # 实例与配置目录信息
+├── release.json        # 固定镜像清单
+├── compose.yaml
 ├── config/
-│   ├── settings.json   # 站点、模型、额度、邮件等普通参数
-│   ├── secrets.env     # 模型和登录等私密值
+│   ├── settings.json   # 站点、模型、额度等普通参数
+│   ├── secrets.env     # 私密值，含自动生成的应用密钥
 │   └── browser-token   # 自动生成的内部服务密钥
-├── data/               # 数据库、聊天、浏览器状态、上传文件等
-├── backups/            # 首次备份时创建
-└── .env                # 启动时生成，供 Compose 插值；不要编辑
+├── data/               # 数据库、上传、浏览器状态、日志
+└── state/              # 维护状态；不要手动删除
 ```
 
-重新登录 SSH 后重新设置 `AGENT_DIR="$HOME/my-agent"`。不要删除安装目录来“重装”，数据和密钥需要保留。
+首次启动还会生成 `.env`；首次备份会生成 `backups/`。重新登录 SSH 后，重新设置本节的路径变量即可。不要通过删除安装目录来“重装”。
 
-## 4. 填写参数与密钥
+## 4. 填写站点参数和密钥
 
-在服务器编辑文件，不把密钥放入命令行、源码、镜像或聊天：
+在服务器上编辑生成的文件：
 
 ```bash
-nano "$AGENT_DIR/config/settings.json"
-nano "$AGENT_DIR/config/secrets.env"
+nano "$AGENT_CONFIG/settings.json"
+nano "$AGENT_CONFIG/secrets.env"
 ```
 
-**保留生成的结构和密钥，只修改对应字段。**
+保留生成的结构和随机密钥，只修改对应字段。JSON 不支持注释或尾随逗号。
 
-| 文件 | 字段 | 填什么 |
-| --- | --- | --- |
-| `settings.json` | `name` / `origin` | 站点名 / `https://agent.example.com`，不带路径，与 Nginx 和 Turnstile 一致 |
-| `settings.json` | `adminEmail` | 管理员邮箱；管理员与普通用户共用登录页面 |
-| `settings.json` | `registration` | 首次保留 `closed`，第 8 步验收后再改 `public` |
-| `settings.json` | `turnstileSiteKey` | 第 2 步的 Site key |
-| `secrets.env` | `TURNSTILE_SECRET_KEY` | 同一个 widget 的 Secret key，两者必须成对 |
-| `settings.json` | `model.name` / `model.baseURL` | 实际可用的模型 ID / 兼容 API 根地址，通常以 `/v1` 结尾，不加 `/chat/completions` |
-| `secrets.env` | `QWEN_API_KEY` | 与上述区域和接口匹配的模型密钥 |
-| `settings.json` | `model.promptRate` / `model.completionRate` | 输入 / 输出的 **美元每百万 tokens** 价格，填 JSON 数字，不能保留 `null` |
-| `settings.json` | `credits.initial` | 新账号一次性初始额度，默认 `200000`，约 0.20 美元；不是每天重置 |
-| `settings.json` | `credits.daily` / `credits.timeZone` | 全站日预算，默认 `20000000`，约 20 美元；账期时区例如 `Asia/Shanghai` |
-| `settings.json` | `browser.maximum` | 首次保留 `1`，容量验收后调整；每人 1 个，全局硬上限 10 |
+| 文件 / 字段 | 填写内容 |
+| --- | --- |
+| `settings.json` → `name`、`origin` | 站点名称、`https://你的域名`；不带路径，与 `AGENT_HOST` 和 Turnstile hostname 一致 |
+| `adminEmail` | 管理员邮箱；普通用户与管理员共用登录页 |
+| `registration` | 首次保持 `closed`，验收后可改为 `public` |
+| `turnstileSiteKey` | Turnstile Site key；未使用时保持空字符串 |
+| `model.name`、`model.baseURL` | 可用的 Qwen 模型 ID、同一区域的兼容 API 根地址，通常以 `/v1` 结尾，不加 `/chat/completions` |
+| `model.promptRate`、`model.completionRate` | 输入、输出的美元每百万 tokens 价格，填 JSON 数字，不能留为 `null` |
+| `credits.initial` | 新账号一次性初始额度，默认 `200000`；不是每日刷新 |
+| `credits.daily`、`credits.timeZone` | 初始全站每日预算 `20000000`，账期时区默认 `Asia/Shanghai` |
+| `browser.maximum` | 首次保留 `1`；每账号最多一个会话，全局可设 1–10 |
+| `secrets.env` → `QWEN_API_KEY` | 与模型、区域和接口相匹配的模型密钥 |
+| `TURNSTILE_SECRET_KEY` | 同一 widget 的 Secret key；与 Site key 同时填写或同时留空 |
+| `DEMO_ADMIN_PASSWORD` | 已生成随机密码，可在首次启动前改为至少 12 字符，保存到密码管理器 |
 
-计费换算是 **1,000,000 credits = 1 美元**。供应商输入价为 0.5 美元/百万 tokens 时，`promptRate` 填 `0.5`；这是单位示例，不是 Qwen 报价。人民币等币种报价先换算。预算依赖正确费率；若有未覆盖的计费项或供应商改价，应用账本不等于供应商账单，应同时设置供应商侧费用限制。
+Qwen 的模型可用性、地域、base URL 和价格按自己的供应商账号确认。**已有实例暂不支持直接修改 `model.name` 来切换 Agent 模型**，首次启动前确定型号；更换同一模型的 API key 不需重建镜像。
 
-`DEMO_ADMIN_PASSWORD` 已生成随机管理员密码，可在首次启动前改为至少 12 字符的密码。`JWT_SECRET`、`JWT_REFRESH_SECRET`、`CREDS_KEY`、`CREDS_IV` 和 `browser-token` 自动生成，保留即可。以后用 `user-reset` 改密码；编辑初始密码不会重置已有账号。
+计费换算为 **1,000,000 credits = 1 美元**。例如输入价为 0.5 美元/百万 tokens，则 `promptRate` 填 `0.5`；这只是单位示例。默认每人额度约 0.20 美元，全站预算约 20 美元/天。供应商以人民币报价时需先换算；应用预算按所填费率记账，不能代替供应商账单。管理员在管理页面保存的日预算优先于此处的初始值。
 
-私密目录 0700、配置文件 0600，编辑后保持权限。不要 `source secrets.env`，不要递归改 `data/` 权限。字段、特殊字符引用、Compose 插值和挂载关系见 [CONFIGURATION.md](CONFIGURATION.md)。
+`JWT_SECRET`、`JWT_REFRESH_SECRET`、`CREDS_KEY`、`CREDS_IV` 和 `browser-token` 保留自动生成的值。以后重置账号使用 `user-reset`；修改初始密码不会重置已有账号。
 
-## 5. 首次启动并设置代理信任
+配置目录应为 0700、私密文件为 0600。不要 `source secrets.env`，也不要递归改 `data/` 权限。工具生成的 `.env` 仅用于把镜像、端口、目录等填入 Compose YAML；模型密钥通过配置文件挂载传入容器，不放进该文件或镜像。完整字段及对应关系见 [配置指南](CONFIGURATION.md)。
+
+## 5. 启动并配置代理信任
 
 ```bash
 node "$AGENT_DIR/agentctl.mjs" --directory "$AGENT_DIR" up
 node "$AGENT_DIR/agentctl.mjs" --directory "$AGENT_DIR" doctor
 curl --fail --silent --show-error -o /dev/null -w '%{http_code}\n' \
-  -H 'Host: agent.example.com' http://127.0.0.1:3333/api/config
+  -H "Host: $AGENT_HOST" http://127.0.0.1:3333/api/config
 ```
 
-预期 `healthy: true` 和 HTTP `200`。这只证明内部服务可用，不代表真实模型、外部 HTTPS、Turnstile 或邮件已验收。改过 `init --port` 时，后续命令和 Nginx 同步使用该端口。
+预期 `healthy: true`、HTTP `200`。`doctor` 检查内部服务，不会付费调用模型或验证外部 Turnstile、邮件。改过 `--port` 时，后面的 curl 和 Nginx 模板也要使用新端口。
 
-Cloudflare 到宿主 Nginx 的客户端地址由模板处理。宿主 Nginx 到 gateway 还需信任本机 Docker 网桥地址，否则限流可能把访客都识别为一个代理。在标准 Linux bridge 部署中查询：
+还需让内层 gateway 信任宿主 Nginx 的来源地址，才能正确区分访客 IP。标准 Linux Docker bridge 部署查询：
 
 ```bash
 AGENT_PROJECT=$(node -p 'JSON.parse(require("node:fs").readFileSync(process.argv[1],"utf8")).project' "$AGENT_DIR/installation.json")
@@ -142,18 +179,18 @@ docker --host unix:///var/run/docker.sock network inspect "${AGENT_PROJECT}_fron
   --format '{{range .IPAM.Config}}{{.Gateway}}{{"\n"}}{{end}}'
 ```
 
-在 `settings.json` 顶层添加 `"trustedProxyIPs": ["实际返回的IP"]`，注意 JSON 逗号。这里信任宿主代理进入 gateway 的地址，不填 Cloudflare 网段或访客 IP。自定义 Docker 网络需核实实际来源，重建网络后重新检查。
+将返回的网桥 IP 加到 `settings.json` 顶层的 `trustedProxyIPs` 数组，例如 `"trustedProxyIPs": ["172.20.0.1"]`，**以实际结果为准**。这里不是 Cloudflare 网段或访客 IP。添加字段时注意逗号，然后应用：
 
 ```bash
 node "$AGENT_DIR/agentctl.mjs" --directory "$AGENT_DIR" apply
 node "$AGENT_DIR/agentctl.mjs" --directory "$AGENT_DIR" doctor
 ```
 
-`apply` 先备份，再加载新配置；有任务时需等空闲。以后改配置也用它，不编辑生成的 `.env` 或 gateway 配置。
+`apply` 要求站点空闲，先备份再加载配置；有任务时返回 `busy`，结束后重试。日后修改配置也使用这个入口，不能重复 `init`。自定义网络或重建网桥后重新核对代理来源。
 
-## 6. 配置域名 HTTPS
+## 6. 配置 Nginx 与公网 HTTPS
 
-在解压后的发行包目录操作。保存第 2 步的证书和私钥：
+把第 2 步准备的证书和私钥保存到服务器。下面用于新站点；已有文件时保留原件、直接使用有效证书路径，不覆盖其他应用配置。
 
 ```bash
 sudo install -d -m 700 /etc/nginx/agentic-browser
@@ -163,72 +200,79 @@ sudoedit /etc/nginx/agentic-browser/origin.pem
 sudoedit /etc/nginx/agentic-browser/origin.key
 ```
 
-分别填入完整 PEM 证书和私钥。安装包内通用模板；已有同名配置的主机先备份，避免覆盖其他站点：
+分别填入完整 PEM 证书与配套私钥。复制发行包提供的通用模板：
 
 ```bash
-sudo install -m 644 nginx.host.conf /etc/nginx/conf.d/agentic-browser.conf
+sudo install -m 644 "$AGENT_BUNDLE/nginx.host.conf" /etc/nginx/conf.d/agentic-browser.conf
 sudoedit /etc/nginx/conf.d/agentic-browser.conf
+```
+
+在文件中完成三项替换：所有 `agent.example.com` 改为自己的域名；证书路径与实际文件一致；`127.0.0.1:3333` 与初始化端口一致。核对模板中的 Cloudflare IP 范围仍有效，保留身份头清除、WebSocket、流式响应和禁用缓存设置。
+
+```bash
 sudo nginx -t
 sudo systemctl reload nginx
 ```
 
-把模板中**所有** `agent.example.com` 换为自己的域名，核对证书路径、回环端口及官方 Cloudflare IP 段；保留身份头清除、WebSocket、流式响应和禁用缓存设置。Nginx 校验成功后，在 Cloudflare 设置 **Full (strict)**，确认边缘证书生效：
+仅在 `nginx -t` 成功后重载。随后在 Cloudflare 将此应用设为 **Full (strict)**，保持橙云代理，确认边缘证书已生效；不要使用 Flexible。验证：
 
 ```bash
 curl --fail --silent --show-error -o /dev/null -w '%{http_code}\n' \
-  https://agent.example.com/api/config
+  "https://$AGENT_HOST/api/config"
 ```
 
-预期 `200`。浏览器打开该 HTTPS 地址，通过 Turnstile，使用 `adminEmail` 和初始密码登录。Origin CA 证书供 Cloudflare 连接源站，浏览器直接访问源站不信任它是正常的；通过橙云域名访问，不关闭 TLS 校验。
+预期 `200`。浏览器打开正式 HTTPS 地址，用 `adminEmail` 和初始密码登录；配置了 Turnstile 时完成验证。Origin CA 证书用于 Cloudflare 到源站，直接用浏览器访问源站出现不受信任提示并不代表正式域名证书错误。[Full (strict) 要求](https://developers.cloudflare.com/ssl/origin-configuration/ssl-modes/full-strict/)
 
-## 7. 启用邮件找回密码（可选）
+## 7. 可选：启用邮件找回密码
 
-官方示例使用 Cloudflare Email Sending，经现有 SMTP 接口接入。**Email Routing 不等于向任意用户发信。** 当前向任意收件人发送需 Workers Paid 和 Email Sending 开通，因此邮件不是首次启动的硬依赖。[Email Service 说明](https://developers.cloudflare.com/email-service/)
+不需要邮件可跳到第 8 步。官方示例使用 Cloudflare Email Sending 的 SMTP 接口；Email Routing 的收信转发不等于向任意用户发信。当前面向任意收件人的发信需 Workers Paid 与 Email Sending 开通，具体条件以 [Email Service 说明](https://developers.cloudflare.com/email-service/) 为准。
 
-在 Email Service → Email Sending 验证发信域名，例如 `mail.example.com`，完成 DNS 验证。创建覆盖该账号的 **Email Sending: Edit** API token。`settings.json` 顶层增加：
+在 Email Service → Email Sending 验证发信域名，例如 `mail.example.com`，按控制台完成 DNS 验证。创建覆盖该账号的 **Email Sending: Edit** API token。将以下 `smtp` 字段合并到现有 `settings.json` 顶层，不要用此片段覆盖整个文件：
 
 ```json
-"smtp": {
-  "host": "smtp.mx.cloudflare.net",
-  "port": 465,
-  "encryption": "tls",
-  "from": "noreply@mail.example.com",
-  "username": "api_token"
+{
+  "smtp": {
+    "host": "smtp.mx.cloudflare.net",
+    "port": 465,
+    "encryption": "tls",
+    "from": "noreply@mail.example.com",
+    "username": "api_token"
+  }
 }
 ```
 
-这是对象中的字段片段，注意与前一个字段间的逗号。`from` 必须使用已验证的发信域名。将 token 填到 `secrets.env` 的 `SMTP_PASSWORD`；`api_token` 是固定用户名。Cloudflare SMTP 用 465 隐式 TLS，不用 587/STARTTLS。[SMTP 参数](https://developers.cloudflare.com/email-service/api/send-emails/smtp/)
+`from` 使用已验证的发信域名，`api_token` 是固定用户名；token 填入 `secrets.env` 的 `SMTP_PASSWORD`。[Cloudflare SMTP 参数](https://developers.cloudflare.com/email-service/api/send-emails/smtp/)
 
 ```bash
 node "$AGENT_DIR/agentctl.mjs" --directory "$AGENT_DIR" mail-test --to your-address@example.com
 node "$AGENT_DIR/agentctl.mjs" --directory "$AGENT_DIR" apply
 ```
 
-先确认 `accepted: true`，再确认邮箱收到邮件。收据绑定 SMTP 配置、凭据和 origin，`apply` 后才启用 Forgot Password；改配置后需重新测试。不配置邮件时管理员仍可用 `user-reset` 恢复账号。
+将收件地址换成自己的邮箱。测试返回 `accepted: true` 后核对邮件实际到达；SMTP 接受不等于投递成功。`apply` 后启用 Forgot Password。修改 origin、发信配置或凭据后需重新 `mail-test`，否则旧验证收据失效。其他 SMTP 供应商复用同一接口，见 [运维指南](OPERATIONS.md)。
 
-邮件只维护一套 SMTP 实现，已有其他邮件服务也可填其 TLS 参数，见 [运维手册](OPERATIONS.md)。不增加 Cloudflare 专用 REST 发信后端。
+## 8. 验收并选择注册策略
 
-## 8. 验收并开放注册
+管理员登录后完成一次真实 Demo：Agent 打开网页 → 人工接管 → 在远程浏览器完成登录或操作 → 点击 Done → Agent 自动继续并返回结果。网站密码和验证码在接管时输入浏览器，不写入聊天。
 
-先用管理员执行一个简单浏览器任务，确认真实模型能回复、Chrome 有画面、人工接管后点击 Done 能自动继续。网站密码和验证码只在远程浏览器输入。
-
-准备开放注册时，将 `registration` 改为 `public`，空闲时执行 `apply`；缺 HTTPS 或完整 Turnstile key 会被拒绝。用另一浏览器会话注册普通账号，核对：
-
-- 注册、登录、历史聊天正常；管理员能打开管理入口，普通账号不能访问管理功能。
-- 新账号获得初始 credits，模型任务扣减额度，全站预算设置正确。
-- 浏览器显示、接管和归还继续正常；并发 1 时第二个账号排队，首个任务结束后获得名额。
-- 配了邮件时，普通用户收到找回链接并重置密码，旧密码不再可用。
-
-只供自己或团队使用时保持 `closed`，交互创建用户、恢复密码。这是同一套应用的注册策略，不是另一套部署。仅本地 SSH 隧道测试可用 loopback HTTP、两把 Turnstile key 同时留空，无需 Cloudflare。
+**自用 / 团队模式：保持 `registration: closed`。** 这样关闭公开注册，但已有账号仍可登录。管理员和普通账号共用登录页面；管理员可使用管理入口，普通账号不能访问管理功能。按需在服务器交互创建普通账号或恢复密码：
 
 ```bash
 node "$AGENT_DIR/agentctl.mjs" --directory "$AGENT_DIR" user-create
 node "$AGENT_DIR/agentctl.mjs" --directory "$AGENT_DIR" user-reset
 ```
 
-## 9. 备份与后续维护
+**公开体验模式：** 确认 HTTPS、两把正式 Turnstile key 均已配置，将 `registration` 改为 `public`，空闲时执行 `apply`。用独立浏览器会话注册普通账号并核对：
 
-账号、聊天、额度和文件在安装目录 `data/` 中，重建容器不会清空它们；不要删除安装目录或批量清理这些卷。
+- 注册、登录、历史聊天正常；新账号只领取一次初始 credits，真实模型调用会扣减额度。
+- 管理员能查看和设置全站预算，普通用户无法访问管理操作。
+- 远程画面、人工接管、归还后继续正常；容量为 1 时另一账号排队，前一个会话结束后获得名额。
+- 配置邮件时，找回链接能完成密码重置，旧密码无法再登录。
+
+完成后再对外分享地址；增加 `browser.maximum` 前先验证主机容量。
+
+## 9. 启用备份
+
+在站点空闲时先做一次完整备份，再生成定时策略：
 
 ```bash
 node "$AGENT_DIR/agentctl.mjs" --directory "$AGENT_DIR" backup
@@ -236,25 +280,51 @@ node "$AGENT_DIR/agentctl.mjs" --directory "$AGENT_DIR" schedule \
   --timezone Asia/Shanghai --hour 4 --keep 7 --retry-minutes 60
 ```
 
-`schedule` 生成 systemd service/timer，**还需要**按输出路径 `sudo systemctl link` 和 `sudo systemctl enable --now` 才会自动运行。轮转、异地副本、新实例恢复与升级步骤集中在 [OPERATIONS.md](OPERATIONS.md)。备份含密钥和用户数据；外层 Nginx、TLS 私钥及镜像不在数据备份内，另行保管。
+`schedule` 只生成策略和 systemd unit，**还需要启用定时器**。使用第 5 步读取的 `AGENT_PROJECT`：
+
+```bash
+AGENT_BACKUP_UNIT="agentic-backup-${AGENT_PROJECT}"
+sudo systemctl link "$AGENT_DIR/state/systemd/${AGENT_BACKUP_UNIT}.service" \
+  "$AGENT_DIR/state/systemd/${AGENT_BACKUP_UNIT}.timer"
+sudo systemctl daemon-reload
+sudo systemctl enable --now "${AGENT_BACKUP_UNIT}.timer"
+systemctl list-timers "${AGENT_BACKUP_UNIT}.timer" --all
+node "$AGENT_DIR/agentctl.mjs" --directory "$AGENT_DIR" maintenance-status
+```
+
+应能看到 timer 的下次检查时间。它每分钟检查维护状态，每天按所选时区从 4 点开始尝试备份；有任务时按设定间隔重试。保留最近 7 份调度器生成的完整备份，手工和升级前备份不自动删除。
+
+用户、聊天、额度等数据持久化到 `data/`，重建容器不会清空它们。备份包含配置与密钥，应受控保存；镜像、宿主 Nginx 和 TLS 私钥不在数据备份内，需要另行保管。异地副本、恢复到新目录、版本升级及中断处理集中在 [运维指南](OPERATIONS.md)。
+
+## 仅用 SSH 隧道测试
+
+没有公网域名时，仍在 Linux 上按第 1、3、4 步安装，跳过 Cloudflare/Nginx 设置：`origin` 保持 `http://127.0.0.1:3333`，`registration` 为 `closed`，两把 Turnstile key 同时留空。填写模型和管理员配置后执行 `up`、`doctor`。
+
+在自己的电脑执行并保持终端连接：
+
+```bash
+ssh -N -L 3333:127.0.0.1:3333 YOUR_USER@YOUR_SERVER
+```
+
+浏览器打开 `http://127.0.0.1:3333` 登录。这里不能开放注册；转为公网部署时再设置 HTTPS origin、代理和 Turnstile，并用 `apply` 生效。这是同一套应用的访问方式，配置与数据无需迁移。
 
 ## 常见问题
 
-| 现象 | 检查 |
+| 现象 | 检查和处理 |
 | --- | --- |
-| `Configuration rejected` / 启动失败 | 模型名、API 地址、费率是否仍为 `null`、管理员邮箱、密钥配对、文件权限 |
-| `configuration_changed` | 空闲时用 `apply` 加载修改，不重复 `init` |
-| HTTP `421` | Host 与 `settings.origin` 是否一致；本机 curl 也需正式 Host |
+| `Configuration rejected` | JSON 格式、模型名/base URL、费率是否仍为 `null`、管理员邮箱、密钥配对和文件权限 |
+| `configuration_changed` | 修改配置后用 `apply`，不重复 `init` |
+| HTTP `421` | Host 与 `settings.origin` 是否一致；本机 curl 也要带正式 Host |
 | Cloudflare `521` / `522` | Nginx、443 监听、安全组、Cloudflare IP 放行和 DNS |
-| Cloudflare `525` / `526` | 源站证书/私钥、域名/有效期、TLS 握手和 Full (strict) |
-| 登录 / Turnstile 失败 | 正式 HTTPS 域名、widget hostname、两把 key 配对、服务器验证网络；账号是否创建成功 |
-| 画面断开 / 回复不流式显示 | WebSocket、代理 Upgrade/Connection、缓存和 buffering，使用附带模板 |
-| 模型 `401` / 不存在 | key、区域、模型 ID、base URL 和余额；`doctor` 不付费调用模型验证 |
-| 访客一起触发 IP 限流 | 两层代理信任地址，尤其是 Docker front 网桥是否重建 |
-| 找回入口不显示 / 邮件未到 | token 权限、发信域名、`mail-test` 收据及 `apply`、投递日志和垃圾邮件箱 |
-| `busy` / `maintenance_pending` | 等任务结束；按运维手册恢复，不删除状态文件绕过保护 |
+| Cloudflare `525` / `526` | 源站证书与私钥、域名覆盖、有效期、TLS 握手和 SSL 模式 |
+| Turnstile / 登录失败 | HTTPS 域名、widget hostname、公私钥配对、服务端验证网络和实际账号密码 |
+| 画面断开 / 回复不流式显示 | 使用附带代理模板，检查 WebSocket、缓存和 buffering |
+| 模型 `401` / 模型不存在 | API key、区域、模型 ID、base URL 和供应商余额；`doctor` 不测试真实模型 |
+| 多个访客一起被 IP 限流 | 两层代理信任配置，尤其是 Docker front 网桥是否重建 |
+| 找回入口不显示 / 邮件未到 | 发信权限、域名、`mail-test` 收据及 `apply`，再查投递记录和垃圾邮件箱 |
+| `busy` / `maintenance_pending` | 等任务结束或按运维指南恢复，不删除维护状态文件 |
 
-查看容器状态和日志：
+容器状态与本机日志：
 
 ```bash
 docker --host unix:///var/run/docker.sock compose --project-directory "$AGENT_DIR" \
@@ -263,10 +333,4 @@ docker --host unix:///var/run/docker.sock compose --project-directory "$AGENT_DI
   --env-file "$AGENT_DIR/.env" -f "$AGENT_DIR/compose.yaml" logs --tail 100 agent gateway
 ```
 
-日志、配置和备份可能包含私密信息，提交 issue 只提供脱敏错误和版本。
-
-## 可选：空闲测试机安装包验收
-
-在包目录运行 `node acceptance/verify.mjs --work "$HOME/agent-bundle-acceptance"`。仅依赖 Node.js 24+、Docker 和 flock，创建三个临时实例，使用模拟模型，真实 Chrome 访问 httpbin.org HTTP 测试页；不调用真实 LLM 或发邮件。默认占回环端口 3340/3341/3342 及约 4–6 GiB 内存，成功后清理测试容器、卷和数据，只保留报告。
-
-覆盖初始化保护、普通账号和 credits、Chrome 接管恢复、备份与新实例恢复、升级流程、强杀备份恢复和错误镜像保护。它不替代你的 Cloudflare、真实模型、邮箱、原生架构或独立新主机验收。失败诊断可能含测试凭据，不公开上传。分发许可见包内 `LICENSES/` 及镜像。
+报告问题时提供版本、架构和脱敏错误。不要公开配置、日志原件、备份或登录后的浏览器数据。

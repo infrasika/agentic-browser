@@ -15,7 +15,6 @@ Agentic Browser 是包含聊天、远程浏览器、本地账号和额度管理�
 | 填写参数和密钥、理解 Compose `.env` | [配置](CONFIGURATION.md) |
 | 管理用户、邮件、备份、恢复和升级 | [运维](OPERATIONS.md) |
 | 查看已验收范围与待完成事项 | [当前状态](STATUS.md) |
-| 查看随镜像和安装包分发的第三方声明 | [分发声明](DISTRIBUTION-NOTICES.md) |
 
 构建、发布和部署是三个阶段：构建只读取源码和公共依赖；发布使用 Docker registry 授权；部署后才在安装目录填写模型、站点与邮件密钥。同一组镜像可以用于不同域名和账号配置。
 

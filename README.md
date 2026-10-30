@@ -24,10 +24,8 @@ Mac and Ubuntu use the same source checkout and Node/npm tools. Model keys, Clou
 npm ci
 npm run check
 npm test
-npm run build:agent -- --committed \
-  --platforms linux/amd64,linux/arm64 --tag v0.2.0-rc.8
 ```
 
-Use a new version when preparing a release. The [build guide](docs/BUILD.md) explains prerequisites and parameters; the [release guide](docs/RELEASING.md) covers GHCR and installation bundles. See [architecture](docs/ARCHITECTURE.md) and [development](docs/DEVELOPMENT.md) for source boundaries, LibreChat changes and tests.
+Follow the [build guide](docs/BUILD.md) to select a source revision and generate both Linux architectures. The [release guide](docs/RELEASING.md) covers candidate acceptance, Docker/GHCR authentication, immutable image publication and installation bundles. The [deployment guide](docs/DEPLOYMENT.md) walks through installing either bundle type on Linux, filling in generated configuration, enabling HTTPS, keeping registration closed or opening it, and activating backups. See [architecture](docs/ARCHITECTURE.md) and [development](docs/DEVELOPMENT.md) for source boundaries, LibreChat changes and tests.
 
-All maintained guides are in [docs/](docs/README.md). Preserve the [distribution notices](docs/DISTRIBUTION-NOTICES.md) and dependency licenses when distributing images or bundles.
+All maintained guides are in [docs/](docs/README.md). Preserve the component and dependency licenses when distributing images or bundles.

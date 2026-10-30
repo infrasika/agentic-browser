@@ -2,6 +2,19 @@
 
 开发使用 Node.js 24+ 和 npm。先执行 `npm ci`，锁文件更新后重新安装；不同系统之间不复制 `node_modules`。镜像构建另需 Git、tar、Docker/Buildx，详见 [构建](BUILD.md)。Linux 安装运维还需 flock；Mac 可以构建镜像，安装器运行在 Linux。
 
+## 分支约定
+
+`main` 保存通过检查后合入的代码，`feature` 用于日常开发。开始工作前先同步远程；新 clone 后切换 `feature` 会跟踪同名远程分支：
+
+```bash
+git fetch origin
+git switch feature
+git pull --ff-only origin feature
+git merge origin/main
+```
+
+在 `feature` 上修改、运行相关检查、提交并推送；完成一个可交付阶段后再合入 `main`。从已提交的源码或固定版本标签构建发行镜像，不直接在 `main` 上堆积开发中的改动。
+
 ## 源码边界
 
 Browser Service、内部协议、队列、隔离运行时在 `src/`。LibreChat 应用由 `integrations/librechat/source.lock.json` 和 `customizations.patch` 定义，包含聊天、同屏浏览器、本地账号、原生 tools、credits、预算和管理员功能。上游 MIT 许可证在同目录保留。
@@ -86,4 +99,4 @@ npm test
 
 指南统一放在 `docs/`，根 README 只做入口。操作步骤使用当前 Node CLI 和 npm 参数；历史记录由 Git 保存，当前验收和未完成事项只维护 [STATUS.md](STATUS.md)。不要将服务器特有路径、迁移过程或已废弃命令混入通用安装流程。
 
-部署、配置、运维文档同时进入安装包，修改相对链接时检查源码和包内两种位置。文件搬迁还需核对 `scripts/build/package-agent.mjs` 的白名单、Docker COPY 和 `.dockerignore`；分发声明是镜像输入，变更后必须重新构建对应发行镜像。
+部署、配置、运维文档同时进入安装包，修改相对链接时检查源码和包内两种位置。文件搬迁还需核对 `scripts/build/package-agent.mjs` 的白名单、Docker COPY 和 `.dockerignore`；修改镜像输入后必须重新构建对应发行镜像。

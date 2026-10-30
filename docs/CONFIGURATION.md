@@ -35,7 +35,7 @@ npm run agent -- --directory "$AGENT_DIR" doctor
 
 服务器的 `config/local/` 还可能包含 `nginx.conf`（启动或应用配置时生成）、`backup.json`（`schedule` 生成的备份策略）、`smtp-verified.json`（`mail-test` 成功后生成的验证收据）。这些文件不需要手工补齐或上传 Git；新安装通过对应命令生成自己的文件。Mac 仅构建和发布时，整个 `config/local/` 都无需存在，以上 Linux 初始化命令也不需要执行。
 
-必须由你填写的是模型 API key、模型名称/地址/费率和管理员邮箱；公网部署还需域名和 Turnstile 公私钥，启用 SMTP 时填写发信参数与凭据。管理员初始密码、JWT、加密密钥和内部浏览器 token 自动生成，下面的字段表说明每项用途。
+必须由你填写的是模型 API key、模型名称/地址/费率和管理员邮箱；公网部署还需域名，开放注册时必须配置 Turnstile 公私钥，启用 SMTP 时填写发信参数与凭据。关闭注册可将两把 Turnstile key 同时留空。管理员初始密码、JWT、加密密钥和内部浏览器 token 自动生成，下面的字段表说明每项用途。
 
 仓库 `config/` 提交两份公开示例；真实配置统一放 `config/local/` 并被 Git 忽略。`.deployment/` 仅保存本机生成的运行文件、数据和备份，新 clone 无需复制它。安装器、Compose 模板、初始化逻辑和示例均由 Git 提供，`init` 会自动生成实例所需文件。根目录无需额外 `.env.example`。
 
@@ -124,7 +124,7 @@ Git/GHCR 的发布授权独立于以上文件。构建无需业务密钥，发�
 
 ## Cloudflare 配置边界
 
-官方公网安装流程统一使用 Cloudflare DNS/代理、Full (strict) 和 Turnstile，逐步设置见安装指南（源码中为 `docs/DEPLOYMENT.md`，发行包中为 `README.md`）。这是受支持的公网入口路径，不新增另一套应用或 Compose。
+官方公网安装流程统一使用 Cloudflare DNS/代理和 Full (strict)，开放注册时配置 Turnstile；逐步设置见安装指南（源码中为 `docs/DEPLOYMENT.md`，发行包中为 `README.md`）。已有覆盖站点域名的有效源站证书和配套私钥可直接复用。这是同一套应用与 Compose 的入口配置。
 
 | Cloudflare 配置 | 保存在哪里 |
 | --- | --- |
