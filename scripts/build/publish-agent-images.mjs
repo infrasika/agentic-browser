@@ -61,7 +61,10 @@ export async function plan(reports, version, namespace, { command = run, imageIn
       const info = await imageInfo(entry.id), labels = info.Config?.Labels ?? {};
       if (info.Id !== entry.id || info.Os + '/' + info.Architecture !== target) throw new Failure('Build image identity/platform mismatch: ' + name);
       if (labels['org.opencontainers.image.revision'] !== report.sourceCommits.browser || labels['dev.agentic-browser.librechat-revision'] !== report.sourceCommits.librechat || labels['dev.agentic-browser.librechat-tree'] !== report.librechatTree) throw new Failure('Build image source labels mismatch: ' + name);
-      images[name].platforms[target] = { id: entry.id, target: images[name].target + '-' + target.split('/')[1] };
+      // Failed candidates may be retained by GHCR's public-download deletion
+      // policy. Content-addressed staging tags allow a repaired build without
+      // overwriting any existing candidate or final version tag.
+      images[name].platforms[target] = { id: entry.id, target: images[name].target + '-' + target.split('/')[1] + '-' + entry.id.slice('sha256:'.length) };
     }
   }
   return { version, namespace, sourceCommits: reports[0].sourceCommits, librechatTree: reports[0].librechatTree, platforms: [...seen].sort(), toolCommit: head, images, infrastructure: INFRA, published: false };

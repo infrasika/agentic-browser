@@ -12,7 +12,7 @@
 gh workflow run release-agent.yml --ref main -f version=v0.1.0-preview.9
 ```
 
-工作流先运行 Linux amd64、Linux arm64、macOS 源码检查，再在两个原生 Linux runner 分别构建三个项目镜像，暂存 `VERSION-amd64` / `VERSION-arm64`。合并作业核对两平台源码、镜像 ID 和远程 digest，创建 `VERSION` 多平台索引。MongoDB、Redis、Nginx 沿用官方固定 digest。
+工作流先运行 Linux amd64、Linux arm64、macOS 源码检查，再在两个原生 Linux runner 分别构建三个项目镜像，以镜像 ID 区分候选，暂存 `VERSION-ARCH-IMAGE_ID`。合并作业核对两平台源码、镜像 ID 和远程 digest，创建 `VERSION` 多平台索引。MongoDB、Redis、Nginx 沿用官方固定 digest。
 
 两个全新原生 runner 随后匿名拉取全部六个镜像、生成架构安装包，并在源码树外解压待交付归档，用包内工具完成真实 Chrome、接管继续、备份恢复和错误升级保护验收。只有两个平台均通过，才创建标签和 GitHub **prerelease**，附上安装包、固定清单、SHA256SUMS 与验收报告。工作流不改 `latest`，不会覆盖已有不同内容的版本。
 
