@@ -4,11 +4,11 @@ import { createRequire } from 'node:module';
 import { build } from 'esbuild';
 import { atomic, exists } from '../../deploy/agent/lib/system.mjs';
 const ROOT = path.resolve(import.meta.dirname, '../..');
-export const ENTRIES = { agentctl: 'deploy/agent/agentctl.mjs', bundle: 'deploy/agent/bundle.mjs', 'acceptance/verify': 'test/acceptance/verify-bundle.mjs' };
+export const ENTRIES = { agentctl: 'deploy/agent/agentctl.mjs', bundle: 'deploy/agent/bundle.mjs', 'acceptance/verify': 'test/acceptance/verify-bundle.mjs', operations: 'deploy/compose/operations.mjs' };
 
 // Source tools use npm dependencies; release tools carry those dependencies in
 // their own single-file modules. No npm registry access is needed at deployment.
-export async function bundleTools(destination, { source = ROOT, only = Object.keys(ENTRIES) } = {}) {
+export async function bundleTools(destination, { source = ROOT, only = ['agentctl', 'bundle', 'acceptance/verify'] } = {}) {
   const notices = new Map();
   function includeLicense(entry) {
     let directory = path.dirname(entry);

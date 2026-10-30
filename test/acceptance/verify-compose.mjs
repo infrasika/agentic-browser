@@ -10,6 +10,7 @@ import { pathToFileURL } from 'node:url';
 import { writeCompose } from '../../scripts/build/package-compose.mjs';
 import { run, sleep } from '../../deploy/agent/lib/system.mjs';
 import { generationPending } from './verify-bundle.mjs';
+import { verifyOperations } from './compose-operations.mjs';
 const root = path.resolve(import.meta.dirname, '../..');
 export async function waitForGateway(base, { fetcher = fetch, pause = sleep, attempts = 60 } = {}) {
   for (let attempt = 0; attempt < attempts; attempt++) {
@@ -34,9 +35,13 @@ export async function verifyCompose({ release, work, port = 3350, development = 
   const report = { passed: false, checks: [], hostPlatform: process.platform, architecture: process.arch, version: release.version, images: release.images, callsPaidModel: false, hostDeploymentTools: ['Docker', 'Docker Compose'], stage: 'prepare' };
   writeCompose(release, work, { development });
   const deployment = path.resolve(work), base = 'http://127.0.0.1:' + port;
+  // Keep inputs separate from generated deployment files, as existing source
+  // checkouts do with config/local. Restore also tests the simple same-dir layout.
+  const input = path.join(deployment, 'private-config'); fs.mkdirSync(input, { mode: 0o700 });
+  for (const file of ['settings.json', 'secrets.env']) fs.renameSync(path.join(deployment, file), path.join(input, file));
   const tools = path.join(deployment, 'host-tools'); fs.mkdirSync(tools);
   fs.symlinkSync(await run(['which', 'docker']), path.join(tools, 'docker'));
-  const env = { ...process.env, COMPOSE_PROJECT_NAME: project, AGENT_PORT: String(port), PATH: tools };
+  const env = { ...process.env, COMPOSE_PROJECT_NAME: project, AGENT_CONFIG_DIR: input, AGENT_PORT: String(port), AGENT_ALLOW_LOCAL_IMAGES: development ? '1' : '0', PATH: tools };
   report.hostNodeOnDeploymentPath = false;
   // Only the fixture adds a file beyond the public deployment files.
   fs.copyFileSync(path.join(root, 'test/acceptance/fixtures/model-fixture.mjs'), path.join(deployment, 'model-fixture.mjs'));
@@ -62,7 +67,7 @@ export async function verifyCompose({ release, work, port = 3350, development = 
   const password = 'Synthetic-Compose-Password-2026!';
   const login = async () => (await request('/api/auth/login', { body: { email: 'compose-admin@example.test', password } })).token;
   const configurationHash = () => compose('exec', '-T', 'agent', 'node', '-e', "console.log(require('crypto').createHash('sha256').update(require('fs').readFileSync('/config/identity.json')).digest('hex'))");
-  const settingsFile = path.join(deployment, 'settings.json');
+  const settingsFile = path.join(input, 'settings.json');
   const settings = JSON.parse(fs.readFileSync(settingsFile));
   Object.assign(settings, { adminEmail: 'compose-admin@example.test', origin: base, model: { name: 'selfhost-fixture', baseURL: 'http://fixture:9000/v1', promptRate: 1, completionRate: 1 } });
   try {
@@ -74,7 +79,7 @@ export async function verifyCompose({ release, work, port = 3350, development = 
     await assert.rejects(compose('up', '-d'));
     report.checks.push('unconfigured_templates_block_startup');
     fs.writeFileSync(settingsFile, JSON.stringify(settings, null, 2));
-    fs.writeFileSync(path.join(deployment, 'secrets.env'), 'QWEN_API_KEY=synthetic-compose-key\nDEMO_ADMIN_PASSWORD=' + password + '\n', { mode: 0o600 });
+    fs.writeFileSync(path.join(input, 'secrets.env'), 'QWEN_API_KEY=synthetic-compose-key\nDEMO_ADMIN_PASSWORD=' + password + '\n', { mode: 0o600 });
     report.stage = 'startup'; console.log('Compose acceptance: docker compose up -d');
     await compose('up', '-d');
     report.stage = 'gateway_ready'; await waitForGateway(base); await request('/mcp', { expected: 404 });
@@ -98,6 +103,9 @@ export async function verifyCompose({ release, work, port = 3350, development = 
     const route = '/api/agentic-browser/' + start.conversationId; let lease;
     for (let i = 0; i < 120; i++) { lease = (await request(route, { token })).lease; if (lease?.control === 'human') break; await sleep(1000); }
     assert.equal(lease?.control, 'human');
+    await assert.rejects(compose('run', '--rm', 'ops', 'backup'));
+    assert.equal((await request(route, { token })).lease.control, 'human');
+    report.checks.push('active_browser_task_defers_container_backup');
     await request(route + '/control', { token, body: { revision: lease.revision, target: 'agent', operationId: randomUUID() } });
     let completed = false;
     for (let i = 0; i < 120; i++) {
@@ -132,6 +140,8 @@ export async function verifyCompose({ release, work, port = 3350, development = 
     fs.writeFileSync(settingsFile, JSON.stringify(settings)); await compose('up', '-d'); await waitForGateway(base);
     assert.equal(await configurationHash(), beforeHash); await login();
     report.checks.push('invalid_configuration_rejected_without_secret_logs_or_key_rotation');
+    report.stage = 'container_operations'; console.log('Compose acceptance: backup, restore, upgrade protection and account recovery');
+    await verifyOperations({ compose, deployment, release, env, port, development, checks: report.checks });
     report.passed = true;
   } catch (error) {
     fs.writeFileSync(path.join(deployment, 'private-error.log'), error.stack ?? String(error), { mode: 0o600 });
@@ -147,7 +157,7 @@ export async function verifyCompose({ release, work, port = 3350, development = 
         for (const [key, file] of Object.entries({ compose: 'private-compose.log', containers: 'private-containers.log' })) if (fs.existsSync(path.join(deployment, file))) report.diagnostics[key] = redactDiagnostics(fs.readFileSync(path.join(deployment, file), 'utf8'), values).slice(-8000);
       } catch { report.diagnostics = { unavailable: true }; }
     }
-    try { await compose('down', '--volumes', '--remove-orphans'); } catch { cleanup.push('compose'); }
+    try { await compose('--profile', '*', 'down', '--volumes', '--remove-orphans'); } catch { cleanup.push('compose'); }
     if (identity && /^[a-f0-9-]{36}$/.test(identity)) {
       const ids = (await run(['docker', 'ps', '-aq', '--filter', 'label=dev.agentic-browser.instance=' + identity])).split(/\s+/).filter(Boolean);
       if (ids.length) { cleanup.push('runtime'); await run(['docker', 'rm', '-f', ...ids]); }

@@ -18,6 +18,7 @@ export const FILES = {
   'compose.yaml': 'deploy/agent/compose.yaml', 'nginx.host.conf': 'deploy/agent/nginx.host.conf',
   'README.md': 'docs/DEPLOYMENT.md', 'CONFIGURATION.md': 'docs/CONFIGURATION.md', 'OPERATIONS.md': 'docs/OPERATIONS.md',
   'COMPOSE.md': 'docs/COMPOSE.md',
+  'LICENSE': 'LICENSE',
   'config/settings.example.json': 'config/settings.example.json', 'config/secrets.env.example': 'config/secrets.env.example',
   'acceptance/model-fixture.mjs': 'test/acceptance/fixtures/model-fixture.mjs',
   'LICENSES/PLAYWRIGHT-LICENSE': 'runtime/PLAYWRIGHT-LICENSE', 'LICENSES/LibreChat.txt': 'integrations/librechat/LICENSE',
@@ -32,7 +33,7 @@ export function validateReport(report) {
   if (Object.values(report.images).some(i => !/^sha256:[a-f0-9]{64}$/.test(i.id))) throw new Failure('invalid image identity');
 }
 export async function validateImageSources(sourceCommit, packageCommit) {
-  const paths = ['deploy/agent/app', 'deploy/agent/agent.Dockerfile', 'deploy/agent/browser.Dockerfile', 'src', 'runtime', 'integrations/librechat/source.lock.json', 'integrations/librechat/customizations.patch', 'integrations/librechat/LICENSE', 'package-lock.json', 'tsconfig.json'];
+  const paths = ['LICENSE', 'deploy/agent/app', 'deploy/agent/lib', 'deploy/compose/operations.mjs', 'deploy/compose/licenses', 'scripts/build/bundle-tools.mjs', 'deploy/agent/agent.Dockerfile', 'deploy/agent/browser.Dockerfile', 'src', 'runtime', 'integrations/librechat/source.lock.json', 'integrations/librechat/customizations.patch', 'integrations/librechat/LICENSE', 'package-lock.json', 'tsconfig.json'];
   if (await run(['git', 'diff', '--name-only', sourceCommit, packageCommit, '--', ...paths], { cwd: ROOT })) throw new Failure('application/image inputs changed since the recorded build; rebuild first');
   const before = JSON.parse(await gitBytes(ROOT, sourceCommit, 'package.json')), after = JSON.parse(await gitBytes(ROOT, packageCommit, 'package.json'));
   delete before.scripts; delete after.scripts;

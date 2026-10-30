@@ -1,9 +1,14 @@
 **
 !package.json
 !package-lock.json
+!LICENSE
 !tsconfig.json
 !src/
 !src/**
+!deploy/
+!deploy/compose/
+!deploy/compose/licenses/
+!deploy/compose/licenses/**
 !runtime/
 !runtime/**
 !output/

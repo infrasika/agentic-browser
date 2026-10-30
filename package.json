@@ -1,6 +1,7 @@
 {
   "name": "agentic-browser",
   "version": "0.1.0-preview.10",
+  "license": "MIT",
   "private": true,
   "type": "module",
   "engines": {

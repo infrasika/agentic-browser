@@ -4,7 +4,8 @@ import path from 'node:path';
 import net from 'node:net';
 import { pathToFileURL } from 'node:url';
 import { isDeepStrictEqual } from 'node:util';
-import * as tar from 'tar';
+import { transferVolume, verifyArchive } from './lib/archive.mjs';
+export { transferVolume } from './lib/archive.mjs';
 import { argumentsFor, atomic, cli, digest, exists, Failure, id, json, mainModule, operationLock, privatePath, readPrivate, run, safeEnvironment, sleep } from './lib/system.mjs';
 export { atomic, digest, exists, Failure, operationLock, privatePath, readPrivate };
 export const KIND = 'agentic-browser-installation-v1';
@@ -34,15 +35,6 @@ export async function pullImages(release) {
     const info = JSON.parse(await execute([...DOCKER, 'image', 'inspect', ref]))[0];
     if (info.Os + '/' + info.Architecture !== platform) throw new Failure('host_image_architecture_mismatch');
   }
-}
-export async function transferVolume(image, volume, project, file, restore = false, command = execute) {
-  const name = project + '-archive-' + id().slice(0, 12);
-  const args = [...DOCKER, 'run', '--rm', '--name', name, '--label', 'dev.agentic-browser.operation=' + project, '--network=none', '--read-only', '--user=0:0', '--cap-drop=ALL', '--cap-add=DAC_OVERRIDE', '--security-opt=no-new-privileges', '--memory=256m', '--cpus=1'];
-  if (restore) args.push('-i', '--cap-add=CHOWN', '--cap-add=FOWNER');
-  args.push('--mount', `type=volume,src=${volume},dst=/volume${restore ? '' : ',readonly'}`, '--entrypoint=tar', image, '--numeric-owner', ...(restore ? ['--same-owner', '-xzf'] : ['-czf']), '-', '-C', '/volume', ...(restore ? [] : ['.']));
-  const fd = fs.openSync(file, restore ? 'r' : 'wx', 0o600);
-  try { await command(args, { timeout: 300_000, ...(restore ? { stdin: fd } : { stdout: fd }) }); }
-  finally { fs.closeSync(fd); await command([...DOCKER, 'rm', '-f', name], { timeout: 30_000 }).catch(() => {}); }
 }
 
 export class Installation {
@@ -177,15 +169,7 @@ export async function verifyBackup(directory) {
   for (const [name, checksum] of Object.entries(manifest.files)) {
     const file = path.join(directory, name); privatePath(file);
     if (await digest(file) !== checksum) throw new Failure('backup_checksum_mismatch');
-    if (name.endsWith('.tar.gz')) {
-      let failure;
-      await tar.t({ file, strict: true, onReadEntry(entry) {
-        const parts = entry.path.split('/').filter(p => p && p !== '.');
-        if (entry.path.startsWith('/') || parts.includes('..') || !['File', 'Directory'].includes(entry.type)) failure = 'unsafe_backup_archive_entry';
-        if (name === 'browser-data.tar.gz' && parts.length === 2 && parts[0] === 'runtimes' && parts[1].endsWith('.json')) failure = 'backup_contains_runtime_records';
-      } });
-      if (failure) throw new Failure(failure);
-    }
+    if (name.endsWith('.tar.gz')) await verifyArchive(file, name === 'browser-data.tar.gz');
   }
   return manifest;
 }

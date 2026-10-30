@@ -31,3 +31,7 @@ npm test
 Follow the [build guide](docs/BUILD.md) to select a source revision and generate both Linux architectures. The [release guide](docs/RELEASING.md) covers candidate acceptance, Docker/GHCR authentication, immutable image publication and installation bundles. The [deployment guide](docs/DEPLOYMENT.md) walks through installing either bundle type on Linux, filling in generated configuration, enabling HTTPS, keeping registration closed or opening it, and activating backups. See [architecture](docs/ARCHITECTURE.md) and [development](docs/DEVELOPMENT.md) for source boundaries, LibreChat changes and tests.
 
 All maintained guides are in [docs/](docs/README.md). Preserve the component and dependency licenses when distributing images or bundles.
+
+## License
+
+Agentic Browser is licensed under the [MIT License](LICENSE). Bundled components and dependencies retain their own licenses.

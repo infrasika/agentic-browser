@@ -5,6 +5,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates
 COPY --from=docker-cli /usr/local/bin/docker /usr/local/bin/docker
 WORKDIR /app
 COPY package.json package-lock.json ./
+COPY LICENSE ./LICENSE
+COPY deploy/compose/licenses/Docker-CLI* ./LICENSES/
 RUN npm ci --omit=dev --ignore-scripts && npm cache clean --force
 COPY tsconfig.json ./
 COPY --chown=node:node src/ ./src/
