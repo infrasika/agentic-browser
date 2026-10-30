@@ -75,6 +75,12 @@ test('registry checks manifest digests and only accepts manifest 404 as absent',
 test('plan rejects mixed sources, duplicate platforms and wrong image architecture',async()=>{
   const report={passed:true,sourceMode:'committed',platform:'linux/amd64',sourceCommits:{browser:'a'.repeat(40),librechat:'b'.repeat(40)},librechatTree:'c'.repeat(40),images:Object.fromEntries(Object.keys(publisher.NAMES).map((n,i)=>[n,{id:'sha256:'+String(i+1).repeat(64)}]))};
   const deps={command:async()=>'a'.repeat(40),validateSources:async()=>{},imageInfo:async Id=>({Id,Os:'linux',Architecture:'amd64',Config:{Labels:{'org.opencontainers.image.revision':'a'.repeat(40),'dev.agentic-browser.librechat-revision':'b'.repeat(40),'dev.agentic-browser.librechat-tree':'c'.repeat(40)}}})};
+  const original = await publisher.plan([report], 'v1.0.0', 'example', deps);
+  const repaired = structuredClone(report); repaired.images.agent.id = 'sha256:' + '9'.repeat(64);
+  const retry = await publisher.plan([repaired], 'v1.0.0', 'example', deps);
+  assert.equal(original.images.agent.target, retry.images.agent.target);
+  assert.notEqual(original.images.agent.platforms[report.platform].target, retry.images.agent.platforms[report.platform].target);
+  assert.equal(original.images.runtime.platforms[report.platform].target, retry.images.runtime.platforms[report.platform].target);
   await assert.rejects(publisher.plan([report,report],'v1.0.0','example',deps),/Duplicate/);
   const arm=structuredClone(report);arm.platform='linux/arm64';await assert.rejects(publisher.plan([report,arm],'v1.0.0','example',deps),/platform mismatch/);
   arm.sourceCommits.browser='f'.repeat(40);await assert.rejects(publisher.plan([report,arm],'v1.0.0','example',deps),/same source/);
