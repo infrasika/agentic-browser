@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { randomBytes } from 'node:crypto';
-import { mkdtemp, readFile, writeFile, rm, stat, symlink } from 'node:fs/promises';
+import { mkdtemp, readFile, writeFile, rm, stat, symlink, realpath } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { execFile } from 'node:child_process';
@@ -40,7 +40,7 @@ test('the shared configuration preserves tool restrictions and never embeds priv
   assert.equal(config.endpoints.custom[0].titleConvo,true);
 });
 test('setup preserves keys and configuration, validation rejects secrets or unsafe links without echoing them', async () => {
-  const dir=await mkdtemp(join(tmpdir(),'agent-init-')), script=resolve('deploy/agent/app/init.mjs');
+  const dir=await realpath(await mkdtemp(join(tmpdir(),'agent-init-'))), script=resolve('deploy/agent/app/init.mjs');
   try {
     await exec(process.execPath,[script,'init',dir]);
     const before=await readFile(join(dir,'secrets.env'),'utf8');

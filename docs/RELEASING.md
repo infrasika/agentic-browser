@@ -4,12 +4,30 @@
 
 当前公开分发与验收状态见 [STATUS.md](STATUS.md)。以下命令中的版本、构建目录和 GitHub namespace 都需要替换，不表示示例版本已发布。
 
+## GitHub Actions 自动预发布
+
+默认分支的 `Publish Agent preview` 工作流接受新的 `vX.Y.Z-preview.N` 版本号，例如 `v0.1.0-preview.9`。选择要发布的提交所在分支后运行：
+
+```bash
+gh workflow run release-agent.yml --ref main -f version=v0.1.0-preview.9
+```
+
+工作流先运行 Linux amd64、Linux arm64、macOS 源码检查，再在两个原生 Linux runner 分别构建三个项目镜像，暂存 `VERSION-amd64` / `VERSION-arm64`。合并作业核对两平台源码、镜像 ID 和远程 digest，创建 `VERSION` 多平台索引。MongoDB、Redis、Nginx 沿用官方固定 digest。
+
+两个全新原生 runner 随后匿名拉取全部六个镜像、生成架构安装包，并在源码树外解压待交付归档，用包内工具完成真实 Chrome、接管继续、备份恢复和错误升级保护验收。只有两个平台均通过，才创建标签和 GitHub **prerelease**，附上安装包、固定清单、SHA256SUMS 与验收报告。工作流不改 `latest`，不会覆盖已有不同内容的版本。
+
+首次创建的 GHCR package 默认可能是私有的。维护者须将 `agentic-browser-agent`、`agentic-browser-service`、`agentic-browser-runtime` 三个包设置为 public；否则匿名拉取关卡会停止，调整可见性后只重试失败作业。私有源码仓库的 Release 资产仍需要仓库访问权限，不承诺匿名下载。镜像写入使用作业内 `GITHUB_TOKEN`，不需要站点密钥。
+
+如果部分任务失败，检查 artifact 内的构建或验收报告；重跑失败作业以复用本次已验证的构建。跨包上传不是事务，失败可能留下架构标签；不要移动已有版本标签。旧 Controller 架构的发行物不适用于新 Agent 安装器，旧镜像清理由维护者单独执行。
+
+以下保留同一套工具的本机构建与手动发布路径。
+
 ## 1. 固定本次发布输入
 
 在源码仓库根目录设置变量，后续在同一终端执行：
 
 ```bash
-AGENT_VERSION='v0.2.0-rc.9'
+AGENT_VERSION='v0.1.0-preview.9'
 BUILD_DIR="$PWD/output/build/build-XXXXXX"
 GHCR_NAMESPACE='your-github-user-or-org'
 CANDIDATE_DIR="$PWD/output/agent/candidates/$AGENT_VERSION"
@@ -39,7 +57,7 @@ done
 将某一架构的归档和同目录 `SHA256SUMS` 复制到匹配架构的 Linux 测试机。在该机的下载目录执行；版本与路径换成本次值：
 
 ```bash
-AGENT_VERSION='v0.2.0-rc.9'
+AGENT_VERSION='v0.1.0-preview.9'
 sha256sum -c SHA256SUMS
 tar -xzf "agentic-browser-agent-${AGENT_VERSION}.tar.gz"
 cd "agentic-browser-agent-${AGENT_VERSION}"
@@ -81,7 +99,7 @@ Nginx、MongoDB、Redis 直接引用官方固定 digest，不重复上传。
 docker login ghcr.io --username YOUR_GITHUB_USERNAME
 ```
 
-在密码提示中输入 token，不把它写进命令、源码或站点 `secrets.env`。Docker 负责保存凭据，无需 `publish.env`。CI 可通过具有 `packages: write` 权限的 `GITHUB_TOKEN` 登录 Docker；仓库现有验收工作流不会自动发布。[GHCR 认证说明](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry#authenticating-to-the-container-registry)
+在密码提示中输入 token，不把它写进命令、源码或站点 `secrets.env`。Docker 负责保存凭据，无需 `publish.env`。CI 可通过具有 `packages: write` 权限的 `GITHUB_TOKEN` 登录 Docker；自动预发布工作流使用此权限；独立包验收工作流不上传镜像。[GHCR 认证说明](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry#authenticating-to-the-container-registry)
 
 ## 4. 预检并上传镜像
 
@@ -144,7 +162,7 @@ done
 
 ## 6. 交付下载渠道与版本说明
 
-工具不会自动创建 GitHub Release 或上传安装包。维护者需向用户提供：
+手动调用工具不会创建 GitHub Release 或上传安装包；自动预发布工作流会完成这些步骤。手动交付时，维护者需向用户提供：
 
 1. 每个架构的归档下载地址与对应 `SHA256SUMS`。
 2. 版本、架构、源码提交、固定镜像摘要和验收范围。
