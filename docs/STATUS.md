@@ -2,15 +2,19 @@
 
 更新：2026-10-30（北京时间）。此处只记录当前交付范围、已验证版本和未完成事项，历史实现过程由 Git 保存。
 
-## v0.1.0-preview.10：Docker-only 部署（待发布验收）
+## 已发布 v0.1.0-preview.10：Docker-only 部署
 
-新增 [Compose 部署入口](COMPOSE.md)：用户取得三份发行文件、填写站点和模型配置后执行 `docker compose up -d`。容器内完成配置校验、随机密钥生成、网关渲染与数据卷初始化，宿主无需 Node.js。现有安装器继续保留；两种持久化布局独立，尚不支持自动迁移。
+[GitHub 预发布](https://github.com/infrasika/agentic-browser/releases/tag/v0.1.0-preview.10)已交付；[发布 Actions](https://github.com/infrasika/agentic-browser/actions/runs/41058616857)全部通过。用户下载同一版本的 `compose.yaml`、`settings.json`、`secrets.env`，填写配置后执行 `docker compose up -d`，宿主无需 Node.js、npm、Git 或源码。详见 [Compose 部署](COMPOSE.md)。容器内完成配置校验、随机密钥生成、网关渲染、数据卷及管理员初始化。现有安装器继续保留，两种持久化布局独立，尚不支持自动迁移或混用备份工具。
 
-本机 Docker Desktop 的 Linux arm64 引擎已完成 7 项隔离验收：模板未配置时阻止启动、管理员登录、浏览器进程降权、内部端口与密钥隔离、真实 Chrome 快照及接管继续、重复 up / down-up 保留密钥账号聊天额度、错误配置修复后恢复。部署子进程的 PATH 仅包含 Docker，不含 Node/npm；测试使用模拟模型，清理后剩余资源为 0。证据：`output/compose-validation/run-5/report.json`。
+两个全新原生 Linux runner（amd64、arm64）均匿名拉取六种镜像，在源码目录外完成实际发行包 9 项验收及新 Compose 7 项验收。Compose 的部署子进程 PATH 仅包含 Docker，不含 Node/npm；覆盖未配置模板拒绝启动、管理员登录、浏览器进程降权、内部端口和密钥隔离、真实 Chrome 快照及接管继续、重复 up / down-up 保留密钥账号聊天额度、错误配置修复后恢复。两种部署在两个架构上的清理结果均通过，剩余资源为 0；双架构报告和 SHA256SUMS 随 Release 提供。
 
-测试 Agent / Browser Service 镜像基于已核对源码和依赖的本地缓存，覆盖本次完整 app / src 文件；未重新编译 LibreChat 前端，也未上传镜像。该结果不代表独立 Linux 主机或 amd64 完整部署验收。发布 CI 已增加两个原生平台的 Compose 验收关卡和发行文件生成，本次 preview.10 发布须完成这些关卡后才能交付。当前公开的 preview.9 不包含新入口。
+三个项目镜像 Agent、Browser Service、Chrome Runtime 均公开，每个版本索引包含 amd64 / arm64。通用 Compose 固定全部六种镜像的 digest，由 Docker 选择本机架构。源码仓库仍私有，Release 文件下载需要仓库访问权限。
 
-本机类型检查及 actionlint 通过；79 项源码测试中 77 项通过、2 项 Linux flock 测试在 Mac 跳过。
+应用镜像源码为 `eb5608040321b78168a65521ea7efab5eb349172`，LibreChat 为 `61892206974618971b9001d109485d994dac2816`；安装与验收工具、版本标签为 `3cffa3b5e8901265c4652e143785396a8d2a24d4`。镜像在原生双架构 [构建运行](https://github.com/infrasika/agentic-browser/actions/runs/41054406834)生成；该次 amd64 Compose 验收在启动阶段失败，未创建 Release。后续增加 HTTP 就绪等待与脱敏诊断，仅修改验收工具，核对镜像输入一致后复用相同镜像，双架构重新验收全部通过。
+
+Linux 双架构和 macOS 源码检查通过。本机 81 项测试中 79 项通过、2 项 Linux flock 测试按平台跳过；类型检查通过。正式发布后重新下载全部 15 份文件，核对 14 份文件摘要、两个归档内部完整性、Compose 的固定镜像引用、版本标签及双架构报告，并匿名核对三个 GHCR 版本索引。独立复核记录：`output/releases/v0.1.0-preview.10/final-verification.json`（本机未跟踪产物）。
+
+验收使用模拟模型，未调用付费模型；不代表真实模型、公网 HTTPS、真实 SMTP、Mac Docker 构建或旧 Controller 数据迁移已完成。此次发布没有升级现有测试站。preview.9 的早期失败告警对应旧运行；该版后来已成功发布，见下方历史记录。
 
 ## 已交付
 
