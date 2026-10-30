@@ -6,13 +6,15 @@
 
 ## GitHub Actions 自动预发布
 
-默认分支的 `Publish Agent preview` 工作流接受新的 `vX.Y.Z-preview.N` 版本号。先更新 `package.json` 的 `version`（例如 `0.1.0-preview.10`，不带 `v`），同步 lockfile 并提交、推送要发布的代码。可用 `npm version 0.1.0-preview.10 --no-git-tag-version` 同时更新两份版本记录。确保本机已安装 GitHub CLI，并通过 `gh auth login` 登录有仓库权限的账号。随后运行：
+`main` 分支的 `Publish Agent preview` 工作流接受新的 `vX.Y.Z-preview.N` 版本号。先在 `feature` 更新 `package.json` 的 `version`（例如 `0.1.0-preview.10`，不带 `v`），同步 lockfile 并提交、推送要发布的代码。可用 `npm version 0.1.0-preview.10 --no-git-tag-version` 同时更新两份版本记录。创建 PR，通过检查后合并到 `main`，并同步本机版本。确保本机已安装 GitHub CLI，并通过 `gh auth login` 登录有仓库权限的账号。随后运行：
 
 ```bash
 npm run release
 ```
 
-命令直接读取本仓库 `package.json` 的版本并补上 `v` 前缀，默认发布远程 `main`，只触发 Actions；镜像构建、测试、GHCR 上传及 Release 创建均在 GitHub 执行，不需要本机 Docker。它不会自动提交或推送本地代码，也不修改版本号。仍可用 `npm run release -- v0.1.0-preview.10` 显式覆盖版本；可用 `--ref BRANCH` 指定远程分支，`npm run release -- --dry-run` 只查看将执行的命令，`--help` 查看参数。
+命令直接读取本仓库 `package.json` 的版本并补上 `v` 前缀，只允许发布远程 `main`，只触发 Actions；镜像构建、测试、GHCR 上传及 Release 创建均在 GitHub 执行，不需要本机 Docker。它不会自动提交或推送本地代码，也不修改版本号。本地可以处于 `feature`，但版本及待发布改动必须已合并到远程 `main`。仍可用 `npm run release -- v0.1.0-preview.10` 显式覆盖版本；`--ref` 仅接受 `main`，`npm run release -- --dry-run` 只查看将执行的命令，`--help` 查看参数。通过 GitHub 页面或 CLI 选择其他分支、标签时，发布工作流也会在无写权限的前置检查中拒绝，后续检查、构建和发布不会执行。
+
+日常 `Source checks` 自动运行于 PR 创建/更新及 `main` 推送（包括合并）；单独推送 `feature` 不再重复触发一套检查。开发时尽早创建 PR，后续推送会自动更新 PR 检查。保留手动运行和发布流程调用入口；发布时仍会对本次确切提交执行三平台源码检查。
 
 修复安装工具后复用此前 Actions 构建时，可执行 `npm run release -- vX.Y.Z-preview.N --build-run-id RUN_ID`。仍需通过流水线的镜像源码一致性检查；已正式发布的版本应使用新版本号。
 

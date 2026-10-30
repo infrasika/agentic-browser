@@ -8,7 +8,8 @@ const usage = `Trigger the GitHub Actions preview release (no local image build)
 Usage: npm run release [-- [vX.Y.Z-preview.N] [--ref main] [--build-run-id RUN_ID] [--dry-run]]
 Defaults to package.json's version with a v prefix when no version is supplied.
 Requires GitHub CLI (gh) authenticated with access to this repository.
-The selected remote ref must already contain the changes to release.`;
+Releases only run from remote main. Merge the changes into main before publishing.
+The optional --ref argument only accepts main.`;
 const root = path.resolve(import.meta.dirname, '../..');
 
 try {
@@ -26,7 +27,7 @@ try {
     if (positionals.length > 1) throw new Error('Provide at most one explicit preview version.');
     const version = positionals[0] ?? 'v' + JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8')).version;
     if (!/^v\d+\.\d+\.\d+-preview\.\d+$/.test(version)) throw new Error('Set package.json version to X.Y.Z-preview.N or provide an explicit vX.Y.Z-preview.N.');
-    if (!values.ref || values.ref.startsWith('-')) throw new Error('Provide a valid remote ref.');
+    if (values.ref !== 'main') throw new Error('Releases only run from main. Merge the changes into main before publishing.');
     if (values['build-run-id'] !== undefined && !/^[1-9]\d*$/.test(values['build-run-id'])) throw new Error('build-run-id must be a positive GitHub Actions run ID.');
     const args = ['workflow', 'run', 'release-agent.yml', '--ref', values.ref, '-f', 'version=' + version];
     if (values['build-run-id']) args.push('-f', 'build_run_id=' + values['build-run-id']);
