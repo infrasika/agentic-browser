@@ -105,7 +105,7 @@ jobs:
     if: ${{ !cancelled() && needs.merge.result == 'success' }}
     name: Install and verify / ${{ matrix.arch }}
     runs-on: ${{ matrix.arch == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-24.04' }}
-    timeout-minutes: 60
+    timeout-minutes: 90
     strategy:
       fail-fast: false
       matrix:

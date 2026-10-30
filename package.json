@@ -1,6 +1,6 @@
 {
   "name": "agentic-browser",
-  "version": "0.1.0-preview.9",
+  "version": "0.1.0-preview.10",
   "private": true,
   "type": "module",
   "engines": {
@@ -8,26 +8,20 @@
   },
   "scripts": {
     "release": "node scripts/build/dispatch-release.mjs",
-    "test:service": "tsx --test test/browser-session.test.ts test/browser-service.test.ts",
     "dev": "tsx watch src/service.ts",
     "start": "tsx src/service.ts",
     "check": "tsc --noEmit",
     "test": "tsx --test test/*.test.ts test/*.test.mjs test/tooling/*.test.mjs",
     "source:prepare": "node scripts/build/prepare-librechat.mjs",
     "runtime:fetch": "node scripts/build/fetch-runtime-assets.mjs",
-    "runtime:build": "npm run runtime:fetch && docker build -f runtime/Dockerfile -t agentic-browser-runtime:development .",
     "test:extensions": "bash test/acceptance/test-extensions.sh",
     "test:runtime": "tsx --test test/runtime.integration.ts",
     "build:agent": "node scripts/build/build-agent-images.mjs --run",
     "publish:agent": "node scripts/build/publish-agent-images.mjs",
-    "test:agent-config": "node --test test/agent-deployment.test.mjs",
     "accept:agent": "node test/acceptance/accept-agent-compose.mjs --run",
     "agent": "node deploy/agent/agentctl.mjs",
-    "test:agent-ops": "node --test test/tooling/operations.test.mjs test/tooling/maintenance.test.mjs",
     "accept:agent-ops": "node test/acceptance/accept-agent-operations.mjs --run",
     "package:agent": "node scripts/build/package-agent.mjs",
-    "test:agent-bundle": "node --test test/tooling/bundle.test.mjs",
-    "test:tools": "node --test test/tooling/*.test.mjs",
     "accept:bundle": "node test/acceptance/verify-bundle.mjs"
   },
   "dependencies": {

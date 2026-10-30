@@ -5,6 +5,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { NAMES, credentials, inspect, plan, publish, Registry, verifyPublic } from './publish-agent-images.mjs';
 import { validateReport } from './package-agent.mjs';
+import { writeCompose } from './package-compose.mjs';
+import { verifyCompose } from '../../test/acceptance/verify-compose.mjs';
 import { cli, digest, json, run } from '../../deploy/agent/lib/system.mjs';
 
 const version = process.env.RELEASE_VERSION;
@@ -86,18 +88,31 @@ async function main() {
     const evidence = json('delivery/acceptance-' + arch + '.json');
     assert.equal(evidence.passed, true); assert.equal(evidence.cleanup.passed, true);
     assert.equal(evidence.bundleVersion, version); assert.equal(evidence.packageCommit, process.env.GITHUB_SHA);
+    console.log('Verifying the Docker-only Compose deployment');
+    const composeEvidence = await verifyCompose({ release, work: path.join(extracted, 'compose-acceptance') });
+    composeEvidence.packageCommit = process.env.GITHUB_SHA;
+    write('delivery/compose-acceptance-' + arch + '.json', composeEvidence);
+    assert.equal(composeEvidence.passed, true, 'Compose deployment acceptance failed');
   } else if (command === 'collect') {
     for (const platform of ['amd64', 'arm64']) {
       const report = json('delivery/acceptance-' + platform + '.json');
       assert.equal(report.passed, true); assert.equal(report.cleanup.passed, true);
       assert.equal(report.bundleVersion, version); assert.equal(report.packageCommit, process.env.GITHUB_SHA);
       assert(Object.values(report.images).every(image => image.platform === 'linux/' + platform));
+      const compose = json('delivery/compose-acceptance-' + platform + '.json');
+      assert.equal(compose.passed, true); assert.equal(compose.cleanup.passed, true);
+      assert.equal(compose.version, version); assert.equal(compose.packageCommit, process.env.GITHUB_SHA);
+      assert.equal(compose.architecture, platform === 'amd64' ? 'x64' : 'arm64');
+      assert.equal(compose.hostPlatform, 'linux'); assert.equal(compose.hostNodeOnDeploymentPath, false);
+      assert.deepEqual(compose.images, json('publication/release.json').images);
     }
+    writeCompose(json('publication/release.json'), 'compose-delivery');
+    for (const file of fs.readdirSync('compose-delivery')) fs.copyFileSync(path.join('compose-delivery', file), path.join('delivery', file));
     for (const file of ['release.json', 'publication.json']) fs.copyFileSync('publication/' + file, 'delivery/' + file);
     let sums = '';
     for (const file of fs.readdirSync('delivery').sort()) sums += await digest('delivery/' + file) + '  ' + file + '\n';
     fs.writeFileSync('delivery/SHA256SUMS', sums);
-    fs.writeFileSync('release-notes.md', `LibreChat-based Agent preview for Linux amd64 and arm64.\n\nThree project images (Agent, Browser Service, Chrome Runtime) plus digest-pinned Nginx, MongoDB and Redis. Download the archive matching your CPU and verify it with SHA256SUMS. Extract it and follow README.md inside; Node.js 24+, Docker and flock are required. GitHub repository access is required to download this private repository's assets; images are anonymously pullable.\n\nBoth native Linux runners passed bundle installation, real Chrome browsing, human handoff/resume, backup/restore, interrupted-backup recovery and failed-upgrade protection using a simulated model. Reports and immutable image references are attached. This does not verify a production model, public HTTPS, SMTP, Mac Docker builds or migration from the old controller architecture.\n\nInstall this preview separately from old controller releases; do not use the old controller installer. No latest image tag is updated.\n\nSource: ${process.env.GITHUB_SHA}\nActions: https://github.com/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}\n`);
+    fs.writeFileSync('release-notes.md', `LibreChat-based Agent preview for Linux amd64 and arm64.\n\nThree project images (Agent, Browser Service, Chrome Runtime) plus digest-pinned Nginx, MongoDB and Redis. For Docker-only deployment, download compose.yaml, settings.json and secrets.env, verify SHA256SUMS, fill in the configuration and run docker compose up -d; follow COMPOSE.md. Both native platforms passed first start, real Chrome handoff/resume, restart persistence and invalid-configuration acceptance. The alternative installation archives retain the Node.js 24+ and flock management workflow. GitHub repository access is required to download this private repository's assets; images are anonymously pullable.\n\nBoth native Linux runners passed bundle installation, real Chrome browsing, human handoff/resume, backup/restore, interrupted-backup recovery and failed-upgrade protection using a simulated model. Reports and immutable image references are attached. This does not verify a production model, public HTTPS, SMTP, Mac Docker builds or migration from the old controller architecture.\n\nInstall this preview separately from old controller releases; do not use the old controller installer. No latest image tag is updated.\n\nSource: ${process.env.GITHUB_SHA}\nActions: https://github.com/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}\n`);
   } else throw new Error('Use stage, merge, package or collect');
 }
 cli(main);
