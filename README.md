@@ -14,7 +14,7 @@ Deploy a versioned installation bundle on Linux with Node.js 24+, Docker and flo
 
 New clones include public examples in [config/settings.example.json](config/settings.example.json) and [config/secrets.env.example](config/secrets.env.example). Review them to see which settings and keys you need. For source deployments, `agentctl init --config-directory "$PWD/config/local"` generates private configuration and unique application keys under the repository’s `config/`; edit those generated files using the [configuration guide](docs/CONFIGURATION.md). Building images requires no model or Cloudflare keys. The installation tools regenerate `.deployment/` state; a new clone never needs a copy of another server’s deployment directory.
 
-**Status: installation candidate; Agent images and bundles have not been publicly published.** Linux amd64 has passed local installation and recovery acceptance. Native ARM64, Mac execution and independent-host acceptance remain pending. See [current status](docs/STATUS.md) for the exact scope.
+**Preview releases:** the [release workflow](.github/workflows/release-agent.yml) publishes versioned Agent images and Linux amd64 / arm64 installation bundles after native acceptance passes. Use the assets and evidence on the specific [GitHub Release](https://github.com/infrasika/agentic-browser/releases); repository access is required for downloads. See [current status](docs/STATUS.md) for remaining validation boundaries.
 
 ## Build and contribute
 

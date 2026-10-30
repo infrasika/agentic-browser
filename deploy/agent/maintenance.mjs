@@ -39,7 +39,9 @@ export async function mirror(install, policy, backup) {
   const final = path.join(target, path.basename(backup));
   if (ctl.exists(final)) { await ctl.verifyBackup(final); if (await ctl.digest(path.join(final, 'manifest.json')) !== await ctl.digest(path.join(backup, 'manifest.json'))) throw new ctl.Failure('backup_copy_collision'); return; }
   const pending = path.join(target, '.pending-' + path.basename(backup) + '-' + id());
-  try { fs.cpSync(backup, pending, { recursive: true, dereference: false, verbatimSymlinks: true }); await ctl.verifyBackup(pending); fs.renameSync(pending, final); }
+  // Pre-create the private destination: cp can otherwise create its root with
+  // default directory permissions on macOS even when the source is 0700.
+  try { fs.mkdirSync(pending, { mode: 0o700 }); fs.cpSync(backup, pending, { recursive: true, dereference: false, verbatimSymlinks: true }); await ctl.verifyBackup(pending); fs.renameSync(pending, final); }
   finally { fs.rmSync(pending, { recursive: true, force: true }); }
 }
 export async function prune(install, policy, state) {

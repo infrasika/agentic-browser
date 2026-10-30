@@ -48,6 +48,23 @@ test('authorization failure never means a tag is available',async t=>{
     await assert.rejects(new publisher.Registry(['fixture','fixture-secret']).manifest('example/image','v1'),/unknown/);t.mock.restoreAll();
   }
 });
+test('native staging publishes only architecture children and can resume after index creation', async () => {
+  const f = fixture();
+  f.prepared.platforms = ['linux/amd64'];
+  for (const image of Object.values(f.prepared.images)) delete image.platforms['linux/arm64'];
+  // Another platform may already have published the final index; staging never replaces it.
+  f.remote.set('example/agentic-browser-agent@v1.0.0', ['sha256:' + 'e'.repeat(64), {}]);
+  const [release, receipt] = await publisher.publish(f.prepared, f.registry, f.docker, ref => f.images.get(ref), { stageOnly: true });
+  assert.equal(receipt.published, false); assert.equal(receipt.staged, true);
+  assert.equal(f.calls.filter(c => c[1] === 'push').length, 3);
+  assert.ok(!f.calls.some(c => c[1] === 'buildx'));
+  for (const [name, entry] of Object.entries(receipt.images)) assert.equal(entry.platforms['linux/amd64'].reference, release.images[name]);
+  f.calls.length = 0;
+  await publisher.publish(f.prepared, f.registry, f.docker, ref => f.images.get(ref), { stageOnly: true });
+  assert.ok(!f.calls.some(c => ['push', 'tag', 'buildx'].includes(c[1])));
+  const both = fixture();
+  await assert.rejects(publisher.publish(both.prepared, both.registry, both.docker, ref => both.images.get(ref), { stageOnly: true }), /one native platform/);
+});
 test('registry checks manifest digests and only accepts manifest 404 as absent',async t=>{
   let request=0;t.mock.method(globalThis,'fetch',async()=>++request%2?Response.json({token:'fixture'}):new Response('',{status:404}));
   assert.equal(await new publisher.Registry().manifest('example/image','v1'),null);t.mock.restoreAll();

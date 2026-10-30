@@ -75,11 +75,12 @@ export async function matchesIndex(remote, originals, registry, repository) {
   }
   return true;
 }
-export async function publish(prepared, registry, docker = run, imageInfo = inspect) {
+export async function publish(prepared, registry, docker = run, imageInfo = inspect, { stageOnly = false } = {}) {
+  if (stageOnly && prepared.platforms.length !== 1) throw new Failure('Staging requires exactly one native platform');
   const originals = {}, existing = {};
   for (const [name, image] of Object.entries(prepared.images)) { originals[name] = {}; for (const [platform, item] of Object.entries(image.platforms)) originals[name][platform] = await imageInfo(item.id); }
   for (const [name, item] of Object.entries(prepared.images)) {
-    const repository = item.target.slice('ghcr.io/'.length).split(':')[0], remote = await registry.manifest(repository, prepared.version);
+    const repository = item.target.slice('ghcr.io/'.length).split(':')[0], remote = stageOnly ? null : await registry.manifest(repository, prepared.version);
     if (remote && !await matchesIndex(remote, originals[name], registry, repository)) throw new Failure('Version tag already names another image: ' + name);
     existing[name] = remote;
     for (const [platform, child] of Object.entries(item.platforms)) {
@@ -96,15 +97,17 @@ export async function publish(prepared, registry, docker = run, imageInfo = insp
       if (!remote) { console.log('Publishing ' + child.target); await docker(['docker', 'tag', child.id, child.target]); await docker(['docker', 'push', child.target], { timeout: 1_800_000 }); }
       remote = await registry.manifest(repository, tag);
       if (!remote || !await sameImage(remote, originals[name][platform], registry, repository, platform.split('/')[1])) throw new Failure('Published image does not match accepted build: ' + name + ' ' + platform);
-      const ref = 'ghcr.io/' + repository + '@' + remote[0]; await docker(['docker', 'pull', '--platform', platform, ref], { timeout: 900_000 });
+      const ref = 'ghcr.io/' + repository + '@' + remote[0]; child.reference = ref;
+      await docker(['docker', 'pull', '--platform', platform, ref], { timeout: 900_000 });
       if ((await imageInfo(ref)).Id !== child.id) throw new Failure('Pulled image identity mismatch: ' + name); children.push(ref);
     }
+    if (stageOnly) { refs[name] = children[0]; receipts[name] = item; continue; }
     if (!existing[name]) await docker(['docker', 'buildx', 'imagetools', 'create', '--tag', item.target, ...children], { timeout: 900_000 });
     const remote = await registry.manifest(repository, prepared.version);
     if (!remote || !await matchesIndex(remote, originals[name], registry, repository)) throw new Failure('Published multi-platform index mismatch: ' + name);
     refs[name] = 'ghcr.io/' + repository + '@' + remote[0]; receipts[name] = { ...item, digest: remote[0], reference: refs[name] };
   }
-  return [{ version: prepared.version, platforms: prepared.platforms, images: refs }, { ...prepared, images: receipts, published: true, anonymousPullVerified: false, independentHostVerified: false }];
+  return [{ version: prepared.version, platforms: prepared.platforms, images: refs }, { ...prepared, images: receipts, published: !stageOnly, staged: stageOnly, anonymousPullVerified: false, independentHostVerified: false }];
 }
 export async function verifyPublic(release, docker = run, registry = new Registry()) {
   if (Object.keys(release.images ?? {}).sort().join(',') !== [...Object.keys(NAMES), ...Object.keys(INFRA)].sort().join(',')) throw new Failure('Six release images required');
@@ -124,7 +127,7 @@ export async function verifyPublic(release, docker = run, registry = new Registr
   return { version: release.version, anonymousPullVerified: true, images: release.images };
 }
 export async function main() {
-  const { values: args, positionals } = argumentsFor({ 'build-report': { type: 'string', multiple: true }, version: { type: 'string' }, namespace: { type: 'string' }, output: { type: 'string' }, run: { type: 'boolean' }, 'verify-public': { type: 'string' } });
+  const { values: args, positionals } = argumentsFor({ 'build-report': { type: 'string', multiple: true }, version: { type: 'string' }, namespace: { type: 'string' }, output: { type: 'string' }, run: { type: 'boolean' }, 'stage-only': { type: 'boolean' }, 'verify-public': { type: 'string' } });
   if (args.help) return console.log('Plan publication: --build-report AMD64_REPORT --build-report ARM64_REPORT --version VERSION --namespace OWNER\nUpload: add --run --output NEW_DIRECTORY\nAnonymous verification: --verify-public RELEASE_JSON');
   if (positionals.length) throw new Failure('Repeat --build-report for each platform; see --help');
   if (args['verify-public']) { if (args.run) throw new Failure('--verify-public and --run are mutually exclusive'); console.log(JSON.stringify(await verifyPublic(json(args['verify-public'])), null, 2)); return; }
@@ -132,8 +135,8 @@ export async function main() {
   const prepared = await plan(args['build-report'].map(json), args.version, args.namespace);
   if (!args.run) return console.log(JSON.stringify({ ...prepared, dryRun: true, credentialsRead: false }, null, 2));
   if (!args.output || exists(args.output)) throw new Failure('--output must be a new directory');
-  const [release, receipt] = await publish(prepared, new Registry(await credentials())); fs.mkdirSync(args.output, { recursive: true });
+  const [release, receipt] = await publish(prepared, new Registry(await credentials()), run, inspect, { stageOnly: args['stage-only'] }); fs.mkdirSync(args.output, { recursive: true });
   for (const [name, value] of [['release.json', release], ['publication.json', receipt]]) fs.writeFileSync(path.join(args.output, name), JSON.stringify(value, null, 2) + '\n');
-  console.log(JSON.stringify({ published: true, output: path.resolve(args.output), anonymousPullVerified: false }));
+  console.log(JSON.stringify({ published: receipt.published, staged: receipt.staged, output: path.resolve(args.output), anonymousPullVerified: false }));
 }
 if (mainModule('publish-agent-images.mjs')) cli(main);

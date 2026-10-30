@@ -2,7 +2,7 @@
 
 本指南从一台 Linux 服务器开始，安装完整的聊天 Agent、同屏远程浏览器、本地账号、credits 和全站预算。应用、MongoDB、Redis 等都运行在 Docker 中；安装包自带 Node 管理工具，无需另装 LibreChat，也无需下载源码或执行 `npm install`。
 
-**当前仍处于安装候选阶段，完整 Agent 镜像和安装包尚未公开发行。** 先取得维护者提供的可信候选包，或按源码仓库的 `docs/BUILD.md`、`docs/RELEASING.md` 自行构建和打包；不要把文档示例当成已经存在的下载地址。支持和验收范围以具体版本说明为准。
+**安装具体版本的预发布包。** 从 [GitHub Releases](https://github.com/infrasika/agentic-browser/releases) 下载与服务器匹配的 `agentic-browser-agent-VERSION-linux-amd64.tar.gz` 或 `-linux-arm64.tar.gz` 以及 `SHA256SUMS`，先执行 `sha256sum --ignore-missing -c SHA256SUMS` 再解压；解压目录名不带架构后缀。私有仓库的资产下载需要仓库访问权限。镜像由包内固定 digest 指定。支持和验收范围以该版本说明及所附验收报告为准；不要使用旧 Controller 架构的安装包覆盖新 Agent。
 
 本文主流程使用 Linux + Cloudflare + 宿主 Nginx，先关闭注册完成验收，再决定是否公开。只供自己使用可以始终关闭注册；仅通过 SSH 隧道测试的简化方式见文末。
 
