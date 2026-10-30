@@ -44,10 +44,10 @@ git status --short
 
 ## 3. 构建目标架构
 
-选定一个新版本，后续构建、发布和打包沿用同一个版本号。下面的 `vX.Y.Z-preview.N` 仅为示例，不表示该版本已经发布。
+选定一个新版本，后续构建、发布和打包沿用同一个版本号。下面的 `v0.1.0-preview.11` 仅为示例，不表示该版本已经发布。
 
 ```bash
-AGENT_VERSION='vX.Y.Z-preview.N'
+AGENT_VERSION='v0.1.0-preview.11'
 npm run build:agent -- --committed \
   --platforms linux/amd64,linux/arm64 \
   --tag "$AGENT_VERSION"
