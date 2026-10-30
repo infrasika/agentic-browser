@@ -43,8 +43,8 @@ export function walk(directory) {
 }
 export function safeEnvironment() { return Object.fromEntries(['PATH', 'HOME', 'TERM'].filter(k => process.env[k]).map(k => [k, process.env[k]])); }
 
-// Never echo child arguments or stderr: either can contain operator credentials.
-// Explicit file descriptors stream large images/backups without buffering them.
+// Never echo child arguments or stderr by default: either can contain credentials.
+// Explicit descriptors stream images/backups or opt-in sanitized CI diagnostics.
 export async function run(args, { input, timeout = 120_000, cwd, env = process.env, binary = false, stdout, stderr, stdin, maxBuffer = 16 * 1024 * 1024, signal } = {}) {
   return new Promise((resolve, reject) => {
     const child = spawn(args[0], args.slice(1), { cwd, env, signal, stdio: [stdin ?? 'pipe', stdout ?? 'pipe', stderr ?? 'pipe'] });
