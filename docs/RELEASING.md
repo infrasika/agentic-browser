@@ -6,11 +6,15 @@
 
 ## GitHub Actions 自动预发布
 
-默认分支的 `Publish Agent preview` 工作流接受新的 `vX.Y.Z-preview.N` 版本号，例如 `v0.1.0-preview.9`。选择要发布的提交所在分支后运行：
+默认分支的 `Publish Agent preview` 工作流接受新的 `vX.Y.Z-preview.N` 版本号。先提交并推送要发布的代码，确保本机已安装 GitHub CLI，并通过 `gh auth login` 登录有仓库权限的账号。随后运行：
 
 ```bash
-gh workflow run release-agent.yml --ref main -f version=v0.1.0-preview.9
+npm run release -- v0.1.0-preview.10
 ```
+
+命令默认发布远程 `main`，只触发 Actions；镜像构建、测试、GHCR 上传及 Release 创建均在 GitHub 执行，不需要本机 Docker。它不会自动提交或推送本地代码，也不修改 `package.json` 版本号。可用 `--ref BRANCH` 指定远程分支，`--dry-run` 只查看将执行的命令，`--help` 查看参数。
+
+修复安装工具后复用此前 Actions 构建时，可执行 `npm run release -- vX.Y.Z-preview.N --build-run-id RUN_ID`。仍需通过流水线的镜像源码一致性检查；已正式发布的版本应使用新版本号。
 
 工作流先运行 Linux amd64、Linux arm64、macOS 源码检查，再在两个原生 Linux runner 分别构建三个项目镜像，以镜像 ID 区分候选，暂存 `VERSION-ARCH-IMAGE_ID`。合并作业核对两平台源码、镜像 ID 和远程 digest，创建 `VERSION` 多平台索引。MongoDB、Redis、Nginx 沿用官方固定 digest。
 
