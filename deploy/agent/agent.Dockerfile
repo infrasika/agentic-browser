@@ -4,7 +4,8 @@ FROM node:24.22.1-bookworm-slim@sha256:1681862882da07ee5476fee047bcf34138833f1df
 WORKDIR /app
 ENV SCARF_ANALYTICS=false NODE_OPTIONS=--max-old-space-size=3072
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates python3 make g++ git && rm -rf /var/lib/apt/lists/*
-COPY . .
+# Operations change independently of LibreChat's dependency and frontend build.
+COPY --exclude=selfhost . .
 RUN npm ci --no-audit --no-fund
 RUN npm run frontend
 RUN npm prune --omit=dev --ignore-scripts --no-audit --no-fund && npm cache clean --force

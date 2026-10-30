@@ -75,10 +75,12 @@ export class ComposeOperations {
     const args = ['compose', '--project-directory', this.root, '-p', this.project, '-f', file];
     const override = path.join(this.root, 'compose.override.yaml');
     if (fs.existsSync(override)) args.push('-f', override);
-    args.push('--profile', 'operations', 'config', '--format', 'json');
+    // Keep optional services in the rendered model; otherwise Compose silently
+    // drops backup and a later explicit `up backup` cannot recreate it.
+    args.push('--profile', '*', 'config', '--format', 'json');
     const config = JSON.parse(await this.docker(args));
-    for (const name of [...SERVICES, 'init', 'runtime-image', 'ops']) if (!config.services[name]?.image) throw new Failure('unsupported_compose_release');
-    for (const name of [...SERVICES, 'init', 'runtime-image', 'ops']) if (!/^[a-zA-Z0-9./:_-]+@sha256:[a-f0-9]{64}$/.test(config.services[name].image) && process.env.AGENT_ALLOW_LOCAL_IMAGES !== '1') throw new Failure('immutable_release_images_required');
+    for (const name of [...SERVICES, 'init', 'runtime-image', 'ops', 'backup']) if (!config.services[name]?.image) throw new Failure('unsupported_compose_release');
+    for (const name of [...SERVICES, 'init', 'runtime-image', 'ops', 'backup']) if (!/^[a-zA-Z0-9./:_-]+@sha256:[a-f0-9]{64}$/.test(config.services[name].image) && process.env.AGENT_ALLOW_LOCAL_IMAGES !== '1') throw new Failure('immutable_release_images_required');
     for (const name of VOLUMES) {
       const volume = config.volumes[name];
       if (!volume || volume.external || volume.driver_opts || volume.name !== (name === 'browser-data' ? this.project + '-browser' : this.project + '_' + name)) throw new Failure('dedicated_compose_volumes_required');
