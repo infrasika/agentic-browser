@@ -1,6 +1,6 @@
 # 在自己的服务器上部署 Agentic Browser
 
-新部署的 Docker-only 入口见 [Compose 部署](COMPOSE.md)：下载配置模板后直接 `docker compose up -d`，宿主无需 Node.js。该入口尚在 feature 验证，需要新镜像；本页保留现有安装器与 preview.9 的步骤，两种数据布局不要混用。
+新部署的 Docker-only 入口见 [Compose 部署](COMPOSE.md)：下载配置模板后直接 `docker compose up -d`，宿主无需 Node.js。该入口需要 preview.10 或更新版本的配套镜像；本页保留现有安装器与 preview.9 的步骤，两种数据布局不要混用。
 
 本指南从一台 Linux 服务器开始，安装完整的聊天 Agent、同屏远程浏览器、本地账号、credits 和全站预算。应用、MongoDB、Redis 等都运行在 Docker 中；安装包自带 Node 管理工具，无需另装 LibreChat，也无需下载源码或执行 `npm install`。
 

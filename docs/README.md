@@ -11,7 +11,7 @@ Agentic Browser 是包含聊天、远程浏览器、本地账号和额度管理�
 | 修改源码、LibreChat 补丁和运行测试 | [开发](DEVELOPMENT.md) |
 | 在 Mac / Ubuntu 构建 amd64、arm64 镜像 | [构建](BUILD.md) |
 | 发布 GHCR、制作和验收安装包 | [发布](RELEASING.md) |
-| 只用 Docker Compose 启动，无宿主 Node.js（feature） | [Compose 部署](COMPOSE.md) |
+| 只用 Docker Compose 启动，无宿主 Node.js（preview.10 起） | [Compose 部署](COMPOSE.md) |
 | 从空白 Linux 服务器开始安装、自用关闭注册 | [部署](DEPLOYMENT.md) |
 | 填写参数和密钥、理解 Compose `.env` | [配置](CONFIGURATION.md) |
 | 管理用户、邮件、备份、恢复和升级 | [运维](OPERATIONS.md) |
