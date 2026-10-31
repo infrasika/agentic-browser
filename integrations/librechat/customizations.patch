@@ -2229,7 +2229,7 @@ index 3f878637a0387e94eb92bbb0ba255e73a0d69610..be6c0f6aa64cbb282b49e6b969bf747a
    [ErrorTypes.INVALID_ACTION]: 'com_error_invalid_action_error',
    [ErrorTypes.MODELS_NOT_LOADED]: 'com_error_models_not_loaded',
 diff --git a/client/src/locales/en/translation.json b/client/src/locales/en/translation.json
-index df36d52e6e08b2c11f5a6d6b140d1bfb504ea994..42df009decb9faa8767a1d29799661fa8b26061c 100644
+index df36d52e6e08b2c11f5a6d6b140d1bfb504ea994..f0bc4677b14e24c66abcfbb41f69bec550c91e31 100644
 --- a/client/src/locales/en/translation.json
 +++ b/client/src/locales/en/translation.json
 @@ -3712,5 +3712,56 @@
@@ -2288,7 +2288,7 @@ index df36d52e6e08b2c11f5a6d6b140d1bfb504ea994..42df009decb9faa8767a1d29799661fa
 +  "com_demo_budget_exceeded": "Today’s demo budget is exhausted or reserved by active requests. Your personal balance is unchanged. Please try later; the daily budget resets at midnight in the site’s time zone.",
 +  "com_demo_budget_unavailable": "The demo budget service is temporarily unavailable. Please try again later.",
 +  "com_demo_request_unsupported": "This demo supports text and browser tasks with the configured model. Please start a new chat with a text request.",
-+  "com_demo_request_too_large": "This task is too large for the demo budget policy. Please start a new chat with a smaller task."
++  "com_demo_request_too_large": "The model request exceeds the demo request-size limit. Reduce the supplied content or start a new chat."
  }
 diff --git a/client/src/novnc.types.ts b/client/src/novnc.types.ts
 new file mode 100644
@@ -18902,10 +18902,10 @@ index 0000000000000000000000000000000000000000..16a44df213ee636e6421e80539480a7e
 +}
 diff --git a/packages/api/src/budget/fetch.spec.ts b/packages/api/src/budget/fetch.spec.ts
 new file mode 100644
-index 0000000000000000000000000000000000000000..571cc84ae0d3105a924e77f3749c1b15aaea6f75
+index 0000000000000000000000000000000000000000..71bed6c570f900929a1f3374f1dab505d407e50c
 --- /dev/null
 +++ b/packages/api/src/budget/fetch.spec.ts
-@@ -0,0 +1,155 @@
+@@ -0,0 +1,274 @@
 +import { siteBudgetSchema } from 'librechat-data-provider';
 +import type { SiteBudgetMethods } from '@librechat/data-schemas';
 +import type { BudgetTransport } from './fetch';
@@ -18925,6 +18925,43 @@ index 0000000000000000000000000000000000000000..571cc84ae0d3105a924e77f3749c1b15
 +});
 +const response = () =>
 +  Response.json({ choices: [], usage: { prompt_tokens: 100, completion_tokens: 10 } });
++// Synthetic page observations, with no signed-in data. The wire request is well
++// below 256 KiB but the conservative reservation exceeds the old 64K gate.
++const snapshotRequest = (stream = false) => ({
++  method: 'POST',
++  body: JSON.stringify({
++    model: 'demo',
++    stream,
++    max_tokens: 99999,
++    tools: [
++      { type: 'function', function: { name: 'browser_snapshot', parameters: { type: 'object' } } },
++    ],
++    messages: [
++      { role: 'user', content: 'Read both repository pages and list their names.' },
++      ...[1, 2].flatMap((page) => [
++        {
++          role: 'assistant',
++          content: null,
++          tool_calls: [
++            {
++              id: `page-${page}`,
++              type: 'function',
++              function: { name: 'browser_snapshot', arguments: '{}' },
++            },
++          ],
++        },
++        {
++          role: 'tool',
++          tool_call_id: `page-${page}`,
++          content: JSON.stringify({
++            page,
++            text: `Repository ${page}: browser demo, description and navigation.\n`.repeat(400),
++          }),
++        },
++      ]),
++    ],
++  }),
++});
 +function setup(transport: BudgetTransport = jest.fn(async () => response())) {
 +  const db = {
 +    reserveSiteBudget: jest.fn<
@@ -18969,6 +19006,89 @@ index 0000000000000000000000000000000000000000..571cc84ae0d3105a924e77f3749c1b15
 +    expect.objectContaining({ credits: 39, uncertain: false }),
 +  );
 +});
++test.each([false, true])(
++  'page snapshots continue without treating reserved cost as context length (stream=%s)',
++  async (stream) => {
++    const input = snapshotRequest(stream);
++    expect(Buffer.byteLength(input.body)).toBeGreaterThan(32000);
++    expect(Buffer.byteLength(input.body)).toBeLessThan(config.maxRequestBytes);
++    const { db, transport, fetcher } = setup(
++      jest.fn(async () =>
++        stream
++          ? new Response(
++              'data: {"choices":[],"usage":{"prompt_tokens":8000,"completion_tokens":40}}\n\ndata: [DONE]\n\n',
++            )
++          : Response.json({ choices: [], usage: { prompt_tokens: 8000, completion_tokens: 40 } }),
++      ),
++    );
++    const result = await fetcher(url, input);
++    expect(result.status).toBe(200);
++    await result.text();
++    const sent = JSON.parse((transport as jest.Mock).mock.calls[0][1].body);
++    expect(sent.messages).toEqual(JSON.parse(input.body).messages);
++    expect(sent.tools).toEqual(JSON.parse(input.body).tools);
++    expect(sent.max_tokens).toBe(4096);
++    // The full conservative hold still exceeds the former 64K reservation cap.
++    expect(db.reserveSiteBudget.mock.calls[0][0].credits).toBeGreaterThan(
++      64000 * 0.276 + 4096 * 1.101,
++    );
++    expect(db.settleSiteBudget).toHaveBeenCalledWith(
++      expect.objectContaining({ credits: 2253, uncertain: false }),
++    );
++  },
++);
++test('large page observations cannot bypass an exhausted daily budget', async () => {
++  const { db, transport, fetcher } = setup();
++  db.reserveSiteBudget.mockResolvedValueOnce(false);
++  const result = await fetcher(url, snapshotRequest());
++  expect(result.status).toBe(402);
++  expect((await result.json()).error.code).toBe('site_budget_exceeded');
++  expect(transport).not.toHaveBeenCalled();
++  expect(db.settleSiteBudget).not.toHaveBeenCalled();
++});
++test('request byte limit admits the boundary and rejects oversized UTF-8 before reserving or spending', async () => {
++  const body = { model: 'demo', messages: [{ role: 'user', content: '' }], max_tokens: 4096, n: 1 };
++  body.messages[0].content = 'a'.repeat(
++    config.maxRequestBytes - Buffer.byteLength(JSON.stringify(body)),
++  );
++  const input = { method: 'POST', body: JSON.stringify(body) };
++  expect(Buffer.byteLength(input.body)).toBe(config.maxRequestBytes);
++  expect((await setup().fetcher(url, input)).status).toBe(200);
++  body.messages[0].content = '界'.repeat(Math.ceil(config.maxRequestBytes / 3));
++  input.body = JSON.stringify(body);
++  expect(input.body.length).toBeLessThan(config.maxRequestBytes);
++  const { fetcher, db, transport } = setup();
++  const result = await fetcher(url, input);
++  expect(result.status).toBe(400);
++  expect((await result.json()).error.code).toBe('site_budget_request_too_large');
++  expect(db.reserveSiteBudget).not.toHaveBeenCalled();
++  expect(transport).not.toHaveBeenCalled();
++});
++test('normalizing stream usage cannot grow the outbound body past the byte limit', async () => {
++  const body = { model: 'demo', messages: [{ content: '' }], max_tokens: 4096, n: 1, stream: true };
++  body.messages[0].content = 'a'.repeat(
++    config.maxRequestBytes - Buffer.byteLength(JSON.stringify(body)),
++  );
++  const input = { method: 'POST', body: JSON.stringify(body) };
++  expect(Buffer.byteLength(input.body)).toBe(config.maxRequestBytes);
++  const { fetcher, db, transport } = setup();
++  const result = await fetcher(url, input);
++  expect((await result.json()).error.code).toBe('site_budget_request_too_large');
++  expect(db.reserveSiteBudget).not.toHaveBeenCalled();
++  expect(transport).not.toHaveBeenCalled();
++});
++test('provider context errors remain distinct from demo request-size and budget errors', async () => {
++  const error = {
++    error: { code: 'context_length_exceeded', message: 'The model context window is full.' },
++  };
++  const { fetcher, db } = setup(jest.fn(async () => Response.json(error, { status: 400 })));
++  const result = await fetcher(url, snapshotRequest());
++  expect(result.status).toBe(400);
++  expect(await result.json()).toEqual(error);
++  expect(db.settleSiteBudget).toHaveBeenCalledWith(
++    expect.objectContaining({ credits: 0, uncertain: false }),
++  );
++});
 +test('SSE usage survives split frames, CRLF and a final line without newline', async () => {
 +  const encoded = new TextEncoder().encode(
 +    'data: {"choices":[]}\r\ndata: {"usage":{"prompt_tokens":100,"completion_tokens":10}}',
@@ -19006,7 +19126,7 @@ index 0000000000000000000000000000000000000000..571cc84ae0d3105a924e77f3749c1b15
 +  ]) {
 +    const { fetcher, db } = setup(transport);
 +    try {
-+      await fetcher(url, request());
++      await fetcher(url, snapshotRequest());
 +    } catch (error) {
 +      expect(String(error)).not.toContain('secret');
 +    }
@@ -19052,7 +19172,6 @@ index 0000000000000000000000000000000000000000..571cc84ae0d3105a924e77f3749c1b15
 +    {
 +      messages: [{ content: [{ type: 'image_url', image_url: { url: 'https://example.test' } }] }],
 +    },
-+    { messages: [{ content: 'a'.repeat(64000) }] },
 +  ]) {
 +    const input = request();
 +    input.body = JSON.stringify({ ...JSON.parse(input.body), ...change });
@@ -19063,10 +19182,10 @@ index 0000000000000000000000000000000000000000..571cc84ae0d3105a924e77f3749c1b15
 +});
 diff --git a/packages/api/src/budget/fetch.ts b/packages/api/src/budget/fetch.ts
 new file mode 100644
-index 0000000000000000000000000000000000000000..e053a22ce53a10c86528929e116bca625633ed80
+index 0000000000000000000000000000000000000000..8386ce8f6af8af5f731355ca9c28d41405801ecd
 --- /dev/null
 +++ b/packages/api/src/budget/fetch.ts
-@@ -0,0 +1,245 @@
+@@ -0,0 +1,249 @@
 +import { z } from 'zod';
 +import { randomUUID } from 'node:crypto';
 +import type { SiteBudgetMethods } from '@librechat/data-schemas';
@@ -19132,7 +19251,9 @@ index 0000000000000000000000000000000000000000..e053a22ce53a10c86528929e116bca62
 +        message:
 +          code === 'site_budget_exceeded'
 +            ? 'The daily demo budget is exhausted or reserved by active requests. Your personal credits are unchanged. Please try later.'
-+            : 'The demo budget could not admit this model request. Please try again later.',
++            : code === 'site_budget_request_too_large'
++              ? 'The model request exceeds the demo request-size limit. Reduce the supplied content or start a new chat.'
++              : 'The demo budget could not admit this model request. Please try again later.',
 +      },
 +    },
 +    { status },
@@ -19187,11 +19308,13 @@ index 0000000000000000000000000000000000000000..e053a22ce53a10c86528929e116bca62
 +    body.n = 1;
 +    if (body.stream) body.stream_options = { ...body.stream_options, include_usage: true };
 +    const serialized = JSON.stringify(body);
++    if (Buffer.byteLength(serialized) > input.config.maxRequestBytes)
++      return rejected('site_budget_request_too_large', 400);
 +    // Conservative text reservation includes JSON, tool schemas and chat framing.
++    // This bound prices the hold; it is not a tokenizer or a context-window limit.
++    // Agent context management handles the model window, including tool history.
 +    // Accounting follows the configured credits tariff; it is not a cloud invoice.
 +    const promptBound = Buffer.byteLength(serialized) * 2 + 1024 + body.messages.length * 64;
-+    if (promptBound > input.config.maxPromptTokens)
-+      return rejected('site_budget_request_too_large', 400);
 +    const reserved = Math.ceil(promptBound * rate.prompt + outputLimit * rate.completion);
 +    const id = randomUUID();
 +    const day = budgetDay(input.config.timeZone, input.now?.());
@@ -20194,7 +20317,7 @@ index 0000000000000000000000000000000000000000..6774e9f39e82ecfab7e40c8bc6e58e48
 +  cancel: (id: string) => request.post(endpoint(id, 'cancel'), {}),
 +};
 diff --git a/packages/data-provider/src/config.ts b/packages/data-provider/src/config.ts
-index 8b410829ddbde9458e1a231e72655f8672d57987..3095a7ee69652e5b8f331bb481f6847f085b34cf 100644
+index 8b410829ddbde9458e1a231e72655f8672d57987..e88ac7b5ac48b6b565540cf2bac1c82a3a41de4e 100644
 --- a/packages/data-provider/src/config.ts
 +++ b/packages/data-provider/src/config.ts
 @@ -39,6 +39,7 @@ import {
@@ -20439,7 +20562,7 @@ index 8b410829ddbde9458e1a231e72655f8672d57987..3095a7ee69652e5b8f331bb481f6847f
            prompt: z.string().optional(),
            tag: z.string().nullable().optional(),
          })
-@@ -3749,10 +3760,22 @@ export const ocrSchema = z.object({
+@@ -3749,10 +3760,21 @@ export const ocrSchema = z.object({
    strategy: z.nativeEnum(OCRStrategy).default(OCRStrategy.MISTRAL_OCR),
  });
  
@@ -20448,7 +20571,6 @@ index 8b410829ddbde9458e1a231e72655f8672d57987..3095a7ee69652e5b8f331bb481f6847f
 +  dailyCredits: z.number().int().min(0).max(1_000_000_000).default(20_000_000),
 +  timeZone: z.enum(['UTC', 'Asia/Shanghai']).default('Asia/Shanghai'),
 +  endpoints: z.array(z.string().min(1)).min(1).default(['Qwen']),
-+  maxPromptTokens: z.number().int().min(1024).max(128000).default(64000),
 +  maxOutputTokens: z.number().int().min(128).max(32768).default(4096),
 +  maxRequestBytes: z.number().int().min(4096).max(1_048_576).default(262144),
 +});
@@ -20462,7 +20584,7 @@ index 8b410829ddbde9458e1a231e72655f8672d57987..3095a7ee69652e5b8f331bb481f6847f
      autoRefillEnabled: z.boolean().optional().default(false),
      refillIntervalValue: z.number().optional().default(30),
      refillIntervalUnit: z.enum(REFILL_INTERVAL_UNITS).optional().default('days'),
-@@ -3806,7 +3829,9 @@ export const memorySchema = z.object({
+@@ -3806,7 +3828,9 @@ export const memorySchema = z.object({
          provider: z.string(),
          model: z.string(),
          instructions: z.string().optional(),
@@ -20473,7 +20595,7 @@ index 8b410829ddbde9458e1a231e72655f8672d57987..3095a7ee69652e5b8f331bb481f6847f
        }),
      ])
      .optional(),
-@@ -3846,7 +3871,9 @@ export const summarizationConfigSchema = z.object({
+@@ -3846,7 +3870,9 @@ export const summarizationConfigSchema = z.object({
    enabled: z.boolean().optional(),
    provider: z.string().optional(),
    model: z.string().optional(),
@@ -20484,7 +20606,7 @@ index 8b410829ddbde9458e1a231e72655f8672d57987..3095a7ee69652e5b8f331bb481f6847f
    trigger: summarizationTriggerSchema.optional(),
    prompt: z.string().optional(),
    updatePrompt: z.string().optional(),
-@@ -4069,7 +4096,7 @@ export const langfuseConfigSchema = z.object({
+@@ -4069,7 +4095,7 @@ export const langfuseConfigSchema = z.object({
     * schema does not yet express — and note the fanout collector forwards only
     * `Authorization` upstream regardless.
     */
@@ -20493,7 +20615,7 @@ index 8b410829ddbde9458e1a231e72655f8672d57987..3095a7ee69652e5b8f331bb481f6847f
    /** Trace user identity and allowlisted user/request metadata. */
    trace: langfuseTraceConfigSchema.optional(),
  });
-@@ -4112,7 +4139,7 @@ export const chatProjectsConfigSchema = z
+@@ -4112,7 +4138,7 @@ export const chatProjectsConfigSchema = z
        .default(MAX_CHAT_PROJECT_DESCRIPTION_LENGTH),
    })
    .strict()
@@ -20502,7 +20624,7 @@ index 8b410829ddbde9458e1a231e72655f8672d57987..3095a7ee69652e5b8f331bb481f6847f
  
  export type TChatProjectsConfig = z.infer<typeof chatProjectsConfigSchema>;
  
-@@ -4160,6 +4187,7 @@ export const toolCallPreviewsConfigSchema = z.object({
+@@ -4160,6 +4186,7 @@ export const toolCallPreviewsConfigSchema = z.object({
  export type TToolCallPreviewsConfig = z.infer<typeof toolCallPreviewsConfigSchema>;
  
  export const configSchema = z.object({
@@ -20510,7 +20632,7 @@ index 8b410829ddbde9458e1a231e72655f8672d57987..3095a7ee69652e5b8f331bb481f6847f
    version: z.string(),
    telemetry: telemetrySchema.optional(),
    permissions: z
-@@ -4294,9 +4322,9 @@ export const configSchema = z.object({
+@@ -4294,9 +4321,9 @@ export const configSchema = z.object({
              .max(256)
              .default(DEFAULT_MCP_APP_OPERATION_LIMITS.maxActive),
          })
@@ -20522,7 +20644,7 @@ index 8b410829ddbde9458e1a231e72655f8672d57987..3095a7ee69652e5b8f331bb481f6847f
    mcpSettings: z
      .object({
        allowedDomains: z.array(z.string()).optional(),
-@@ -4355,7 +4383,7 @@ export const configSchema = z.object({
+@@ -4355,7 +4382,7 @@ export const configSchema = z.object({
              .default(30_000),
            authorizationFenceRetryBatchSize: z.number().int().positive().max(10_000).default(100),
          })
@@ -20531,7 +20653,7 @@ index 8b410829ddbde9458e1a231e72655f8672d57987..3095a7ee69652e5b8f331bb481f6847f
        apps: z.boolean().optional(),
      })
      .optional(),
-@@ -4381,7 +4409,7 @@ export const configSchema = z.object({
+@@ -4381,7 +4408,7 @@ export const configSchema = z.object({
        /** OpenID discovery retries; an unset field falls back to its `OPENID_DISCOVERY_RETRY_*` env var, then the schema default. */
        openidDiscovery: openIdDiscoverySchema.partial().optional(),
      })
@@ -20540,7 +20662,7 @@ index 8b410829ddbde9458e1a231e72655f8672d57987..3095a7ee69652e5b8f331bb481f6847f
    /** Changing the registered email address. An unset field falls back to its env var, then the
     *  documented default, so an existing deployment keeps the behavior it has today. */
    emailChange: z
-@@ -4399,7 +4427,7 @@ export const configSchema = z.object({
+@@ -4399,7 +4426,7 @@ export const configSchema = z.object({
        /** `MAX_PASSKEYS_PER_USER` when unset; the documented default when neither is given. */
        perUserMax: z.number().int().min(1).max(100).optional(),
      })

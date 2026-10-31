@@ -18,7 +18,7 @@ export function createAgentConfiguration({ origin, model, promptRate, completion
       verification: { required: true, hostname: new URL(origin).hostname, timeoutMs: 10000 } } } : {}),
     balance: { enabled: true, startBalance: startCredits, autoRefillEnabled: false, display: 'credits',
       siteBudget: { enabled: true, dailyCredits, timeZone, endpoints: ['Qwen'],
-        maxPromptTokens: 64000, maxOutputTokens: 4096, maxRequestBytes: 262144 } },
+        maxOutputTokens: 4096, maxRequestBytes: 262144 } },
     transactions: { enabled: true },
     browser: { enabled: true, baseURL: browserURL,
       agentIds: ['agent_browser_demo'], pollIntervalMs: 1000 },
