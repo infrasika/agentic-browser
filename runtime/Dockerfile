@@ -6,7 +6,7 @@ RUN --mount=type=bind,source=output/runtime/packages,target=/tmp/packages \
     --mount=type=bind,source=runtime/assets.lock.json,target=/tmp/assets.lock.json \
     node -e "const fs=require('fs'),crypto=require('crypto'),lock=JSON.parse(fs.readFileSync('/tmp/assets.lock.json')); const arch=process.arch==='arm64'?'arm64':'amd64'; if(crypto.createHash('sha256').update(fs.readFileSync('/tmp/packages/chrome-'+arch+'.deb')).digest('hex')!==lock[arch==='arm64'?'chromeArm64':'chrome'].sha256)process.exit(1)" \
     && apt-get update && apt-get install -y --no-install-recommends \
-      ca-certificates xvfb xauth x11vnc openbox util-linux xdotool \
+      ca-certificates xvfb xauth x11vnc openbox util-linux xdotool libgl1-mesa-dri libegl1 \
       /tmp/packages/chrome-${TARGETARCH}.deb \
     && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
