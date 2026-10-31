@@ -12,7 +12,7 @@ For maintainers publishing a new version to GHCR and GitHub Releases. To install
 
 Run from a source checkout with Node.js 24+/npm and an authenticated [GitHub CLI](https://cli.github.com/). Local Docker and site credentials are not needed for this path. The authenticated account needs permission to dispatch Actions on the target repository. For a fork, enable Actions and confirm GitHub CLI targets your fork, for example with `gh repo set-default OWNER/REPOSITORY`.
 
-1. Choose an unused prerelease version: `X.Y.Z-rc.N` for a release candidate or `X.Y.Z-preview.N` for a preview. Update `package.json` and the lockfile on the development branch, for example `npm version 0.1.0-rc.1 --no-git-tag-version`. This command creates no Git tag.
+1. Choose an unused prerelease version: `X.Y.Z-rc.N` for a release candidate or `X.Y.Z-preview.N` for a preview. Update `package.json` and the lockfile on the development branch, for example `npm version 0.1.0-rc.2 --no-git-tag-version`. Update the matching version examples in Deployment, Build and this guide before publishing. The npm command creates no Git tag.
 2. Commit, push and open a PR. Merge to `main` after source checks pass, so the remote branch contains the intended release changes.
 3. Authenticate with `gh auth login` if needed. From the repository root, confirm the intended version and dispatch:
 
@@ -47,7 +47,7 @@ The three GHCR packages must be **Public** for anonymous pull acceptance. On fir
 First complete a committed, two-platform build of all three project images. Replace the example build directory with the directory printed by your build. The publication output directory must not exist:
 
 ```bash
-AGENT_VERSION='v0.1.0-rc.1'
+AGENT_VERSION='v0.1.0-rc.2'
 BUILD_DIR="$PWD/output/build/build-XXXXXX"
 PUBLISH_DIR="$PWD/output/releases/$AGENT_VERSION"
 ```
