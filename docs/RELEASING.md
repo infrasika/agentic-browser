@@ -4,7 +4,7 @@
 
 ## 推荐：GitHub Actions
 
-1. 在开发分支更新 package.json 和 lockfile，例如 `npm version 0.1.0-preview.11 --no-git-tag-version`；使用尚未发布的实际版本。
+1. 在开发分支更新 package.json 和 lockfile，例如 `npm version 0.1.0-preview.12 --no-git-tag-version`；使用尚未发布的实际版本。
 2. 提交、推送并创建 PR。源码检查通过后合并到 `main`，确保远程包含本次版本和修改。
 3. 本机安装 GitHub CLI 并完成 `gh auth login`，在仓库根目录运行：
 
@@ -34,7 +34,7 @@ npm run release
 先完成 `--committed` 双架构三镜像构建。变量替换为真实值，输出目录必须尚不存在：
 
 ```bash
-AGENT_VERSION='v0.1.0-preview.11'
+AGENT_VERSION='v0.1.0-preview.12'
 BUILD_DIR="$PWD/output/build/build-实际目录"
 PUBLISH_DIR="$PWD/output/releases/$AGENT_VERSION"
 ```
