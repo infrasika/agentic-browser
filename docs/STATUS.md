@@ -40,11 +40,11 @@
 
 ## 发布与剩余工作
 
-最近一次已确认发布为 [v0.1.0-preview.10](https://github.com/infrasika/agentic-browser/releases/tag/v0.1.0-preview.10)，支持容器初始化，但不包含新 ops。本轮代码已本地提交，**尚未推送或发布新版**：现有 GitHub 凭据需要 GPG 解锁。新的流水线只交付 Compose、配置模板、指南、许可证及验收报告，原生双架构通过后才发布。
+最近一次已确认发布为 [v0.1.0-preview.10](https://github.com/infrasika/agentic-browser/releases/tag/v0.1.0-preview.10)，支持容器初始化，但不包含新 ops。本轮代码已推送到 feature，正在准备 **v0.1.0-preview.11** 的 PR、原生双架构构建与验收；新版尚未发布。新的流水线只交付 Compose、配置模板、指南、许可证及验收报告，原生双架构通过后才发布。
 
 | 工作 | 完成条件 |
 | --- | --- |
-| GitHub 同步与发布 | 凭据解锁后同步本地提交，检查远程差异，完成原生 amd64/arm64 验收及新版 GHCR/Release 发布 |
+| GitHub 同步与发布 | 本地提交已同步；通过 PR 检查后完成原生 amd64/arm64 验收及新版 GHCR/Release 发布 |
 | Mac 实机构建 | 在 Mac Docker 环境构建；macOS 源码测试不代替镜像构建 |
 | 源码公开 | MIT 已完成；仓库仍私有，公开范围单独确定 |
 | 异地恢复与重启 | 确定受控异地存储并跨机恢复，在维护窗口验证整机重启 |
