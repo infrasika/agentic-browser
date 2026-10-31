@@ -1,6 +1,6 @@
 # Publish images and deployment files
 
-A release publishes the three project images from [Build](BUILD.md) to GHCR and delivers matching Compose and configuration templates. Deployment servers need only Docker and Compose. Publishing requires registry authorization, not site credentials. The project uses [MIT](../LICENSE), and images preserve applicable third-party licenses. Check the [release notes and verification reports](https://github.com/infrasika/agentic-browser/releases) for the version you intend to publish or deploy.
+For maintainers publishing a new version to GHCR and GitHub Releases. To install an existing version, follow [Deployment](DEPLOYMENT.md). Use GitHub Actions for the complete publication pipeline; the manual tools below support individual stages.
 
 | Command | Result |
 | --- | --- |
@@ -21,9 +21,7 @@ npm run release -- --dry-run
 npm run release
 ```
 
-The command reads the version from `package.json` and dispatches `Publish Agent preview` on remote `main`. Your local checkout may be on `feature`, but all release changes must already be merged remotely. The command does not commit, push, change versions or build locally. To specify the version explicitly, use `npm run release -- vX.Y.Z-preview.N`. The workflow accepts only `main` and the preview version format.
-
-`--dry-run` prints the dispatch command; it does not check remote source, tag availability or permissions. A successful dispatch starts work asynchronously and does not mean publication succeeded. Find the run and watch it, replacing `RUN_ID` with its actual number:
+The command reads the local `package.json` version and dispatches `Publish Agent preview` on remote `main`; it does not commit or push. An explicit version is accepted as `npm run release -- vX.Y.Z-preview.N`. `--dry-run` only prints the command, without checking remote state or permissions. Find the dispatched run and wait for completion, replacing `RUN_ID` with its actual number:
 
 ```bash
 gh run list --workflow release-agent.yml --branch main --limit 5
@@ -38,7 +36,7 @@ The pipeline performs:
 4. Anonymous image pulls and full Compose acceptance on two fresh native Linux runners.
 5. Version, source, image, architecture and cleanup verification; creation of deployment files and checksums, then a new Git tag and GitHub prerelease. It does not update image tags named `latest` or mark the prerelease as GitHub's latest release.
 
-Acceptance uses real Chrome with simulated model and TLS mail services. It covers account isolation, queueing, handoff/resume, credits, budgets, logout cleanup, password recovery, persistence, backups, restore, failed-upgrade rollback and daily backup scheduling. Deployment subprocesses have only Docker on PATH; the test driver itself uses the maintainer's Node environment. Real providers, public HTTPS, Turnstile and mailbox delivery still need deployment-specific acceptance.
+See [Full Compose acceptance](DEVELOPMENT.md#full-compose-acceptance) for test coverage and report requirements. CI uses simulated providers; real model, HTTPS, Turnstile and mailbox checks belong to [deployment verification](DEPLOYMENT.md#7-choose-registration-policy-and-verify-features).
 
 The repository must allow the workflow's `contents: write` and `packages: write` permissions. CI uses its automatic `GITHUB_TOKEN`; do not add model, Turnstile or SMTP credentials as Actions secrets. Fork maintainers publish into their own repository-owner namespace.
 
@@ -84,23 +82,13 @@ npm run publish:agent -- \
 npm run publish:agent -- --verify-public "$PUBLISH_DIR/release.json"
 ```
 
-The project packages are `agentic-browser-agent`, `agentic-browser-service` and `agentic-browser-runtime`. Official infrastructure images are not repackaged. The first command writes `release.json` with immutable image references and `publication.json` with publication evidence. The second command prints an anonymous-pull receipt; it does not update `publication.json` or establish native installation acceptance. As with CI, make new packages Public before verification. This manual path does not create a GitHub Release.
+The packages are `agentic-browser-agent`, `agentic-browser-service` and `agentic-browser-runtime`; official infrastructure images are not repackaged. Publication writes the two manifest/evidence files listed above. Anonymous verification prints a receipt without updating `publication.json`. Make new packages Public before verification.
 
-## Native acceptance and delivery
+## Acceptance and delivery
 
-On a native Linux test host for each target architecture, obtain the intended source and release manifest. Set `AGENT_VERSION` to that manifest's version and run from the repository root:
+Before delivery, run [Full Compose acceptance](DEVELOPMENT.md#full-compose-acceptance) against the published manifest on native Linux amd64 and arm64. Both reports must match the intended release and pass cleanup. Actions performs this automatically.
 
-```bash
-npm ci
-mkdir -p output/tests
-npm run accept:compose -- \
-  --release /absolute/path/to/release.json \
-  --work "$PWD/output/tests/release-$AGENT_VERSION" --port 3350
-```
-
-The work directory must be new and its parent must exist; ports 3350/3351 must be free. The test host needs Node.js 24+, Docker, Compose, OpenSSL, approximately 6 GiB of available RAM and the [deployment CPU/kernel prerequisites](DEPLOYMENT.md#1-prepare-a-linux-server). Tests use a separate project, without paid model calls or external mail. On both platforms, check `report.json` in the work directory for the correct version, architecture and image references, plus `passed: true`, `cleanup.passed: true` and `cleanup.remaining: 0`. QEMU builds do not replace native runtime acceptance.
-
-Using the same release manifest and `AGENT_VERSION`, generate a platform-independent delivery directory:
+To inspect deployment files locally, set `AGENT_VERSION` to the manifest's version and run:
 
 ```bash
 mkdir -p output
@@ -109,22 +97,22 @@ npm run package:compose -- \
   --output "$PWD/output/delivery-$AGENT_VERSION"
 ```
 
-It contains eight files: `compose.yaml`, `settings.json`, `secrets.env`, `nginx.host.conf`, the three operator guides and `LICENSE`. The tool reads templates and guides from the current checkout; review and commit that source first. CI uses its checked-out GitHub commit. Image references come from the release manifest; mutable tags and overwriting an existing output directory are rejected. The parent directory must already exist.
+The output directory must be new, with an existing parent. Packaging reads templates and guides from the current checkout and fixed image references from the manifest; review and commit that source first. Mutable tags are rejected.
 
-The complete Actions release has 15 attachments:
+The final Actions release has 15 attachments. The first eight come from `package:compose`; the remaining seven are collected or generated by CI:
 
-| Assets | Purpose |
+| Assets | Source |
 | --- | --- |
-| `compose.yaml` | Services, fixed image references, networks and volumes |
-| `settings.json`, `secrets.env` | Operator configuration templates with placeholders |
-| `nginx.host.conf` | Host proxy template for public HTTPS access |
-| `DEPLOYMENT.md`, `CONFIGURATION.md`, `OPERATIONS.md`, `LICENSE` | Installation, configuration, operations and project license |
-| `release.json`, `publication.json` | Version/image manifest and publication evidence |
-| `public-pull-amd64.json`, `public-pull-arm64.json` | Anonymous image-pull and native image-identity receipts |
-| `compose-acceptance-amd64.json`, `compose-acceptance-arm64.json` | Native installation and cleanup evidence |
-| `SHA256SUMS` | Checksums of the other 14 attachments |
+| `compose.yaml` | Compose template rendered with release image digests |
+| `settings.json`, `secrets.env` | Public examples in `config/`; never operator-filled files |
+| `nginx.host.conf` | Template in `deploy/agent/` |
+| `DEPLOYMENT.md`, `CONFIGURATION.md`, `OPERATIONS.md`, `LICENSE` | Maintained guides in `docs/` and the root license |
+| `release.json`, `publication.json` | Image publication stage |
+| `public-pull-amd64.json`, `public-pull-arm64.json` | Anonymous pulls and native image-identity verification |
+| `compose-acceptance-amd64.json`, `compose-acceptance-arm64.json` | Native acceptance runs |
+| `SHA256SUMS` | Final collection; covers the other 14 attachments |
 
-Use Actions for complete release collection and publication. The manual commands above are individual maintainer tools, not an equivalent end-to-end release pipeline. Never attach filled-in operator configuration, test workspaces, backups or local data. The current delivery uses individual files; there is no universal deployment archive, host Node installer or offline image bundle. Operators start with [Deployment](DEPLOYMENT.md) and upgrade through [Operations](OPERATIONS.md).
+The current delivery uses individual files, without an installer or offline image bundle. Keep test workspaces, backups and local credentials out of release assets. Operator-facing file definitions belong in [Configuration](CONFIGURATION.md#deployment-files).
 
 Documentation updates ship with future releases. Keep existing checksummed attachments unchanged; release notes can link to a reviewed documentation commit for corrections to a published version.
 

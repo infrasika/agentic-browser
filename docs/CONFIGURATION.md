@@ -1,28 +1,32 @@
 # Configuration reference
 
-Image builds do not need a model key, domain or maintainer configuration. Operators fill in `settings.json` and `secrets.env` at deployment time. The same images can serve different installations. Start with [Deployment](DEPLOYMENT.md); see [Operations](OPERATIONS.md) before changing an existing installation.
+Reference for deployment files, settings and storage. Follow [Deployment](DEPLOYMENT.md) for first installation and [Operations](OPERATIONS.md#change-configuration-or-stop-the-site) to apply changes to an existing site.
 
-## File locations
+## Deployment files
 
-Keep deployment files in a private directory, for example:
+Keep the deployment directory private. These files have distinct roles:
 
-```text
-/srv/my-agent/
-├── compose.yaml     # Release file with six fixed image digests
-├── settings.json    # Operator settings
-├── secrets.env      # Operator credentials
-├── .env             # Optional Compose project, port and backup settings
-├── nginx.host.conf  # Host proxy template for public access
-├── release.json     # Release/image manifest; not user configuration
-├── backups/         # Completed operations backups
-└── releases/        # New compose.yaml files staged before upgrades
-```
+| File | Purpose | Edit? |
+| --- | --- | --- |
+| `settings.json` | Site, administrator email, model and usage settings | Yes; fill required fields before startup |
+| `secrets.env` | Model key, initial administrator password and optional service credentials | Yes; keep permissions at `0600` |
+| `.env` | Compose project, port, input directory and backup parameters | Optional; defaults work without this file |
+| `nginx.host.conf` | Host Nginx template, separate from the container gateway; Compose does not load it | For public access, install and adapt it using [Deployment](DEPLOYMENT.md#6-configure-host-nginx-and-client-ip-forwarding) |
+| `compose.yaml` | Release-defined services, images, networks and volumes | Keep the supplied file; use `.env` for supported customization |
+| `release.json` | Generated version, platform and image manifest used to produce Compose | No; Compose does not read it at startup |
+| `publication.json`, pull/acceptance reports, `SHA256SUMS` | Release verification evidence | No |
+
+Use [Operations](OPERATIONS.md#upgrade-and-rollback) to change application versions. Do not modify image references or generated runtime files by hand.
+
+## Configuration location
+
+By default, `settings.json` and `secrets.env` sit beside `compose.yaml`.
 
 To keep input configuration elsewhere, create a directory containing both files and set `AGENT_CONFIG_DIR=/absolute/path/to/config/local` in the deployment `.env`. Initialization, backups and restores use that location. This setting moves only the two input files, not the MongoDB, Redis or other Docker volumes. Two installations need different project names, ports and configuration directories. Do not change an existing project's name casually: it selects a different set of data volumes.
 
-The source repository contains only `config/settings.example.json` and `config/secrets.env.example`. For local deployment from a checkout, copy these to ignored `config/local/` and set `AGENT_CONFIG_DIR` accordingly. Neither that directory nor `.deployment/` is required for builds.
+The source repository provides `config/settings.example.json` and `config/secrets.env.example`. For local deployment from a checkout, copy these to ignored `config/local/` and set `AGENT_CONFIG_DIR` accordingly.
 
-The initializer generates application identity keys, an internal browser token, gateway configuration and mail verification state in Docker volumes. Repeated startup preserves existing keys. Invalid identity files block startup and should be restored from a verified backup.
+The initializer validates these inputs and writes runtime configuration to Docker volumes. It generates identity keys and the internal browser token once, then preserves them across restarts. Invalid identity files block startup and should be restored from a verified backup.
 
 ## settings.json
 
@@ -43,7 +47,7 @@ JSON does not allow comments or trailing commas. Fill the empty model fields bef
 | `credits.daily`, `credits.timeZone` | Initial site-wide daily budget and accounting timezone, default `20000000` and `Asia/Shanghai`; an administrator-saved budget takes precedence |
 | `browser.maximum` | Active browser capacity from 1 to 10, default 1; each account can have one unfinished lease |
 | `trustedProxyIPs` | Optional list of up to eight trusted proxy IPs; for host Nginx, use its actual Docker bridge source address |
-| `smtp` | Optional object with `host`, `port`, `encryption`, `from` and `username`; see [Operations](OPERATIONS.md) |
+| `smtp` | Optional object with `host`, `port`, `encryption`, `from` and `username`; see [Email setup](OPERATIONS.md#enable-email-password-recovery) |
 
 **1,000,000 credits represents USD 1.** For example, if input costs USD 0.50 per million tokens, set `promptRate` to `0.5`. This illustrates the units; it is not a Qwen price quote. Confirm the provider, model, region and currency, and convert rates to USD before entering them. Accounting depends on these configured rates.
 
@@ -64,7 +68,7 @@ The initializer reads the file through a read-only mount using Node's `parseEnv`
 
 ## Compose .env and interpolation
 
-`.env` is an optional operator-created parameter file beside `compose.yaml`. Compose reads it automatically when commands run from that directory; the application does not generate it. With the defaults below, nothing needs to be filled in. The deployment guide recommends an explicit project name so later commands keep selecting the same installation. The source repository does not need a root `.env` for building.
+Create `.env` beside `compose.yaml` only when setting Compose parameters. Compose reads it automatically when commands run from that directory; the application does not generate it. An explicit project name keeps later commands tied to the same installation.
 
 | Parameter | Default / purpose |
 | --- | --- |
@@ -86,12 +90,6 @@ docker compose config --quiet
 ```
 
 See [Docker's interpolation reference](https://docs.docker.com/compose/how-tos/environment-variables/variable-interpolation/) for the underlying behavior.
-
-## Host proxy and release manifest
-
-`nginx.host.conf` is a template for **host Nginx**, separate from the gateway container. For public access, install it and edit the hostname, certificate/key paths and upstream port as described in [Deployment](DEPLOYMENT.md#6-configure-host-nginx-and-client-ip-forwarding). Changes take effect only after validating and reloading the installed Nginx configuration. Leave this file unused for private access through SSH. The template contains no certificate or private key.
-
-`release.json` is generated by publication tooling. It records the application version, supported Linux platforms and immutable references for the six deployment images. Packaging uses those references to produce `compose.yaml`; Compose itself does not read the manifest at startup. Keep it unchanged as a record of the release. Changing it does not change a running deployment, select a model or provide credentials. Use the documented upgrade procedure to install another release.
 
 ## Persistent data
 
@@ -124,11 +122,3 @@ docker info --format '{{.DockerRootDir}}'
 The reported mountpoints are Docker-managed locations; do not edit their files or copy a running database as a backup. Use `ops backup` and `ops restore` so data and identity keys stay together. Browser scheduler persistence does not make active Chrome sessions or website login cookies a permanent user profile.
 
 For a dedicated data disk, provision durable storage for Docker before installing and allow room for image layers, volumes and backups. `AGENT_CONFIG_DIR` is not a database storage setting. Replacing named volumes with arbitrary bind mounts is outside the supported deployment: the built-in backup/restore commands expect the declared named volumes and do not archive custom host mounts. Moving an existing Docker data directory is separate host administration affecting all its containers.
-
-## How containers receive configuration
-
-`init` mounts `/input/settings.json` and `/input/secrets.env` read-only, validates them and writes the generated configuration volumes listed above. Agent startup reads its configuration and injects the application process variables. Browser Service receives its own settings and internal credential, without model or account-login keys. The gateway receives the rendered origin and proxy trust settings. Do not edit generated files inside these volumes; change operator input and follow [Operations](OPERATIONS.md#change-configuration-or-stop-the-site).
-
-The trusted server administrator controls the deployment directory, Docker socket and backups. Backups include identity keys and user data; preserve them together during recovery.
-
-Configure Cloudflare DNS, proxying and SSL mode in Cloudflare. Host Nginx owns the origin certificate. The application does not need a Cloudflare Global API Key, DNS-editing token or account ID. Git/GHCR authentication uses the Docker or system credential store and is separate from site configuration.

@@ -15,11 +15,21 @@ git merge origin/main
 
 Commit and push reviewed changes, then open a PR into `main`. Contributors without repository write access can use a branch in their own fork. Build releases from committed source or a fixed tag, not an unreviewed working tree.
 
-## Source boundaries
+## Repository layout
 
-`src/` contains Browser Service, the internal API, scheduling and isolated runtime. The LibreChat application is defined by `integrations/librechat/source.lock.json` and `customizations.patch`. Its customized chat, browser panel, accounts, tools, credits, budget and administrator features are maintained together; the upstream MIT license is retained alongside the patch.
+| Path | Contents |
+| --- | --- |
+| `src/` | Browser Service, protocol, scheduling, streaming and isolated runtime |
+| `integrations/librechat/` | Upstream source lock, customization patch and license |
+| `runtime/` | Chrome Dockerfile, extension assets, sandbox rules and licenses |
+| `deploy/agent/` | Application Dockerfiles, setup, shared tools and host Nginx template |
+| `deploy/compose/` | Compose template and container-based operations |
+| `config/` | Tracked settings/secret examples; operator files in `config/local/` are ignored |
+| `scripts/` | Build/release tools and browser-contract synchronization |
+| `test/` | Unit, tooling and acceptance tests |
+| `docs/` | Maintained guides; the root README is the documentation index |
 
-`deploy/compose/` owns the deployment template and container operations entry point. `deploy/agent/app/` contains application setup, mail and account logic; `deploy/agent/lib/` contains shared process, file and archive utilities. See [Architecture](ARCHITECTURE.md).
+Generated `output/`, `.deployment/` and `.playwright-cli/` directories are ignored. They hold build/test output, local deployments and browser-debugging output, respectively; none is a fresh-clone build prerequisite. Preserve active deployment files, named volumes and backups when cleaning local output. See [Architecture](ARCHITECTURE.md) for component responsibilities.
 
 ## Change LibreChat
 
@@ -83,12 +93,8 @@ node --test test/tooling/compose-operations.test.mjs
 
 | Command | Purpose |
 | --- | --- |
-| `npm run release` | Dispatch release CI using the version in package.json |
 | `npm run source:prepare -- --output NEW_DIRECTORY` | Prepare and verify LibreChat source |
 | `npm run runtime:fetch -- --arch arm64` | Download and verify pinned browser assets |
-| `npm run build:agent -- --help` | Build Agent, Browser Service and Chrome runtime |
-| `npm run publish:agent -- --help` | Preview publication, upload to GHCR or verify anonymous pulls |
-| `npm run package:compose -- --release RELEASE_JSON --output NEW_DIRECTORY` | Create Compose deployment files from a release manifest |
 | `npm run test:runtime` | Real Chrome sandbox, process/file/network isolation and failure cleanup; needs Docker |
 | `npm run test:extensions` | Both extensions loading and opening their pages inside a container; needs Docker/Bash |
 
@@ -105,26 +111,28 @@ On amd64, replace both architecture suffixes with `amd64`. The builder fetches p
 
 ## Full Compose acceptance
 
-`deploy/compose/compose.template.yaml` defines the named-volume deployment. The in-container initializer validates input, preserves generated keys and renders gateway configuration. `src/compose-service.ts` discovers the Docker socket group and drops Browser Service to UID 1000. The bundled operations program provides on-demand `ops` commands and the daily `backup` service. Docker CLI, Compose and their licenses are included in the Agent image.
+Run this test on a native Linux host meeting the [deployment prerequisites](DEPLOYMENT.md#1-prepare-a-linux-server), with Node.js 24+, OpenSSL and approximately 6 GiB of available RAM. It creates an independent Compose project with real Chrome and simulated model/TLS mail services, without site credentials, paid model calls or external mail.
 
-Run acceptance on a native Linux host meeting the [deployment prerequisites](DEPLOYMENT.md#1-prepare-a-linux-server). After building the intended images, provide a manifest with `version` and six `images` entries: `agent`, `browser`, `runtime`, `gateway`, `mongo` and `redis`. A published release supplies `release.json`; a local build's `report.json` is not a substitute.
+Provide a manifest with `version` and six `images` entries: `agent`, `browser`, `runtime`, `gateway`, `mongo` and `redis`. A published release supplies `release.json`; a local build's `report.json` is not a substitute.
 
 ```bash
-mkdir -p output
-npm run package:compose -- --release /absolute/path/to/release.json --output output/compose
-npm run accept:compose -- --release /absolute/path/to/release.json --work output/compose-test
+npm ci
+mkdir -p output/tests
+npm run accept:compose -- \
+  --release /absolute/path/to/release.json \
+  --work output/tests/compose-test --port 3350
 ```
 
-Both output directories must be new, with an existing parent directory. Acceptance creates its own deployment; `output/compose` demonstrates packaging and is not its input. For local candidate images, use fixed local tags for the three built images in your manifest and pass `--development` to both commands; official delivery requires immutable digests. Keep the three infrastructure references pinned to the intended release. The acceptance driver uses ports 3350/3351 by default. `--port` selects the first port; the restore project uses the next. Keep these separate from any running site.
-
-The test host needs OpenSSL and approximately 6 GiB of available RAM. The driver starts an independent Compose project with simulated model/TLS mail services and real Chrome accessing public test pages. It does not read site credentials. Deployment subprocesses have only Docker on PATH, so the test checks the absence of a host Node/npm requirement.
+The work directory must be new, with an existing parent directory. Acceptance generates its own deployment files. For local candidate images, use fixed local tags for the three built images in the manifest and add `--development`; official releases require immutable digests. Keep infrastructure references pinned. Ports 3350/3351 must be free; `--port` selects the first, and the restore project uses the next. Deployment subprocesses have only Docker on PATH to check that operators need no host Node/npm installation.
 
 Coverage includes configuration rejection, initial startup, account isolation, credits and budget enforcement, queue admission, handoff/resume, logout cleanup and password recovery. Operations coverage includes persistent keys/data, account creation/reset, active-task backup rejection, verified restore, corrupt-backup rejection, failed-upgrade rollback, interrupted-backup recovery, scheduled retention and backup-service preservation across upgrades.
 
-Cleanup includes all profiles, test containers, networks and volumes. A successful report requires `passed: true`, `cleanup.passed: true` and `cleanup.remaining: 0`. Diagnostic workspaces remain private; only summarized evidence belongs in a release. CI performs this acceptance on both native Linux platforms before publication.
+Inspect `report.json` in the work directory. Confirm the intended version, host architecture and image references, plus `passed: true`, `cleanup.passed: true` and `cleanup.remaining: 0`. Cleanup includes all test profiles, containers, networks and volumes. Keep diagnostic workspaces private; only summarized evidence belongs in a release. Release CI requires this acceptance on both native Linux architectures; emulated builds are not a substitute.
 
 ## Documentation maintenance
 
-Maintained guides are English and live in `docs/`; the [root README](../README.md#documentation) is the only documentation index and contains the repository layout. Use current npm/Node commands and keep deployment-specific paths, credentials and migration narratives out of general instructions. Record verified coverage and acceptance limits in the corresponding release notes and reports.
+Maintained guides are English; the [root README](../README.md#documentation) introduces the product and indexes them. Keep installation steps in Deployment, file/parameter definitions in Configuration, ongoing maintenance in Operations, and publisher commands in Release. Link to the owning guide instead of copying whole explanations or procedures. Build and Development cover source workflows; Architecture explains system behavior.
+
+Use current npm/Node commands and keep deployment-specific paths, credentials and migration narratives out of general instructions. Record verified coverage and acceptance limits in the corresponding release notes and reports.
 
 Deployment, configuration and operations guides are also copied into release directories. Check relative links in both source and delivery layouts. Moving files requires checking the packaging whitelist, Docker COPY instructions and `.dockerignore`. Changes to image inputs require rebuilding the affected release images. Do not silently rewrite old checksummed release assets when updating documentation.
