@@ -45,7 +45,7 @@ In an existing checkout, select the intended commit and run `npm ci`. Complete t
 For a release, complete the [version preparation](RELEASING.md#recommended-github-actions) first. The tag below is an example:
 
 ```bash
-AGENT_VERSION='v0.1.0-rc.2'
+AGENT_VERSION='v0.1.0-rc.3'
 npm run build:agent -- --committed \
   --platforms linux/amd64,linux/arm64 \
   --tag "$AGENT_VERSION"
