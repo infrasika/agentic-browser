@@ -53,6 +53,8 @@ Every lease has a disposable Chrome container and browser profile. Sign-in and e
 
 Chrome has no Docker socket, model key or database volume. Its root filesystem is read-only, it has no direct network connection, and CDP/VNC ports are not published. A read-only mount exposes only that session's egress socket directory. The proxy rejects private addresses, loopback, cloud metadata and the application's own origin. Browser Service and operations containers do have Docker access and are part of the trusted host-management boundary.
 
+The origin restriction matches the hostname (including case and trailing-dot variants). Other hostnames may use the same public CDN IPs; sharing a Cloudflare address does not make a website a management endpoint. Direct-IP requests are also checked against the origin's resolved addresses, failing closed if that lookup fails. Explicitly denied IPs apply to named destinations too. All destination DNS answers must be public, and connections use the checked address without a second lookup. Hostname filtering is defense in depth: it does not identify every alias or inspect the hostname inside a TLS tunnel. Management security relies on authenticated APIs and isolation, not ownership of a shared CDN address.
+
 ## Data and usage accounting
 
 MongoDB stores accounts, password hashes, conversations, personal credits, site budgets and billing records. Redis stores streams, resume state and short-lived cache data. Browser Service keeps scheduling and events in a separate SQLite database.

@@ -16,5 +16,63 @@ test('egress: every DNS answer is checked and the dial target is pinned; managem
   await assert.rejects(resolvePublicTarget(new URL('https://control.invalid'), async () => [{ address: '1.1.1.1', family: 4 }], ['control.invalid']));
   await assert.rejects(resolvePublicTarget(new URL('https://1.1.1.1'), async () => [{ address: '1.1.1.1', family: 4 }], ['control.invalid']));
   await assert.rejects(resolvePublicTarget(new URL('https://1.1.1.1'), async () => { throw new Error('DNS failure'); }, ['control.invalid']));
+  await assert.rejects(resolvePublicTarget(new URL('https://1.1.1.1'), async () => [], ['control.invalid']));
+  await assert.rejects(resolvePublicTarget(new URL('https://[2606:4700:4700::1111]'), async () => [{ address: '2606:4700:4700:0:0:0:0:1111', family: 6 }], ['control.invalid']));
   await assert.rejects(resolvePublicTarget(new URL('https://[2606:4700:4700::1111]'), async () => [], ['2606:4700:4700:0:0:0:0:1111']));
+});
+
+test('egress: unrelated hostnames may share management CDN addresses without resolving the management hostname', async () => {
+  for (const addresses of [
+    [{ address: '104.26.0.214', family: 4 }],
+    [{ address: '2606:4700:20::681a:d6', family: 6 }],
+    [{ address: '104.26.0.214', family: 4 }, { address: '2606:4700:20::681a:d6', family: 6 }],
+  ]) {
+    const queries: string[] = [];
+    const target = await resolvePublicTarget(new URL('https://portal.example/'), async host => {
+      queries.push(host);
+      return addresses;
+    }, ['agent.example']);
+    assert.equal(target.hostname, 'portal.example');
+    assert.equal(target.address, addresses[0].address);
+    assert.deepEqual(queries, ['portal.example']);
+  }
+});
+
+test('egress: a management DNS outage does not block unrelated named websites', async () => {
+  const target = await resolvePublicTarget(new URL('https://portal.example/'), async host => {
+    if (host === 'agent.example') throw new Error('Management DNS unavailable');
+    return [{ address: '1.1.1.1', family: 4 }];
+  }, ['agent.example']);
+  assert.equal(target.address, '1.1.1.1');
+});
+
+test('egress: management hostnames are blocked with case and trailing-dot variations before DNS', async () => {
+  for (const blocked of ['agent.example', 'AGENT.EXAMPLE', 'agent.example.']) {
+    for (const hostname of ['agent.example', 'AGENT.EXAMPLE', 'agent.example.']) {
+      let queried = false;
+      await assert.rejects(resolvePublicTarget(new URL(`https://${hostname}/`), async () => {
+        queried = true;
+        return [{ address: '1.1.1.1', family: 4 }];
+      }, [blocked]), /Management target denied/);
+      assert.equal(queried, false);
+    }
+  }
+});
+
+test('egress: explicit management IPs still block named aliases and mixed DNS answers', async () => {
+  for (const [blocked, address, family] of [
+    ['1.1.1.1', '1.1.1.1', 4],
+    ['[2606:4700:4700:0:0:0:0:1111]', '2606:4700:4700::1111', 6],
+  ] as const) {
+    for (const addresses of [[{ address, family }], [{ address: '8.8.8.8', family: 4 }, { address, family }]]) {
+      await assert.rejects(resolvePublicTarget(new URL('https://alias.example/'), async () => addresses, [blocked]), /Management address denied/);
+    }
+  }
+});
+
+test('egress: shared public addresses never exempt a private DNS answer', async () => {
+  await assert.rejects(resolvePublicTarget(new URL('https://portal.example/'), async () => [
+    { address: '104.26.0.214', family: 4 },
+    { address: '169.254.169.254', family: 4 },
+  ], ['agent.example']), /Address denied/);
 });
