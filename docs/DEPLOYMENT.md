@@ -1,6 +1,6 @@
 # Deploy on your own server
 
-This guide installs chat, the browser panel, local accounts, personal credits and a site-wide budget. The server needs Docker Engine and Compose; it does not need source code, Node.js, npm or a separate MCP service. Private use can keep registration closed and connect through an SSH tunnel. Public deployment uses Cloudflare and host Nginx.
+Install a published release on your own server. Follow steps 1–4 for private access, add steps 5–6 for public HTTPS, then complete the checks and backups. For an existing installation, use [Operations](OPERATIONS.md); parameter definitions are in [Configuration](CONFIGURATION.md).
 
 The commands below target the verified **v0.1.0-preview.11** Compose release. For newer versions, check the [release notes and verification reports](https://github.com/infrasika/agentic-browser/releases) and use matching assets from one release. Historical preview installers are not interchangeable with these commands.
 
@@ -27,7 +27,7 @@ The server needs outbound access to image registries, the model API and target w
 
 ## 2. Download and verify release files
 
-Choose a new private directory. The following downloads all 15 attachments from the pinned release without a GitHub token:
+Choose a new private directory and download the matching release files. No GitHub token is needed:
 
 ```bash
 umask 077
@@ -50,23 +50,9 @@ cd "$HOME/my-agent"
 )
 ```
 
-Continue only after every checksum reports `OK`. Verify before editing configuration: local edits will intentionally change its checksums. Keep downloaded templates and a verified backup before future upgrades.
+Continue only after every checksum reports `OK`. Verify before editing configuration: local edits will intentionally change its checksums.
 
-The minimum runtime files are `compose.yaml`, `settings.json` and `secrets.env`. The latter two are templates, not working credentials. Do not use `deploy/compose/compose.template.yaml` directly: release tooling must replace its image placeholders. Docker selects the appropriate Linux architecture from the same published image references.
-
-This release provides individual files, not a universal deployment archive or a `curl | sh` installer. The bundled guides are snapshots from publication; the repository contains the maintained guides.
-
-### Which files do I edit?
-
-| File | Operator action |
-| --- | --- |
-| `settings.json` | **Required:** set the site, administrator email and model settings in step 3 |
-| `secrets.env` | **Required:** fill the model key and initial administrator password; add Turnstile/mail credentials when enabled |
-| `.env` | Optional Compose parameters; create the small file in step 4 to keep the project name explicit. Change ports, input directory or backup schedule only when needed |
-| `nginx.host.conf` | Public access only: install and adapt this host Nginx template in step 6. Private SSH access does not use it |
-| `compose.yaml` | Keep the release version; ordinary customization uses the files above. Upgrade through `ops upgrade` |
-| `release.json` | Do not edit. Release manifest recording the version, supported architectures and six image references; Compose starts from `compose.yaml`, not this manifest |
-| `publication.json`, acceptance/pull reports, `SHA256SUMS` | Do not edit. Publication, test and checksum evidence; no credentials or user settings belong here |
+Use the downloaded `compose.yaml`; Docker selects the host architecture automatically. The bundled guides are publication snapshots. See [Deployment files](CONFIGURATION.md#deployment-files) for which files to edit; the next steps cover the required changes.
 
 ## 3. Fill in settings and credentials
 
@@ -85,9 +71,7 @@ nano secrets.env
 | `secrets.env`: `QWEN_API_KEY` | Key matching the model, region and endpoint |
 | `DEMO_ADMIN_PASSWORD` | Initial administrator password of at least 12 characters; save it in your password manager |
 
-Start with `registration: closed` and `browser.maximum: 1`. Leave both Turnstile keys empty until enabling it. Capacity can be 1–10; each account can hold one unfinished session. See [Configuration](CONFIGURATION.md) for all fields, rates and separate configuration directories.
-
-The initial password creates the administrator only once. Application identity keys are generated inside persistent volumes. Image builds require none of these deployment credentials.
+Keep the initial `registration: closed` and `browser.maximum: 1` values, and leave both Turnstile keys empty until step 7. Leave the two configuration files beside `compose.yaml` for this walkthrough; [Configuration](CONFIGURATION.md) covers other settings and locations.
 
 ## 4. Start and check the application
 
@@ -99,9 +83,7 @@ AGENT_PORT=3333
 AGENT_BIND=127.0.0.1
 ```
 
-Compose automatically reads this file to substitute parameters in the YAML. It is not the application's secrets file and is not generated at startup. These port and bind values already match the defaults; the explicit project name keeps this installation's containers and volumes identifiable. Keep that name unchanged for future operations. With all defaults, `.env` can be omitted; [Configuration](CONFIGURATION.md#compose-env-and-interpolation) lists the available parameters.
-
-MongoDB and Redis persistence is already configured: Compose creates named volumes on the Docker host and mounts them at `/data/db` and `/data` respectively. You do not need to create database directories, add host mounts or enter separate database credentials. Generated identity keys, uploads and browser scheduler data also use persistent volumes. See [Persistent data](CONFIGURATION.md#persistent-data) for the complete mapping and how to locate it on disk.
+Keep this project name unchanged for future operations. Other [Compose parameters](CONFIGURATION.md#compose-env-and-interpolation) can use their defaults. MongoDB, Redis and application identity already use [persistent volumes](CONFIGURATION.md#persistent-data); no extra storage setup is required.
 
 ```bash
 docker compose up -d
@@ -149,8 +131,6 @@ docker compose run --rm ops status
 
 Keeping the network preserves its address. Check it again if the network is removed and recreated.
 
-`nginx.host.conf` configures Nginx on the host, which terminates HTTPS and forwards requests to the Compose gateway. Compose does not automatically load this file; its internal gateway configuration is generated separately.
-
 Install the supplied Nginx template. Replace the certificate source paths below with your actual files; if a usable certificate is already installed, reference its existing paths in the template instead of overwriting it:
 
 ```bash
@@ -179,18 +159,18 @@ Expect HTTP 200. The login URL must match `origin`. Keep the Compose gateway on 
 
 ## 7. Choose registration policy and verify features
 
-**Private or team use:** keep `registration: closed`. Existing accounts can log in; create ordinary users with `ops user-create` as described in [Operations](OPERATIONS.md). Administrators and ordinary users share a login page, with permissions assigned by role.
+**Private or team use:** keep `registration: closed`. Log in as the administrator and [create ordinary accounts](OPERATIONS.md#create-accounts-and-reset-passwords) as needed.
 
-**Public demo:** create a [Turnstile widget](https://developers.cloudflare.com/turnstile/get-started/) for your actual hostname. Put its site key in `turnstileSiteKey` and secret in `TURNSTILE_SECRET_KEY`, then set `registration: public`. Follow the operations guide to stop writers and regenerate configuration. Both frontend and server verification are included; no custom Worker is required.
+**Public demo:** create a [Turnstile widget](https://developers.cloudflare.com/turnstile/get-started/) for your actual hostname. Put its site key in `turnstileSiteKey` and secret in `TURNSTILE_SECRET_KEY`, then set `registration: public`. Apply these changes using the [configuration update procedure](OPERATIONS.md#change-configuration-or-stop-the-site).
 
-Email is optional. Follow the Cloudflare SMTP setup in the operations guide to enable password recovery. Without email, a server administrator can reset accounts through `ops user-reset`.
+For password recovery by email, follow [Email setup](OPERATIONS.md#enable-email-password-recovery). Without email, use the account-reset command in Operations.
 
 Verify in your own browser:
 
 - Log in, run the GitHub example, take browser control and click Done; confirm the task resumes.
 - Enter website passwords and verification codes in the controlled browser, not chat; check the final result.
 - For public registration, use an ordinary account to check its initial credits, real model charges, chat history and lack of administrator access.
-- Check the site budget in the administrator interface. The default represents USD 20 per day using the configured rates.
+- Check that the balances and site budget in the administrator interface match your intended limits.
 - If email is enabled, confirm actual receipt and complete a password-reset flow.
 
 ## 8. Enable backups
@@ -203,6 +183,4 @@ docker compose --profile backups up -d backup
 docker compose logs --tail 20 backup
 ```
 
-By default, backup runs when idle after 04:00 Asia/Shanghai and keeps the latest seven completed backups. Backups live under the deployment directory's `backups/`; application data lives in dedicated named volumes. Copy completed backups off the server and test a restore using [Operations](OPERATIONS.md). Copying only the deployment directory does not copy the live MongoDB or Redis volumes. Keep `.env` and the installed host Nginx configuration/certificates separately; `ops backup` does not include them.
-
-**Do not run `docker compose down -v` or `--volumes` on an installation you want to keep.** It removes data and identity keys. Container recreation preserves volumes. Diagnose startup failures through init logs and `ops status`; do not delete volumes to work around invalid configuration.
+Follow [Operations](OPERATIONS.md#health-and-manual-backups) to review backup coverage, adjust the schedule, copy completed backups off-host and test a restore. **Do not run `docker compose down -v` on an installation you want to keep:** it deletes persistent data.
