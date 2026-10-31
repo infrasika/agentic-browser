@@ -131,7 +131,7 @@ Inspect `report.json` in the work directory. Confirm the intended version, host 
 
 ## Documentation maintenance
 
-Maintained guides are English; the [root README](../README.md#documentation) introduces the product and indexes them. Keep installation steps in Deployment, file/parameter definitions in Configuration, ongoing maintenance in Operations, and publisher commands in Release. Link to the owning guide instead of copying whole explanations or procedures. Build and Development cover source workflows; Architecture explains system behavior.
+Maintained guides are English; the [root README](../README.md#documentation) introduces the product and indexes them. Keep installation steps in Deployment, file/parameter/storage definitions in Configuration, running-site procedures in Operations, local image builds in Build, and publication in Release. Development owns source changes and testing; Architecture explains system behavior. Link to the owning guide instead of copying whole explanations or procedures.
 
 Use current npm/Node commands and keep deployment-specific paths, credentials and migration narratives out of general instructions. Record verified coverage and acceptance limits in the corresponding release notes and reports.
 

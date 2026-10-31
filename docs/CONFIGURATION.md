@@ -95,18 +95,18 @@ See [Docker's interpolation reference](https://docs.docker.com/compose/how-tos/e
 
 The supplied Compose file already persists data in **Docker named volumes** on the server's disk. Compose creates them automatically; operators do not need to make MongoDB/Redis directories or modify the YAML. These volumes exist independently of containers and image layers. See [Docker's volume documentation](https://docs.docker.com/engine/storage/volumes/).
 
-| Compose volume | Main mount / contents | Included in `ops backup`? |
-| --- | --- | --- |
-| `mongo-data` | MongoDB `/data/db`: accounts, chats, credits and budget records | Yes |
-| `redis-data` | Redis `/data`: persisted Redis state used by the application | Yes |
-| `browser-data` | Browser Service `/data`: scheduler database and runtime records | Yes |
-| `config` | Agent `/config` and `/run/secrets`: generated configuration, identity keys and mail verification state | Yes |
-| `browser-config` | Browser Service `/service-config`: generated browser settings and internal credentials | Yes |
-| `gateway-config` | Gateway `/etc/nginx/agent`: generated routing and proxy settings | Yes |
-| `uploads` | Agent `/app/uploads`: uploaded files | Yes |
-| `images` | Agent `/app/client/public/images`: stored image files | Yes |
-| `logs` | Agent `/app/logs`: application log files | Yes |
-| `operations` | Operations `/state`, gateway `/maintenance`: operation locks, maintenance state and schedule receipts | No; managed by operations on the target installation |
+| Compose volume | Main mount / contents |
+| --- | --- |
+| `mongo-data` | MongoDB `/data/db`: accounts, chats, credits and budget records |
+| `redis-data` | Redis `/data`: persisted Redis state used by the application |
+| `browser-data` | Browser Service `/data`: scheduler database and runtime records |
+| `config` | Agent `/config` and `/run/secrets`: generated configuration, identity keys and mail verification state |
+| `browser-config` | Browser Service `/service-config`: generated browser settings and internal credentials |
+| `gateway-config` | Gateway `/etc/nginx/agent`: generated routing and proxy settings |
+| `uploads` | Agent `/app/uploads`: uploaded files |
+| `images` | Agent `/app/client/public/images`: stored image files |
+| `logs` | Agent `/app/logs`: application log files |
+| `operations` | Operations `/state`, gateway `/maintenance`: operation locks, maintenance state and schedule receipts |
 
 Redis starts with `--appendonly yes --appendfsync everysec`: its append-only log is stored on `redis-data`. This provides persistence with a possible loss of about one second of recent writes after an abrupt failure; it is not a zero-loss guarantee. See [Redis persistence](https://redis.io/docs/latest/operate/oss_and_stack/management/persistence/). MongoDB and Redis have no published host ports and communicate over the internal database network.
 
@@ -119,6 +119,6 @@ docker volume inspect my-agent_redis-data --format '{{.Mountpoint}}'
 docker info --format '{{.DockerRootDir}}'
 ```
 
-The reported mountpoints are Docker-managed locations; do not edit their files or copy a running database as a backup. Use `ops backup` and `ops restore` so data and identity keys stay together. Browser scheduler persistence does not make active Chrome sessions or website login cookies a permanent user profile.
+The reported mountpoints are Docker-managed locations; do not edit their files or copy a running database as a backup. See [Operations](OPERATIONS.md#health-and-manual-backups) for backup coverage and recovery procedures. Browser scheduler persistence does not make active Chrome sessions or website login cookies a permanent user profile.
 
 For a dedicated data disk, provision durable storage for Docker before installing and allow room for image layers, volumes and backups. `AGENT_CONFIG_DIR` is not a database storage setting. Replacing named volumes with arbitrary bind mounts is outside the supported deployment: the built-in backup/restore commands expect the declared named volumes and do not archive custom host mounts. Moving an existing Docker data directory is separate host administration affecting all its containers.
