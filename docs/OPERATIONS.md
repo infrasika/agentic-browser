@@ -1,20 +1,8 @@
 # Operations
 
-Run these commands from the directory containing `compose.yaml`. The server needs Docker and Compose; `ops` is an on-demand management container with no public interface. Site administrators use the application administrator interface to adjust balances and the daily budget.
+Maintain an existing installation using Docker and Compose. For first installation, use [Deployment](DEPLOYMENT.md); for file, parameter and storage definitions, use [Configuration](CONFIGURATION.md). Run all commands below from the directory containing `compose.yaml`, keeping its project name unchanged.
 
-## Data retention
-
-MongoDB, Redis, uploads, identity keys and other application state use the [named volumes listed in Configuration](CONFIGURATION.md#persistent-data). Keep the deployment's `COMPOSE_PROJECT_NAME` stable; it determines which volumes are selected.
-
-| Action | Effect on stored data |
-| --- | --- |
-| Stop, restart or recreate containers | Existing named volumes are retained; restarting alone does not apply changed input configuration |
-| `docker compose --profile '*' down` without volume removal | Retains named volumes but removes containers and networks; recheck `trustedProxyIPs` after startup |
-| Change the project name | Selects a different set of volumes and can look like a fresh installation; check the original project name before attempting recovery |
-| Copy only `compose.yaml`, settings and secrets to another host | Does not copy database or other named-volume data; restore a completed backup on the new host |
-| `down -v`, `down --volumes`, or deletion/pruning of these volumes | Deletes stored data; never use these to repair an installation you want to keep |
-
-Persistence survives container replacement, but it is not protection against a lost server or disk. Keep completed backups on another host and test recovery. Do not manually remove the `operations` volume or maintenance markers to bypass an interrupted operation.
+`ops` is an on-demand management container with no public interface. Use the application's administrator interface to adjust balances and the daily budget.
 
 ## Health and manual backups
 
@@ -23,21 +11,23 @@ docker compose run --rm ops status
 docker compose run --rm ops backup
 ```
 
-`status` reports health, maintenance state and the latest scheduled-backup receipt. Backup requires no active Agent or browser tasks; if busy, it exits so you can retry later. It enables maintenance, drains requests, stops writers and saves complete application data before restoring service. The result's `backup` field is relative to the deployment directory, such as `backups/20261031T040000Z-1234abcd`.
+`status` reports health, maintenance state and the latest scheduled-backup receipt. Backup requires no active Agent or browser tasks; retry later if busy. It enables maintenance, drains requests, stops writers, archives data and resumes service. The result's `backup` field gives the completed directory, such as `backups/20261031T040000Z-1234abcd`.
 
-Backups include `settings.json`, `secrets.env`, the current `compose.yaml` and all nine application data/configuration volumes marked in the configuration table, including MongoDB, Redis and identity keys. Files are SHA256-checked. Incomplete `.pending-*` directories are not restorable backups. Keep archives private and copy the entire completed directory for off-host storage.
+Backups include `settings.json`, `secrets.env`, the current `compose.yaml` and all nine application data/configuration volumes in the [storage reference](CONFIGURATION.md#persistent-data), including MongoDB, Redis and identity keys. The `operations` volume is excluded: locks and maintenance state belong to the target installation.
 
-The `operations` volume is not part of that archive; its locks and maintenance state belong to the target's operations workflow. `.env` is also excluded: the target's project name, bind address, port and backup schedule are not overwritten by restoration. Save `.env` and the installed host Nginx configuration/certificates separately for disaster recovery.
+Also excluded are `.env`, host Nginx configuration/certificates, image layers, custom mounts and override files. Save host configuration separately and ensure the release images remain available. Restoration preserves the target's `.env` project name, bind address, port and backup schedule.
 
-Replace `BACKUP_ID` below with the actual completed directory name:
+Files are SHA256-checked; incomplete `.pending-*` directories cannot be restored. Verify a completed backup, replacing `BACKUP_ID` with its directory name:
 
 ```bash
 docker compose run --rm ops verify-backup backups/BACKUP_ID
 ```
 
+Keep backups private, copy the entire completed directory off-host and test restoration. Persistent volumes alone do not protect against losing the server or disk.
+
 ## Daily backup scheduling
 
-Add or update these deployment `.env` values:
+Set the schedule in the deployment `.env`, for example:
 
 ```dotenv
 AGENT_BACKUP_TIMEZONE=Asia/Shanghai
@@ -50,11 +40,11 @@ docker compose --profile backups up -d backup
 docker compose logs --tail 20 backup
 ```
 
-The scheduler checks every minute. After the configured hour in that timezone, it backs up when the site is idle; missed schedules run later, and a successful day is not repeated. Retention keeps the newest seven completed backups by default. Manual and pre-upgrade backups count toward retention too. `AGENT_BACKUP_KEEP` accepts 1–365. The scheduler shares the manual-operations lock and defers during maintenance. Repeat the `up` command after changing its settings.
+The scheduler checks every minute and backs up when idle after the configured hour; missed schedules run later, without repeating a successful day. It shares the operations lock and defers during maintenance. Retention also counts manual and pre-upgrade backups. See [Compose parameters](CONFIGURATION.md#compose-env-and-interpolation) for defaults and limits; repeat `up` after changing them.
 
 ## Restore into a new project
 
-First verify restoration in a new deployment directory and Compose project. Obtain matching release files containing `ops`, and copy the complete backup directory into the new deployment's `backups/`. Configure a different project name and unused port in its `.env`:
+Test restoration in a new deployment directory and Compose project. Obtain files from the backed-up application version, use a supported Linux architecture and copy the entire backup directory into `backups/`. Configure a different project name and unused port in the new directory's `.env`:
 
 ```dotenv
 COMPOSE_PROJECT_NAME=agent-restored
@@ -73,7 +63,7 @@ docker compose run --rm ops recover
 docker compose run --rm ops status
 ```
 
-Verify accounts, chats, credits and browser behavior before directing traffic to the restored project. Restore refuses to overwrite an existing project by default. Add `--replace` only when you intend to replace all its data with the backup. Corrupt backups are rejected before existing services are modified.
+Verify accounts, chats, credits and browser behavior before directing traffic to the restored project. Restore rejects corrupt backups and refuses to overwrite an existing project by default. Add `--replace` only to intentionally replace all its data. Restore does not convert database formats; database major-version changes need separate validation.
 
 ## Upgrade and rollback
 
@@ -96,8 +86,6 @@ If the new image cannot even run `ops`, start the old management tool using the 
 docker compose --project-directory "$PWD" \
   -f backups/PRE_UPGRADE_BACKUP_ID/compose.yaml run --rm ops rollback
 ```
-
-After an interrupted ordinary backup, `ops recover` cleans up archive helpers and resumes service. It refuses to bypass an incomplete upgrade or destructive restore: use `rollback` or restore again from a verified backup as appropriate. Do not remove maintenance markers manually.
 
 ## Create accounts and reset passwords
 
@@ -148,9 +136,15 @@ docker compose run --rm ops status
 docker compose --profile backups up -d backup
 ```
 
-`restart` alone does not regenerate input configuration. Preserve the project name and network. `stop` retains containers, networks and data volumes. To remove containers, `docker compose --profile '*' down` can be used without `-v` or `--volumes`; recheck the Docker gateway in `trustedProxyIPs` after network recreation.
+Choose shutdown and recovery actions with their data effects in mind:
 
-Backups do not include image layers, host Nginx/certificates, custom extra mounts or override files. Keep these dependencies separately. Restore to the same application version and a supported CPU architecture; database major-version changes need separate validation. A named-volume backup is not a database-format converter.
+| Action | Effect |
+| --- | --- |
+| `stop` | Retains containers, networks and data; use the procedure above to apply changed inputs |
+| `restart` | Retains data but does not regenerate input configuration |
+| `docker compose --profile '*' down` without volume removal | Retains data, removes containers/networks; recheck `trustedProxyIPs` after network recreation |
+| Change `COMPOSE_PROJECT_NAME` | Selects different volumes and can look like a fresh installation; check the original name before recovery |
+| `down -v`, `down --volumes`, or deletion/pruning of volumes | Deletes stored data; never use these to repair an installation you want to keep |
 
 ## Enable email password recovery
 
@@ -172,7 +166,7 @@ Add this `smtp` object to the top level of your existing `settings.json`; merge 
 
 Set `SMTP_PASSWORD` to that token. The sender must belong to your verified sending domain, and `api_token` is the literal username. See [Cloudflare's SMTP parameters and permissions](https://developers.cloudflare.com/email-service/api/send-emails/smtp/).
 
-Load the settings using the configuration-change procedure above, then explicitly send a test message to an address you own:
+Apply the [configuration update](#change-configuration-or-stop-the-site), then send a test message to an address you own:
 
 ```bash
 docker compose run --rm ops mail-test --to your-address@example.com
@@ -182,14 +176,21 @@ docker compose up -d --wait agent
 
 This command sends real email. Confirm both an accepted response and actual receipt; SMTP acceptance alone does not prove inbox delivery. The verified receipt is stored in the configuration volume, and Agent enables Forgot Password after restarting. Changing origin, sending settings or credentials invalidates the old receipt and requires retesting.
 
-Other SMTP providers use the same fields, with implicit TLS (`tls`) or mandatory STARTTLS (`starttls`) and certificate verification. Without email, use `ops user-reset`. Backup, restore and upgrade themselves do not call the model or send email.
+Other SMTP providers use the same fields, with implicit TLS (`tls`) or mandatory STARTTLS (`starttls`) and certificate verification. Without email, use [account password reset](#create-accounts-and-reset-passwords).
 
 ## Troubleshooting
 
 ```bash
 docker compose ps -a
 docker compose logs --tail 50 init agent browser gateway
-docker compose run --rm ops status
 ```
 
-For initialization errors, correct the reported configuration fields without deleting volumes. Resolve maintenance according to the recorded operation with recover, rollback or restore. Redact email addresses, user content and session information before sharing logs. Ordinary users cannot use the administrator interface even though all roles share the same login page.
+Use logs and `ops status` to identify the failure:
+
+| Problem | Action |
+| --- | --- |
+| Initialization rejected configuration | Correct the reported fields and repeat the configuration update; preserve volumes |
+| Interrupted ordinary backup | Run `docker compose run --rm ops recover` to clean up archive helpers and resume service |
+| Incomplete upgrade or destructive restore | Follow rollback or repeat restore from a verified backup; `recover` refuses to bypass these operations |
+
+Do not remove the `operations` volume or maintenance markers to bypass a failure. Redact secrets, email addresses, user content and session information before sharing logs.
