@@ -106,4 +106,4 @@ Publication pins and verifies official MongoDB, Redis and Nginx images rather th
 
 Set `BUILD_DIR` to the actual output directory in [Release](RELEASING.md). Do not edit reports, reuse a version for unrelated contents or delete images still needed for publication.
 
-A successful build is not runtime acceptance. Deployment targets are Linux; Mac is a build and publication host. Verify each target on its native Linux architecture. macOS source checks skip two Linux-only `flock` tests and do not prove a Mac Docker build. See [Status](STATUS.md) for verified coverage and [Development](DEVELOPMENT.md) for test entry points.
+A successful build is not runtime acceptance. Deployment targets are Linux; Mac is a build and publication host. Verify each target on its native Linux architecture. macOS source checks skip two Linux-only `flock` tests and do not prove a Mac Docker build. See the release's acceptance reports for verified coverage and [Development](DEVELOPMENT.md) for test entry points.

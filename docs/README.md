@@ -6,15 +6,13 @@ Agentic Browser combines chat, a remote browser, local accounts and usage budget
 
 | Task | Guide |
 | --- | --- |
-| Use the GitHub example and hand browser control back to the Agent | [Agent demo](AGENT_DEMO.md) |
 | Understand components, identity, storage and isolation | [Architecture](ARCHITECTURE.md) |
 | Change source, maintain the LibreChat patch and run tests | [Development](DEVELOPMENT.md) |
 | Build Linux amd64/arm64 images on Mac or Ubuntu | [Build](BUILD.md) |
 | Publish images, verify them and prepare deployment files | [Release](RELEASING.md) |
 | Install on a Linux server, with registration closed or open | [Deployment](DEPLOYMENT.md) |
-| Set parameters and credentials; understand Compose `.env` | [Configuration](CONFIGURATION.md) |
+| Set parameters and credentials; understand `.env`, proxy files and persistent volumes | [Configuration](CONFIGURATION.md) |
 | Manage accounts, mail, backups, restores and upgrades | [Operations](OPERATIONS.md) |
-| Check delivered features, verified platforms and remaining work | [Status](STATUS.md) |
 
 Building reads source and public dependencies. Publishing uses registry credentials. Deployment supplies model, site and optional mail credentials. The same images support different domains and operator configurations.
 
@@ -32,7 +30,7 @@ Building reads source and public dependencies. Publishing uses registry credenti
 | `scripts/build/` | Source preparation, asset downloads, image builds and publication | Yes |
 | `scripts/sync-browser-contract.mjs` | Browser API contract synchronization | Yes |
 | `test/` | Unit tests, tooling tests and full acceptance drivers | Yes |
-| `docs/` | Maintained guides and release status | Yes |
+| `docs/` | Maintained guides | Yes |
 | `output/` | Download caches, build logs, candidate packages and test evidence | No |
 | `.deployment/` | Local Compose deployments and backups; not a build input | No |
 

@@ -73,4 +73,4 @@ The documented public entry is Cloudflare DNS/proxy, Full (strict) HTTPS to host
 
 A release pins six images: Agent, Browser Service, Chrome runtime, gateway, MongoDB and Redis. Compose pulls the runtime image through a one-shot service; Browser Service creates the actual Chrome containers per session. The Agent image contains the bundled operations program, Docker CLI and Compose plugin, so deployment hosts do not need Node/npm.
 
-See [Build](BUILD.md), [Release](RELEASING.md) and [repository layout](README.md) for tooling boundaries. [Status](STATUS.md) records verified coverage and outstanding acceptance work.
+See [Build](BUILD.md), [Release](RELEASING.md) and [repository layout](README.md) for tooling boundaries. Release notes and their attached reports record verification coverage.

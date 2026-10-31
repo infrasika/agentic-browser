@@ -124,6 +124,6 @@ Cleanup includes all profiles, test containers, networks and volumes. A successf
 
 ## Documentation maintenance
 
-Maintained guides are English and live in `docs/`; the root README is the entry point. Use current npm/Node commands and keep deployment-specific paths, credentials and migration narratives out of general instructions. [Status](STATUS.md) is the single record of verified and outstanding work.
+Maintained guides are English and live in `docs/`; the root README is the entry point. Use current npm/Node commands and keep deployment-specific paths, credentials and migration narratives out of general instructions. Record verified coverage and acceptance limits in the corresponding release notes and reports.
 
 Deployment, configuration and operations guides are also copied into release directories. Check relative links in both source and delivery layouts. Moving files requires checking the packaging whitelist, Docker COPY instructions and `.dockerignore`. Changes to image inputs require rebuilding the affected release images. Do not silently rewrite old checksummed release assets when updating documentation.
