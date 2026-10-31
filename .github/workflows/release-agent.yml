@@ -1,10 +1,10 @@
-name: Publish Agent preview
+name: Publish Agent prerelease
 run-name: Publish ${{ inputs.version }} from ${{ github.ref_name }}
 on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'New immutable preview version (vX.Y.Z-preview.N)'
+        description: 'New immutable prerelease version (vX.Y.Z-rc.N or vX.Y.Z-preview.N)'
         required: true
         type: string
       build_run_id:
@@ -23,15 +23,30 @@ env:
 
 jobs:
   validate:
-    name: Validate release branch
+    name: Validate release branch and version
     runs-on: ubuntu-24.04
     timeout-minutes: 2
-    permissions: {}
+    permissions:
+      contents: read
     steps:
       - name: Require main
         run: |
           if [[ "$GITHUB_REF" != refs/heads/main ]]; then
             echo '::error::Releases must run from main. Merge the changes into main before publishing.'
+            exit 1
+          fi
+          if [[ ! "$RELEASE_VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-(rc|preview)\.[0-9]+$ ]]; then
+            echo '::error::Use a vX.Y.Z-rc.N or vX.Y.Z-preview.N prerelease version.'
+            exit 1
+          fi
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Match the committed package version
+        run: |
+          expected="v$(jq -r .version package.json)"
+          if [[ "$RELEASE_VERSION" != "$expected" ]]; then
+            echo "::error::Requested version must match package.json ($expected)."
             exit 1
           fi
   checks:
@@ -182,7 +197,7 @@ jobs:
           path: publication
       - name: Verify evidence and checksum every asset
         run: node scripts/build/release-ci.mjs collect
-      - name: Publish the verified preview with a new tag
+      - name: Publish the verified prerelease with a new tag
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |

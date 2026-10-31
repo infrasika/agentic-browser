@@ -63,6 +63,9 @@ test('only explicit trusted reverse proxies can supply client IP addresses', () 
   assert.match(nginx,/set_real_ip_from 172\.30\.0\.1;/);
   assert.match(nginx,/real_ip_header X-Real-IP/);
   assert.doesNotMatch(gatewayConfiguration(config.origin),/set_real_ip_from/);
+  const ipv6=validateSettings({...settings,trustedProxyIPs:['fd00::1']},secrets).config;
+  assert.match(gatewayConfiguration(ipv6.origin,ipv6.trustedProxyIPs),/set_real_ip_from fd00::1;/);
+  assert.throws(()=>validateSettings({...settings,trustedProxyIPs:Array(9).fill('172.30.0.1')},secrets));
   for (const ip of ['0.0.0.0/0','127.0.0.1; return 200','example.test']) {
     assert.throws(()=>validateSettings({...settings,trustedProxyIPs:[ip]},secrets));
     assert.throws(()=>gatewayConfiguration(config.origin,[ip]));

@@ -14,7 +14,7 @@ export const settingsSchema = z.object({
   version: z.literal(1),
   name: z.string().trim().min(1).max(100).default('Agentic Browser'),
   origin: safeOrigin,
-  trustedProxyIPs: z.array(z.string().ip()).max(8).default([]),
+  trustedProxyIPs: z.array(z.union([z.ipv4(), z.ipv6()])).max(8).default([]),
   adminEmail: z.string().email(),
   registration: z.enum(['closed', 'public']).default('closed'),
   turnstileSiteKey: z.string().default(''),

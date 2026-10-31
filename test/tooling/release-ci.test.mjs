@@ -7,8 +7,9 @@ import { run, digest } from '../../deploy/agent/lib/system.mjs';
 import { temporary } from './fixtures.mjs';
 
 const script=path.resolve('scripts/build/release-ci.mjs');
-test('release collection requires both native receipts and checksums every delivered file',()=>temporary(async root=>{
-  const version='v1.0.0-preview.1', commit='a'.repeat(40);
+for (const version of ['v1.0.0-preview.1', 'v0.1.0-rc.1']) {
+test('release collection verifies native receipts and checksums for '+version,()=>temporary(async root=>{
+  const commit='a'.repeat(40);
   const images=Object.fromEntries(['agent','browser','runtime','gateway','mongo','redis'].map(n=>[n,'example/'+n+'@sha256:'+'b'.repeat(64)]));
   fs.mkdirSync(path.join(root,'publication'));fs.mkdirSync(path.join(root,'delivery'));
   const write=(name,value)=>fs.writeFileSync(path.join(root,name),JSON.stringify(value));
@@ -17,7 +18,7 @@ test('release collection requires both native receipts and checksums every deliv
     write('delivery/public-pull-'+arch+'.json',{version,images,anonymousPullVerified:true});
     write('delivery/compose-acceptance-'+arch+'.json',{passed:true,cleanup:{passed:true,remaining:0},version,images,packageCommit:commit,architecture:arch==='amd64'?'x64':'arm64',hostPlatform:'linux',hostNodeOnDeploymentPath:false});
   }
-  const collect=()=>run([process.execPath,script,'collect'],{cwd:root,env:{...process.env,RELEASE_VERSION:version,GITHUB_REPOSITORY_OWNER:'fixture',GITHUB_SHA:commit}});
+  const collect=()=>run([process.execPath,script,'collect'],{cwd:root,env:{...process.env,RELEASE_VERSION:version,GITHUB_REPOSITORY_OWNER:'fixture',GITHUB_REPOSITORY:'fixture/agentic-browser',GITHUB_SHA:commit}});
   await collect();
   const output=path.join(root,'delivery'),names=fs.readdirSync(output).sort();
   for(const name of ['compose.yaml','settings.json','secrets.env','DEPLOYMENT.md','CONFIGURATION.md','OPERATIONS.md','LICENSE','nginx.host.conf'])assert.ok(names.includes(name));
@@ -25,6 +26,10 @@ test('release collection requires both native receipts and checksums every deliv
   const lines=fs.readFileSync(path.join(output,'SHA256SUMS'),'utf8').trim().split('\n');
   assert.equal(lines.length,names.length-1);
   for(const line of lines){const [hash,name]=line.split('  ');assert.equal(hash,await digest(path.join(output,name)));}
+  const notes=fs.readFileSync(path.join(root,'release-notes.md'),'utf8');
+  assert.ok(notes.includes('Agentic Browser '+version));
+  assert.ok(notes.includes(version.includes('-rc.') ? 'release candidate' : 'preview'));
+  assert.ok(notes.includes('https://github.com/fixture/agentic-browser/blob/'+commit+'/docs/DEPLOYMENT.md'));
   write('publication/release.json',{version:'v9.0.0-preview.1',images});await assert.rejects(collect());
   write('publication/release.json',{version,images});
   const reportFile=path.join(root,'delivery/compose-acceptance-arm64.json'), original=JSON.parse(fs.readFileSync(reportFile));
@@ -32,6 +37,7 @@ test('release collection requires both native receipts and checksums every deliv
     fs.writeFileSync(reportFile,JSON.stringify({...original,...change}));await assert.rejects(collect());
   }
 }));
+}
 
 test('merge validates staged repository references before pulling and can traverse a complete native receipt',()=>temporary(async root=>{
   const version='v1.0.0-preview.1', names=['agent','browser','runtime'];
