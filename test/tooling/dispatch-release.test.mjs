@@ -38,3 +38,15 @@ test('release dispatches package version to main, preserves resume inputs and dr
   assert.equal(dry.status, 0); assert.match(dry.stdout, /Dry run:/);
   assert.equal(fs.existsSync(captured), false);
 }));
+
+test('release accepts RC versions and rejects unsupported versions before dispatch', () => fixture(({ invoke, captured }) => {
+  assert.equal(invoke('v0.1.0-rc.1').status, 0);
+  assert.deepEqual(fs.readFileSync(captured, 'utf8').trim().split('\n'), ['workflow', 'run', 'release-agent.yml', '--ref', 'main', '-f', 'version=v0.1.0-rc.1']);
+  fs.unlinkSync(captured);
+  for (const version of ['v0.1.0', 'v0.1.0-rc', 'v0.1.0-rc.x', 'v0.1.0-rc.1-extra', 'v0.1.0-beta.1', '0.1.0-rc.1']) {
+    const result = invoke(version);
+    assert.equal(result.status, 1, version);
+    assert.match(result.stderr, /Use X.Y.Z-rc.N/);
+    assert.equal(fs.existsSync(captured), false);
+  }
+}));

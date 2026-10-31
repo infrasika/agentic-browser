@@ -18,7 +18,7 @@ const write = (file, value) => fs.writeFileSync(file, JSON.stringify(value, null
 const artifact = platform => path.join('artifacts', 'build-' + platform);
 
 async function main() {
-  assert(/^v\d+\.\d+\.\d+-preview\.\d+$/.test(version), 'Use a new vX.Y.Z-preview.N version');
+  assert(/^v\d+\.\d+\.\d+-(?:preview|rc)\.\d+$/.test(version), 'Use a new vX.Y.Z-rc.N or vX.Y.Z-preview.N version');
   assert(/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(namespace), 'Invalid package owner');
   if (command === 'stage' || command === 'package') {
     assert(['amd64', 'arm64'].includes(arch));
@@ -99,7 +99,11 @@ async function main() {
     let sums = '';
     for (const file of fs.readdirSync('delivery').sort()) sums += await digest('delivery/' + file) + '  ' + file + '\n';
     fs.writeFileSync('delivery/SHA256SUMS', sums);
-    fs.writeFileSync('release-notes.md', `Agentic Browser MIT-licensed preview for Linux amd64 and arm64.
+    const channel = version.includes('-rc.') ? 'release candidate' : 'preview';
+    const guides = `https://github.com/${process.env.GITHUB_REPOSITORY}/blob/${process.env.GITHUB_SHA}/docs`;
+    fs.writeFileSync('release-notes.md', `Agentic Browser ${version}: MIT-licensed ${channel} for Linux amd64 and arm64.
+
+Operator guides: [Deployment](${guides}/DEPLOYMENT.md), [Configuration](${guides}/CONFIGURATION.md), [Operations](${guides}/OPERATIONS.md). Matching snapshots are included in the release assets.
 
 Download the release assets, verify SHA256SUMS, configure settings.json and secrets.env, then follow DEPLOYMENT.md. Docker Engine and Docker Compose are the server requirements; administration runs inside the supplied ops container. All six images use immutable digests. Component licenses remain in the images.
 

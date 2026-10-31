@@ -12,7 +12,7 @@ For maintainers publishing a new version to GHCR and GitHub Releases. To install
 
 Run from a source checkout with Node.js 24+/npm and an authenticated [GitHub CLI](https://cli.github.com/). Local Docker and site credentials are not needed for this path. The authenticated account needs permission to dispatch Actions on the target repository. For a fork, enable Actions and confirm GitHub CLI targets your fork, for example with `gh repo set-default OWNER/REPOSITORY`.
 
-1. Choose an unused preview version. Update `package.json` and the lockfile on the development branch, for example `npm version 0.1.0-preview.12 --no-git-tag-version`. This command creates no Git tag.
+1. Choose an unused prerelease version: `X.Y.Z-rc.N` for a release candidate or `X.Y.Z-preview.N` for a preview. Update `package.json` and the lockfile on the development branch, for example `npm version 0.1.0-rc.1 --no-git-tag-version`. This command creates no Git tag.
 2. Commit, push and open a PR. Merge to `main` after source checks pass, so the remote branch contains the intended release changes.
 3. Authenticate with `gh auth login` if needed. From the repository root, confirm the intended version and dispatch:
 
@@ -21,7 +21,7 @@ npm run release -- --dry-run
 npm run release
 ```
 
-The command reads the local `package.json` version and dispatches `Publish Agent preview` on remote `main`; it does not commit or push. An explicit version is accepted as `npm run release -- vX.Y.Z-preview.N`. `--dry-run` only prints the command, without checking remote state or permissions. Find the dispatched run and wait for completion, replacing `RUN_ID` with its actual number:
+The command reads the local `package.json` version and dispatches `Publish Agent prerelease` on remote `main`; it does not commit or push. An explicit version is accepted as `npm run release -- vX.Y.Z-rc.N` (or `vX.Y.Z-preview.N`) and must match the version committed to `main`. `--dry-run` only prints the command, without checking remote state or permissions. Find the dispatched run and wait for completion, replacing `RUN_ID` with its actual number:
 
 ```bash
 gh run list --workflow release-agent.yml --branch main --limit 5
@@ -47,7 +47,7 @@ The three GHCR packages must be **Public** for anonymous pull acceptance. On fir
 First complete a committed, two-platform build of all three project images. Replace the example build directory with the directory printed by your build. The publication output directory must not exist:
 
 ```bash
-AGENT_VERSION='v0.1.0-preview.12'
+AGENT_VERSION='v0.1.0-rc.1'
 BUILD_DIR="$PWD/output/build/build-XXXXXX"
 PUBLISH_DIR="$PWD/output/releases/$AGENT_VERSION"
 ```
@@ -125,9 +125,9 @@ For a transient runner/registry failure or a corrected package-visibility settin
 After a tooling-only repair, `--build-run-id` can reuse both architecture build artifacts from an earlier run:
 
 ```bash
-npm run release -- vX.Y.Z-preview.N --build-run-id RUN_ID
+npm run release -- vX.Y.Z-rc.N --build-run-id RUN_ID
 ```
 
-Use the earlier run's exact preview version and repository namespace, with both successful `build-amd64` and `build-arm64` artifacts still available. The overall earlier run may have failed after building. The new workflow revalidates source and image identities before reuse. Application, dependency, Dockerfile, package-version or image-contained operations changes require rebuilding; do not edit reports or overwrite an existing version with different images.
+Use the earlier run's exact prerelease version and repository namespace, with both successful `build-amd64` and `build-arm64` artifacts still available. The overall earlier run may have failed after building. The new workflow revalidates source and image identities before reuse. Application, dependency, Dockerfile, package-version or image-contained operations changes require rebuilding; do not edit reports or overwrite an existing version with different images.
 
 Old failed runs remain in Actions history. Use the successful run and native reports linked from the published release to determine that release's verification result.

@@ -2,7 +2,7 @@
 
 Install a published release on your own server. Follow steps 1–4 for private access, add steps 5–6 for public HTTPS, then complete the checks and backups. For an existing installation, use [Operations](OPERATIONS.md); parameter definitions are in [Configuration](CONFIGURATION.md).
 
-The commands below target the verified **v0.1.0-preview.11** Compose release. For newer versions, check the [release notes and verification reports](https://github.com/infrasika/agentic-browser/releases) and use matching assets from one release. Historical preview installers are not interchangeable with these commands.
+The commands below target **v0.1.0-rc.1**. Check the [release notes and verification reports](https://github.com/infrasika/agentic-browser/releases), and use matching assets from one release.
 
 ## 1. Prepare a Linux server
 
@@ -35,7 +35,7 @@ mkdir -m 700 "$HOME/my-agent"
 cd "$HOME/my-agent"
 (
   set -eu
-  AGENT_VERSION='v0.1.0-preview.11'
+  AGENT_VERSION='v0.1.0-rc.1'
   RELEASE_URL="https://github.com/infrasika/agentic-browser/releases/download/$AGENT_VERSION"
   for asset in compose.yaml settings.json secrets.env nginx.host.conf \
     DEPLOYMENT.md CONFIGURATION.md OPERATIONS.md LICENSE \
