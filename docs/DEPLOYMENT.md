@@ -54,7 +54,7 @@ Continue only after every checksum reports `OK`. Verify before editing configura
 
 The minimum runtime files are `compose.yaml`, `settings.json` and `secrets.env`. The latter two are templates, not working credentials. Do not use `deploy/compose/compose.template.yaml` directly: release tooling must replace its image placeholders. Docker selects the appropriate Linux architecture from the same published image references.
 
-The versioned, universal deployment archive is planned but is not an asset of this release. Use the individual files above for now; there is no supported `curl | sh` installer.
+This release provides individual files, not a universal deployment archive or a `curl | sh` installer. The bundled guides are snapshots from publication; the repository contains the maintained guides.
 
 ### Which files do I edit?
 

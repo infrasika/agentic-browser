@@ -127,13 +127,7 @@ For a dedicated data disk, provision durable storage for Docker before installin
 
 ## How containers receive configuration
 
-| Data | Path into the application |
-| --- | --- |
-| Operator input | `init` mounts `/input/settings.json` and `/input/secrets.env` read-only, validates them and generates runtime configuration |
-| Application settings and identity | Dedicated `config` volume, mounted read-only by Agent; startup injects application process variables |
-| Browser settings | Separate `browser-config` volume, containing addresses, capacity and service credentials, without model or login keys |
-| Gateway settings | Separate `gateway-config` volume, rendered from origin and proxy trust settings |
-| Operations state | `operations` volume, containing the operation lock, maintenance state and scheduler receipts |
+`init` mounts `/input/settings.json` and `/input/secrets.env` read-only, validates them and writes the generated configuration volumes listed above. Agent startup reads its configuration and injects the application process variables. Browser Service receives its own settings and internal credential, without model or account-login keys. The gateway receives the rendered origin and proxy trust settings. Do not edit generated files inside these volumes; change operator input and follow [Operations](OPERATIONS.md#change-configuration-or-stop-the-site).
 
 The trusted server administrator controls the deployment directory, Docker socket and backups. Backups include identity keys and user data; preserve them together during recovery.
 

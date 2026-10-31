@@ -107,14 +107,15 @@ On amd64, replace both architecture suffixes with `amd64`. The builder fetches p
 
 `deploy/compose/compose.template.yaml` defines the named-volume deployment. The in-container initializer validates input, preserves generated keys and renders gateway configuration. `src/compose-service.ts` discovers the Docker socket group and drops Browser Service to UID 1000. The bundled operations program provides on-demand `ops` commands and the daily `backup` service. Docker CLI, Compose and their licenses are included in the Agent image.
 
-After building the intended images:
+Run acceptance on a native Linux host meeting the [deployment prerequisites](DEPLOYMENT.md#1-prepare-a-linux-server). After building the intended images, provide a manifest with `version` and six `images` entries: `agent`, `browser`, `runtime`, `gateway`, `mongo` and `redis`. A published release supplies `release.json`; a local build's `report.json` is not a substitute.
 
 ```bash
+mkdir -p output
 npm run package:compose -- --release /absolute/path/to/release.json --output output/compose
 npm run accept:compose -- --release /absolute/path/to/release.json --work output/compose-test
 ```
 
-Both output directories must be new. For local candidate images, both commands accept `--development`; official delivery requires immutable digests. The acceptance driver uses ports 3350/3351 by default. `--port` selects the first port; the restore project uses the next. Keep these separate from any running site.
+Both output directories must be new, with an existing parent directory. Acceptance creates its own deployment; `output/compose` demonstrates packaging and is not its input. For local candidate images, use fixed local tags for the three built images in your manifest and pass `--development` to both commands; official delivery requires immutable digests. Keep the three infrastructure references pinned to the intended release. The acceptance driver uses ports 3350/3351 by default. `--port` selects the first port; the restore project uses the next. Keep these separate from any running site.
 
 The test host needs OpenSSL and approximately 6 GiB of available RAM. The driver starts an independent Compose project with simulated model/TLS mail services and real Chrome accessing public test pages. It does not read site credentials. Deployment subprocesses have only Docker on PATH, so the test checks the absence of a host Node/npm requirement.
 
@@ -124,6 +125,6 @@ Cleanup includes all profiles, test containers, networks and volumes. A successf
 
 ## Documentation maintenance
 
-Maintained guides are English and live in `docs/`; the root README is the entry point. Use current npm/Node commands and keep deployment-specific paths, credentials and migration narratives out of general instructions. Record verified coverage and acceptance limits in the corresponding release notes and reports.
+Maintained guides are English and live in `docs/`; the [root README](../README.md#documentation) is the only documentation index and contains the repository layout. Use current npm/Node commands and keep deployment-specific paths, credentials and migration narratives out of general instructions. Record verified coverage and acceptance limits in the corresponding release notes and reports.
 
 Deployment, configuration and operations guides are also copied into release directories. Check relative links in both source and delivery layouts. Moving files requires checking the packaging whitelist, Docker COPY instructions and `.dockerignore`. Changes to image inputs require rebuilding the affected release images. Do not silently rewrite old checksummed release assets when updating documentation.
