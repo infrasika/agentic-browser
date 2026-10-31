@@ -1,6 +1,7 @@
 {
   "name": "agentic-browser",
-  "version": "0.1.0-preview.10",
+  "version": "0.1.0-preview.11",
+  "license": "MIT",
   "private": true,
   "type": "module",
   "engines": {
@@ -18,11 +19,8 @@
     "test:runtime": "tsx --test test/runtime.integration.ts",
     "build:agent": "node scripts/build/build-agent-images.mjs --run",
     "publish:agent": "node scripts/build/publish-agent-images.mjs",
-    "accept:agent": "node test/acceptance/accept-agent-compose.mjs --run",
-    "agent": "node deploy/agent/agentctl.mjs",
-    "accept:agent-ops": "node test/acceptance/accept-agent-operations.mjs --run",
-    "package:agent": "node scripts/build/package-agent.mjs",
-    "accept:bundle": "node test/acceptance/verify-bundle.mjs"
+    "package:compose": "node scripts/build/package-compose.mjs",
+    "accept:compose": "node test/acceptance/verify-compose.mjs"
   },
   "dependencies": {
     "playwright": "1.64.0",

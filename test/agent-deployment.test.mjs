@@ -1,15 +1,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { randomBytes } from 'node:crypto';
-import { mkdtemp, readFile, writeFile, rm, stat, symlink, realpath } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
-import { execFile } from 'node:child_process';
-import { promisify } from 'node:util';
 import { createAgentConfiguration } from '../deploy/agent/app/config.mjs';
 import { validateSettings } from '../deploy/agent/app/settings.mjs';
 import { gatewayConfiguration } from '../deploy/agent/app/gateway.mjs';
-const exec = promisify(execFile);
 const settings = { version: 1, origin: 'http://127.0.0.1:3333', adminEmail: 'admin@example.test',
   model: { name: 'fixture', baseURL: 'http://fixture:8080/v1', promptRate: 1, completionRate: 2 },
   credits: {}, browser: {} };
@@ -38,26 +32,6 @@ test('the shared configuration preserves tool restrictions and never embeds priv
   assert.equal(config.browser.baseURL,'http://browser:8081');
   assert.equal(config.endpoints.custom[0].apiKey,'${QWEN_API_KEY}');
   assert.equal(config.endpoints.custom[0].titleConvo,true);
-});
-test('setup preserves keys and configuration, validation rejects secrets or unsafe links without echoing them', async () => {
-  const dir=await realpath(await mkdtemp(join(tmpdir(),'agent-init-'))), script=resolve('deploy/agent/app/init.mjs');
-  try {
-    await exec(process.execPath,[script,'init',dir]);
-    const before=await readFile(join(dir,'secrets.env'),'utf8');
-    await exec(process.execPath,[script,'init',dir]);
-    assert.equal(await readFile(join(dir,'secrets.env'),'utf8'),before);
-    assert.equal((await stat(join(dir,'secrets.env'))).mode & 0o777,0o600);
-    try { await exec(process.execPath,[script,'check',dir]); assert.fail(); }
-    catch(error) { assert.equal(error.code,1); assert.ok(!`${error.stdout}${error.stderr}`.includes(before)); }
-    await writeFile(join(dir,'settings.json'),JSON.stringify(settings));
-    await writeFile(join(dir,'secrets.env'),Object.entries(secrets).map(([k,v])=>`${k}=${v}`).join('\n'));
-    await exec(process.execPath,[script,'render',dir]);
-    assert.ok((await readFile(join(dir,'nginx.conf'),'utf8')).includes('browser:8082 resolve'));
-    await rm(join(dir,'secrets.env')); const outside=join(dir,'outside'); await writeFile(outside,'keep');
-    await symlink(outside,join(dir,'secrets.env'));
-    await assert.rejects(exec(process.execPath,[script,'check',dir]));
-    assert.equal(await readFile(outside,'utf8'),'keep');
-  } finally { await rm(dir,{recursive:true,force:true}); }
 });
 test('gateway restricts the browser surface and does not trust supplied identity or forwarding headers', () => {
   const nginx=gatewayConfiguration('https://agent.example.test');

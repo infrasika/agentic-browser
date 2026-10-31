@@ -1,6 +1,6 @@
 # 构建镜像
 
-本指南在 **Mac（Intel / Apple Silicon）或 Ubuntu 构建机**上执行，从同一份源码生成 Linux amd64 / arm64 镜像。构建后按 [发布指南](RELEASING.md) 上传 GHCR、生成安装包；只想安装现成版本的用户直接阅读 [部署指南](DEPLOYMENT.md)。
+本指南在 **Mac（Intel / Apple Silicon）或 Ubuntu 构建机**上执行，从同一份源码生成 Linux amd64 / arm64 镜像。构建后按 [发布指南](RELEASING.md) 上传 GHCR、生成部署文件；只想安装现成版本的用户直接阅读 [部署指南](DEPLOYMENT.md)。
 
 ## 1. 准备构建机
 
@@ -9,7 +9,8 @@
 | Node.js / npm | Node.js 24+，使用随附的 npm |
 | Git / tar | 用于读取已提交源码和处理归档 |
 | Docker / Buildx | Docker Engine 28+、API 1.48+、Buildx；Mac 使用运行中的 Docker Desktop |
-| 资源与网络 | 至少 30 GiB 可用空间，双架构镜像和离线包需另留空间；可访问 GitHub、npm、镜像仓库、Google 浏览器和扩展下载服务 |
+| Dockerfile frontend | 1.19+；Dockerfile 的 `syntax=docker/dockerfile:1` 会从官方镜像获取当前稳定版，支持复制时设置权限和排除运维文件（[Docker 参考](https://docs.docker.com/reference/dockerfile/)） |
+| 资源与网络 | 至少 30 GiB 可用空间，双架构镜像和备份需另留空间；可访问 GitHub、npm、镜像仓库、Google 浏览器和扩展下载服务 |
 
 默认临时构建器限制为 2 CPU / 5 GiB；Docker Desktop 的 VM 内存还应给 daemon 和其他容器留出余量。宿主不需要 Python：上游原生 npm 模块需要的 Python、make、g++ 在 Docker 构建阶段安装。
 
@@ -39,14 +40,14 @@ git status --short
 
 已有 checkout 直接切到所需提交并执行 `npm ci`。不要跨操作系统复制 `node_modules`。准备发布时，先审核并提交要交付的修改，后面的 `--committed` 只读取 Git 提交，不包含未提交文件。
 
-**构建无需填写任何站点密钥。** 新 clone 中没有 `config/local/`、`.deployment/` 和根目录 `.env` 是正常的，也不需要从服务器复制这些目录。公开的 `config/settings.example.json`、`config/secrets.env.example` 供部署者查看字段；真实配置由 Linux 上的 `init` 生成。配置传递方式见 [配置指南](CONFIGURATION.md)。
+**构建无需填写任何站点密钥。** 新 clone 中没有 `config/local/`、`.deployment/` 和根目录 `.env` 是正常的，也不需要从服务器复制这些目录。公开的 `config/settings.example.json`、`config/secrets.env.example` 供部署者查看字段；部署者复制示例并填写，身份密钥由容器初始化器生成。配置传递方式见 [配置指南](CONFIGURATION.md)。
 
 ## 3. 构建目标架构
 
-选定一个新版本，后续构建、发布和打包沿用同一个版本号。下面的 `v0.1.0-preview.9` 仅为示例，不表示该版本已经发布。
+选定一个新版本，后续构建、发布和打包沿用同一个版本号。下面的 `v0.1.0-preview.11` 仅为示例，不表示该版本已经发布。
 
 ```bash
-AGENT_VERSION='v0.1.0-preview.9'
+AGENT_VERSION='v0.1.0-preview.11'
 npm run build:agent -- --committed \
   --platforms linux/amd64,linux/arm64 \
   --tag "$AGENT_VERSION"
@@ -60,7 +61,7 @@ npm run build:agent -- --committed \
 | `--platforms linux/amd64,linux/arm64` | 构建两个平台；也可只传其中一个 |
 | `--tag VERSION` | 本机镜像版本，发布时使用固定版本号 |
 | `--builder NAME` | 使用已有 Buildx 构建器，便于复用缓存或使用原生多节点 |
-| `--component agent\|browser\|runtime` | 开发时单独重建组件；完整安装包要求三个组件齐全 |
+| `--component agent\|browser\|runtime` | 开发时单独重建组件；完整部署文件要求三个组件齐全 |
 
 开发调试可以省略 `--committed`，读取已跟踪文件的工作区版本；这种报告不能用于发布或打包。
 
@@ -99,10 +100,10 @@ agentic-browser-runtime:VERSION-amd64
 # arm64 对应 VERSION-arm64
 ```
 
-MongoDB、Redis 和 Nginx 使用固定的官方镜像，由后续打包工具拉取，不在本步重新构建。构建锁定了主要源码和资源，但仍需网络下载 APT/npm 等依赖，不承诺字节级可复现。
+MongoDB、Redis 和 Nginx 使用固定的官方镜像，由发布流程锁定并验证，不在本步重新构建。构建锁定了主要源码和资源，但仍需网络下载 APT/npm 等依赖，不承诺字节级可复现。
 
 ## 5. 进入发布流程
 
 在 [发布指南](RELEASING.md) 中把 `BUILD_DIR` 设置为本次真实目录，继续候选包验收、GHCR 上传和发行包交付。不要直接编辑 `report.json`、复用已指向其他内容的版本号，或清理尚需发布的本机镜像。
 
-构建成功不等于运行验收通过。完整安装器运行在 Linux；Mac 可以构建、打包和发布，但不能直接在 macOS 上运行 `agentctl init`。两个目标架构需分别在相应原生 Linux 环境验收；源码测试在 Mac 会跳过两项 Linux `flock` 测试。已验证范围集中记录在 [当前状态](STATUS.md)，开发与测试入口见 [开发指南](DEVELOPMENT.md)。
+构建成功不等于运行验收通过。部署目标为 Linux；Mac 可以构建、打包和发布。两个目标架构需分别在相应原生 Linux 环境验收；源码测试在 Mac 会跳过两项 Linux `flock` 测试。已验证范围集中记录在 [当前状态](STATUS.md)，开发与测试入口见 [开发指南](DEVELOPMENT.md)。

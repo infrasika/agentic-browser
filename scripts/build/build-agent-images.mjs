@@ -6,6 +6,7 @@ import { Readable } from 'node:stream';
 import * as tar from 'tar';
 import { prepare } from './prepare-librechat.mjs';
 import { fetchAssets } from './fetch-runtime-assets.mjs';
+import { bundleTools } from './bundle-tools.mjs';
 import { argumentsFor, cli, digest, exists, Failure, id, json, mainModule, run, walk } from '../../deploy/agent/lib/system.mjs';
 export const ROOT = path.resolve(import.meta.dirname, '../..');
 function publicSourcePaths(files) {
@@ -80,7 +81,12 @@ export async function main() {
           if (!['all', component].includes(values.component)) continue;
           const context = path.join(directory, component), source = sources[component === 'agent' ? 'librechat' : 'browser'];
           fs.cpSync(source, context, { recursive: true, filter: file => path.basename(file) !== '.git', dereference: false });
-          if (component === 'agent') fs.cpSync(path.join(sources.browser, 'deploy/agent/app'), path.join(context, 'selfhost'), { recursive: true });
+          if (component === 'agent') {
+            fs.cpSync(path.join(sources.browser, 'deploy/agent/app'), path.join(context, 'selfhost'), { recursive: true });
+            await bundleTools(path.join(context, 'selfhost'), { source: sources.browser });
+            fs.copyFileSync(path.join(sources.browser, 'LICENSE'), path.join(context, 'selfhost/LICENSE'));
+            fs.cpSync(path.join(sources.browser, 'deploy/compose/licenses'), path.join(context, 'selfhost/LICENSES/docker'), { recursive: true });
+          }
           fs.copyFileSync(path.join(sources.browser, component === 'runtime' ? 'runtime/Dockerfile' : `deploy/agent/${component}.Dockerfile`), path.join(context, 'Dockerfile.agent'));
           if (component === 'runtime') { await fetchAssets({ source: sources.browser, arch: architecture }); report.runtimeAssets = await runtimeAssets(ROOT, context, architecture); }
           fs.writeFileSync(path.join(context, '.dockerignore'), '.git\nnode_modules\n.deployment\n.data\n.env\n.env.*\n' + (component === 'runtime' ? '' : 'output\n'));

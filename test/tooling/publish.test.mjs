@@ -3,7 +3,7 @@ import test from 'node:test';
 import fs from 'node:fs';
 import path from 'node:path';
 import * as publisher from '../../scripts/build/publish-agent-images.mjs';
-import { INFRA } from '../../scripts/build/package-agent.mjs';
+import { INFRA } from '../../scripts/build/release-images.mjs';
 import { run, sha } from '../../deploy/agent/lib/system.mjs';
 import { temporary } from './fixtures.mjs';
 function fixture() {

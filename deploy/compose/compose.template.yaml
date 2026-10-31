@@ -1,6 +1,40 @@
 # Release tooling replaces image placeholders with verified immutable digests.
 name: ${COMPOSE_PROJECT_NAME:-agentic-browser}
 services:
+  ops: &operations
+    image: @@AGENT_IMAGE@@
+    profiles: [operations]
+    user: '0:0'
+    entrypoint: [node, /app/selfhost/operations.mjs]
+    network_mode: none
+    read_only: true
+    cap_drop: [ALL]
+    cap_add: [CHOWN, FOWNER, DAC_OVERRIDE]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 512m
+    environment:
+      AGENT_RELEASE: @@VERSION@@
+      COMPOSE_PROJECT_NAME: ${COMPOSE_PROJECT_NAME:-agentic-browser}
+      AGENT_PORT: ${AGENT_PORT:-3333}
+      AGENT_BIND: ${AGENT_BIND:-127.0.0.1}
+      # Inside ops this path is mapped back to the actual host configuration directory.
+      AGENT_CONFIG_DIR: /input
+      AGENT_ALLOW_LOCAL_IMAGES: ${AGENT_ALLOW_LOCAL_IMAGES:-0}
+      AGENT_BACKUP_HOUR: ${AGENT_BACKUP_HOUR:-4}
+      AGENT_BACKUP_TIMEZONE: ${AGENT_BACKUP_TIMEZONE:-Asia/Shanghai}
+      AGENT_BACKUP_KEEP: ${AGENT_BACKUP_KEEP:-7}
+    volumes:
+      - {type: bind, source: ., target: /deployment, bind: {create_host_path: false}}
+      - {type: bind, source: '${AGENT_CONFIG_DIR:-.}', target: /input, bind: {create_host_path: false}}
+      - {type: bind, source: /var/run/docker.sock, target: /var/run/docker.sock, bind: {create_host_path: false}}
+      - {type: volume, source: operations, target: /state, volume: {nocopy: true}}
+    tmpfs: ['/tmp:rw,nosuid,nodev,size=128m,mode=1777']
+  backup:
+    <<: *operations
+    profiles: [backups]
+    command: [watch]
+    restart: unless-stopped
+    stop_grace_period: 30m
   init:
     image: @@AGENT_IMAGE@@
     user: '0:0'
@@ -13,8 +47,8 @@ services:
     restart: 'no'
     mem_limit: 256m
     volumes:
-      - {type: bind, source: ./settings.json, target: /input/settings.json, read_only: true, bind: {create_host_path: false}}
-      - {type: bind, source: ./secrets.env, target: /input/secrets.env, read_only: true, bind: {create_host_path: false}}
+      - {type: bind, source: '${AGENT_CONFIG_DIR:-.}/settings.json', target: /input/settings.json, read_only: true, bind: {create_host_path: false}}
+      - {type: bind, source: '${AGENT_CONFIG_DIR:-.}/secrets.env', target: /input/secrets.env, read_only: true, bind: {create_host_path: false}}
       - {type: volume, source: config, target: /config, volume: {nocopy: true}}
       - {type: volume, source: browser-config, target: /browser-config, volume: {nocopy: true}}
       - {type: volume, source: gateway-config, target: /gateway-config, volume: {nocopy: true}}
@@ -45,6 +79,7 @@ services:
     ports: ['${AGENT_BIND:-127.0.0.1}:${AGENT_PORT:-3333}:8080']
     volumes:
       - {type: volume, source: gateway-config, target: /etc/nginx/agent, read_only: true, volume: {nocopy: true}}
+      - {type: volume, source: operations, target: /maintenance, read_only: true, volume: {nocopy: true}}
     tmpfs: ['/tmp:rw,nosuid,nodev,size=32m,mode=1777']
     networks: [front]
     depends_on:
@@ -89,7 +124,9 @@ services:
     init: true
     read_only: true
     cap_drop: [ALL]
-    cap_add: [SETUID, SETGID]
+    # tini remains root and needs KILL to forward SIGTERM after Node drops UID.
+    # Node loses these capabilities when it switches to UID 1000.
+    cap_add: [SETUID, SETGID, KILL]
     security_opt: [no-new-privileges:true]
     environment:
       BROWSER_CONTROL_HOST: 0.0.0.0
@@ -148,6 +185,7 @@ networks:
   front: {}
   database: {internal: true}
 volumes:
+  operations: {}
   config: {}
   browser-config: {}
   gateway-config: {}
