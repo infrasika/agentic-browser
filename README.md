@@ -6,7 +6,7 @@ A chat Agent with a private remote browser beside the conversation. The Agent op
 
 The application combines LibreChat, native browser tools and isolated Chrome sessions. It includes local accounts, per-user credits, a shared daily budget, queueing, an administrator interface and optional email password recovery. Registration is closed by default.
 
-The [GitHub demo](docs/AGENT_DEMO.md) asks you to sign in inside the remote browser, then counts and lists your own private repositories. Enter website credentials while you have control. After you return control, the Agent can read signed-in pages and send tool results to the configured model.
+The GitHub demo asks you to sign in inside the remote browser, then counts and lists your own private repositories. Enter website credentials while you have control. After you return control, the Agent can read signed-in pages and send tool results to the configured model.
 
 ## Self-host
 
@@ -18,7 +18,7 @@ Download deployment files from [GitHub Releases](https://github.com/infrasika/ag
 
 ## Build and contribute
 
-Mac and Ubuntu use the same source checkout and Node.js 24+/npm tools. Model keys and Cloudflare credentials are deployment inputs, never build inputs. Deployment targets are Linux amd64 and arm64; see [verified coverage and limitations](docs/STATUS.md).
+Mac and Ubuntu use the same source checkout and Node.js 24+/npm tools. Model keys and Cloudflare credentials are deployment inputs, never build inputs. Deployment targets are Linux amd64 and arm64; each [release](https://github.com/infrasika/agentic-browser/releases) includes its verification reports.
 
 ```bash
 npm ci

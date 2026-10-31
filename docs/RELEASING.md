@@ -1,6 +1,6 @@
 # Publish images and deployment files
 
-A release publishes the three project images from [Build](BUILD.md) to GHCR and delivers matching Compose and configuration templates. Deployment servers need only Docker and Compose. Publishing requires registry authorization, not site credentials. The project uses [MIT](../LICENSE), and images preserve applicable third-party licenses. See [Status](STATUS.md) for the currently verified release.
+A release publishes the three project images from [Build](BUILD.md) to GHCR and delivers matching Compose and configuration templates. Deployment servers need only Docker and Compose. Publishing requires registry authorization, not site credentials. The project uses [MIT](../LICENSE), and images preserve applicable third-party licenses. Check the [release notes and verification reports](https://github.com/infrasika/agentic-browser/releases) for the version you intend to publish or deploy.
 
 ## Recommended: GitHub Actions
 
@@ -89,6 +89,8 @@ It contains `compose.yaml`, `settings.json`, `secrets.env`, `nginx.host.conf`, t
 The final Release also includes `release.json`, `publication.json`, both anonymous-pull receipts, both native acceptance reports and `SHA256SUMS` covering all other attachments. Prefer Actions for the final collection and publication. The configuration assets contain placeholders; never attach filled-in operator configuration, test workspaces, backups or local data.
 
 These files deploy with Docker alone. There is no host Node installer or offline image bundle. Operators start with [Deployment](DEPLOYMENT.md) and upgrade using the container-based commands in [Operations](OPERATIONS.md).
+
+The planned delivery improvement is a single versioned deployment archive for both Linux architectures, containing Compose, configuration examples and guides. It is not implemented or published yet. Before replacing the current individual-file download procedure, native CI must extract that exact archive and verify installation from it. Existing checksummed release assets remain unchanged; documentation updates ship with future releases.
 
 ## Troubleshooting a workflow failure
 

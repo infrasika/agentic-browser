@@ -2,6 +2,20 @@
 
 Run these commands from the directory containing `compose.yaml`. The server needs Docker and Compose; `ops` is an on-demand management container with no public interface. Site administrators use the application administrator interface to adjust balances and the daily budget.
 
+## Data retention
+
+MongoDB, Redis, uploads, identity keys and other application state use the [named volumes listed in Configuration](CONFIGURATION.md#persistent-data). Keep the deployment's `COMPOSE_PROJECT_NAME` stable; it determines which volumes are selected.
+
+| Action | Effect on stored data |
+| --- | --- |
+| Stop, restart or recreate containers | Existing named volumes are retained; restarting alone does not apply changed input configuration |
+| `docker compose --profile '*' down` without volume removal | Retains named volumes but removes containers and networks; recheck `trustedProxyIPs` after startup |
+| Change the project name | Selects a different set of volumes and can look like a fresh installation; check the original project name before attempting recovery |
+| Copy only `compose.yaml`, settings and secrets to another host | Does not copy database or other named-volume data; restore a completed backup on the new host |
+| `down -v`, `down --volumes`, or deletion/pruning of these volumes | Deletes stored data; never use these to repair an installation you want to keep |
+
+Persistence survives container replacement, but it is not protection against a lost server or disk. Keep completed backups on another host and test recovery. Do not manually remove the `operations` volume or maintenance markers to bypass an interrupted operation.
+
 ## Health and manual backups
 
 ```bash
@@ -11,7 +25,9 @@ docker compose run --rm ops backup
 
 `status` reports health, maintenance state and the latest scheduled-backup receipt. Backup requires no active Agent or browser tasks; if busy, it exits so you can retry later. It enables maintenance, drains requests, stops writers and saves complete application data before restoring service. The result's `backup` field is relative to the deployment directory, such as `backups/20261031T040000Z-1234abcd`.
 
-Backups include both input configuration files, the current Compose file and nine application data/configuration volumes, including identity keys. Files are SHA256-checked. Incomplete `.pending-*` directories are not restorable backups. Keep archives private and copy the entire completed directory for off-host storage. Target project name, bind address and port come from the target's `.env`; they are not overwritten by a backup.
+Backups include `settings.json`, `secrets.env`, the current `compose.yaml` and all nine application data/configuration volumes marked in the configuration table, including MongoDB, Redis and identity keys. Files are SHA256-checked. Incomplete `.pending-*` directories are not restorable backups. Keep archives private and copy the entire completed directory for off-host storage.
+
+The `operations` volume is not part of that archive; its locks and maintenance state belong to the target's operations workflow. `.env` is also excluded: the target's project name, bind address, port and backup schedule are not overwritten by restoration. Save `.env` and the installed host Nginx configuration/certificates separately for disaster recovery.
 
 Replace `BACKUP_ID` below with the actual completed directory name:
 
