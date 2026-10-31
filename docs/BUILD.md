@@ -1,18 +1,18 @@
-# 构建镜像
+# Build images
 
-本指南在 **Mac（Intel / Apple Silicon）或 Ubuntu 构建机**上执行，从同一份源码生成 Linux amd64 / arm64 镜像。构建后按 [发布指南](RELEASING.md) 上传 GHCR、生成部署文件；只想安装现成版本的用户直接阅读 [部署指南](DEPLOYMENT.md)。
+Use the same source checkout on a Mac (Intel or Apple Silicon) or Ubuntu build host to produce Linux amd64/arm64 images. Continue with [Release](RELEASING.md) to publish them. To install an existing release, use [Deployment](DEPLOYMENT.md) instead.
 
-## 1. 准备构建机
+## 1. Prepare the build host
 
-| 依赖 | 要求 |
+| Dependency | Requirement |
 | --- | --- |
-| Node.js / npm | Node.js 24+，使用随附的 npm |
-| Git / tar | 用于读取已提交源码和处理归档 |
-| Docker / Buildx | Docker Engine 28+、API 1.48+、Buildx；Mac 使用运行中的 Docker Desktop |
-| Dockerfile frontend | 1.19+；Dockerfile 的 `syntax=docker/dockerfile:1` 会从官方镜像获取当前稳定版，支持复制时设置权限和排除运维文件（[Docker 参考](https://docs.docker.com/reference/dockerfile/)） |
-| 资源与网络 | 至少 30 GiB 可用空间，双架构镜像和备份需另留空间；可访问 GitHub、npm、镜像仓库、Google 浏览器和扩展下载服务 |
+| Node.js / npm | Node.js 24+ and its bundled npm |
+| Git / tar | Committed-source export and archive handling |
+| Docker / Buildx | Docker Engine 28+, API 1.48+ and Buildx; a running Docker Desktop on Mac |
+| Dockerfile frontend | 1.19+; `syntax=docker/dockerfile:1` fetches the stable frontend with the required COPY features ([reference](https://docs.docker.com/reference/dockerfile/)) |
+| Disk and network | At least 30 GiB free, with additional space for two architectures and retained images; access to GitHub, npm, registries, Chrome and extension downloads |
 
-默认临时构建器限制为 2 CPU / 5 GiB；Docker Desktop 的 VM 内存还应给 daemon 和其他容器留出余量。宿主不需要 Python：上游原生 npm 模块需要的 Python、make、g++ 在 Docker 构建阶段安装。
+The default temporary builder is limited to two CPUs and 5 GiB RAM. Give Docker Desktop's VM enough additional memory for the daemon and other containers. Python is not a host requirement for these image builds; native npm build dependencies such as Python, make and g++ are installed in the Docker build stage.
 
 ```bash
 node --version
@@ -23,11 +23,11 @@ docker version
 docker buildx version
 ```
 
-`docker version` 必须能读到 Server。构建、打包和发布应连接同一个 Docker daemon，脚本需要读取构建后留在本机的镜像。
+`docker version` must show a reachable Server. Build and publication must use the same Docker daemon because the publication tool checks the local images against their build reports.
 
-## 2. 获取源码并检查
+## 2. Clone and check source
 
-`main` 保存已合并的完整 Agent 源码，日常开发使用 `feature` 分支；构建正式版本时选择对应版本标签。以下从 `main` 获取源码，后续命令在仓库根目录执行：
+Run subsequent commands from the repository root:
 
 ```bash
 git clone --branch main https://github.com/infrasika/agentic-browser.git
@@ -38,13 +38,13 @@ npm test
 git status --short
 ```
 
-已有 checkout 直接切到所需提交并执行 `npm ci`。不要跨操作系统复制 `node_modules`。准备发布时，先审核并提交要交付的修改，后面的 `--committed` 只读取 Git 提交，不包含未提交文件。
+In an existing checkout, select the intended commit and run `npm ci`. Do not copy `node_modules` between operating systems. Review and commit release changes before building: `--committed` exports Git's committed tree and excludes uncommitted files.
 
-**构建无需填写任何站点密钥。** 新 clone 中没有 `config/local/`、`.deployment/` 和根目录 `.env` 是正常的，也不需要从服务器复制这些目录。公开的 `config/settings.example.json`、`config/secrets.env.example` 供部署者查看字段；部署者复制示例并填写，身份密钥由容器初始化器生成。配置传递方式见 [配置指南](CONFIGURATION.md)。
+**No site credentials are needed to build.** A fresh clone should not contain `config/local/`, `.deployment/` or a root `.env`. Do not copy these from an existing server. The public configuration examples describe deployment inputs; the container initializer generates application identity keys. See [Configuration](CONFIGURATION.md).
 
-## 3. 构建目标架构
+## 3. Build the target platforms
 
-选定一个新版本，后续构建、发布和打包沿用同一个版本号。下面的 `v0.1.0-preview.12` 仅为示例，不表示该版本已经发布。
+Choose an unused release version and follow the version-update step in [Release](RELEASING.md) before preparing a release. The version below is an example, not a claim that it has been published:
 
 ```bash
 AGENT_VERSION='v0.1.0-preview.12'
@@ -53,30 +53,30 @@ npm run build:agent -- --committed \
   --tag "$AGENT_VERSION"
 ```
 
-`npm run … -- …` 中的 `--` 把后面的参数传给脚本。`build:agent` 已包含执行开关，无需再加 `--run`。
+The `--` after an npm script forwards the remaining arguments. `build:agent` already includes `--run`.
 
-| 参数 | 用途 |
+| Option | Purpose |
 | --- | --- |
-| `--committed` | 使用已提交源码；发布和打包要求这种构建 |
-| `--platforms linux/amd64,linux/arm64` | 构建两个平台；也可只传其中一个 |
-| `--tag VERSION` | 本机镜像版本，发布时使用固定版本号 |
-| `--builder NAME` | 使用已有 Buildx 构建器，便于复用缓存或使用原生多节点 |
-| `--component agent\|browser\|runtime` | 开发时单独重建组件；完整部署文件要求三个组件齐全 |
+| `--committed` | Build committed source; required for publication |
+| `--platforms linux/amd64,linux/arm64` | Build both platforms, or specify just one |
+| `--tag VERSION` | Local image version, kept consistent through publication |
+| `--builder NAME` | Reuse an existing Buildx builder or native multi-node setup |
+| `--component agent\|browser\|runtime` | Rebuild one component during development; a release requires all three |
 
-开发调试可以省略 `--committed`，读取已跟踪文件的工作区版本；这种报告不能用于发布或打包。
+Development builds may omit `--committed` to use working-tree versions of tracked files. Such reports cannot be used for verified publication.
 
-构建过程会自动：
+The builder:
 
-1. 根据 `integrations/librechat/source.lock.json` 获取公开上游提交，应用定制补丁，核对摘要、完整 Git tree、许可证和浏览器协议。
-2. 根据 `runtime/assets.lock.json` 下载并校验 Chrome 与原始扩展包，缓存到 `output/runtime/packages/`。
-3. 为每个平台分别构建并加载 Agent、Browser Service、Chrome runtime 三个镜像。
-4. 保存每个平台的报告与各组件日志。失败时停止，不用未校验的最新资源替代锁定版本。
+1. Fetches the public LibreChat commit locked in `integrations/librechat/source.lock.json`, applies the customization patch and checks its digest, complete Git tree, license and browser contract.
+2. Downloads and verifies Chrome and extension assets locked in `runtime/assets.lock.json`, caching them in `output/runtime/packages/`.
+3. Builds and loads Agent, Browser Service and Chrome runtime images separately for each platform.
+4. Saves per-platform build reports and component logs. Verification failure stops the build rather than substituting an unpinned download.
 
-Docker Desktop 支持跨架构模拟；Linux 构建器也可使用 QEMU 或多个原生节点。自定义 builder 可用 `docker buildx inspect NAME --bootstrap` 检查平台能力。跨架构编译可能明显慢于原生构建，配置方式见 [Docker 多平台构建](https://docs.docker.com/build/building/multi-platform/)。默认临时构建器在结束后删除；通过 `--builder` 传入的构建器由你管理。
+Docker Desktop provides cross-architecture emulation. Linux builders can use QEMU or native nodes. Check an existing builder with `docker buildx inspect NAME --bootstrap`; see [Docker multi-platform builds](https://docs.docker.com/build/building/multi-platform/). Emulated builds can be substantially slower. The tool removes its temporary builder when finished; a builder supplied with `--builder` remains under your control.
 
-## 4. 确认产物
+## 4. Inspect the output
 
-命令输出本次实际构建目录，结构如下：
+The command prints its actual build directory:
 
 ```text
 output/build/build-XXXXXX/
@@ -89,21 +89,21 @@ output/build/build-XXXXXX/
     └── agent.log / browser.log / runtime.log
 ```
 
-每份完整报告应为 `passed: true`、`sourceMode: committed`，`images` 包含 `agent`、`browser`、`runtime`。报告还记录架构、源码提交、LibreChat tree、资源摘要和镜像 ID。发布时需同时保留这些报告及对应本机镜像，不能只复制报告到另一台空的 Docker 主机。
+Each complete report must have `passed: true`, `sourceMode: committed` and `agent`, `browser`, `runtime` entries in `images`. It records the platform, source commit, LibreChat tree, asset digests and image IDs. Keep both the reports and their corresponding local images; copying reports to an empty Docker host is insufficient for publication.
 
-本机镜像名为：
+Image names are:
 
 ```text
 agentic-browser-agent:VERSION-amd64
 agentic-browser-service:VERSION-amd64
 agentic-browser-runtime:VERSION-amd64
-# arm64 对应 VERSION-arm64
+# The arm64 equivalents use VERSION-arm64.
 ```
 
-MongoDB、Redis 和 Nginx 使用固定的官方镜像，由发布流程锁定并验证，不在本步重新构建。构建锁定了主要源码和资源，但仍需网络下载 APT/npm 等依赖，不承诺字节级可复现。
+Publication pins and verifies official MongoDB, Redis and Nginx images rather than rebuilding them. Source and major assets are locked, but APT/npm downloads still require network access; builds are not claimed to be byte-for-byte reproducible.
 
-## 5. 进入发布流程
+## 5. Publish and verify
 
-在 [发布指南](RELEASING.md) 中把 `BUILD_DIR` 设置为本次真实目录，继续候选包验收、GHCR 上传和发行包交付。不要直接编辑 `report.json`、复用已指向其他内容的版本号，或清理尚需发布的本机镜像。
+Set `BUILD_DIR` to the actual output directory in [Release](RELEASING.md). Do not edit reports, reuse a version for unrelated contents or delete images still needed for publication.
 
-构建成功不等于运行验收通过。部署目标为 Linux；Mac 可以构建、打包和发布。两个目标架构需分别在相应原生 Linux 环境验收；源码测试在 Mac 会跳过两项 Linux `flock` 测试。已验证范围集中记录在 [当前状态](STATUS.md)，开发与测试入口见 [开发指南](DEVELOPMENT.md)。
+A successful build is not runtime acceptance. Deployment targets are Linux; Mac is a build and publication host. Verify each target on its native Linux architecture. macOS source checks skip two Linux-only `flock` tests and do not prove a Mac Docker build. See [Status](STATUS.md) for verified coverage and [Development](DEVELOPMENT.md) for test entry points.
