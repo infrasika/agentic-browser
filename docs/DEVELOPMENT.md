@@ -79,7 +79,7 @@ node --import tsx --test test/browser-service.test.ts
 node --test test/tooling/compose-operations.test.mjs
 ```
 
-`.github/workflows/ci.yml` 在 push、pull request 或手动触发时，在 Ubuntu 24.04 amd64、Ubuntu 24.04 arm64 和 macOS 14 上使用 Node.js 24 执行 `npm ci`、类型检查和上述测试。工作流只有源码读取权限，不需要部署密钥，不构建或发布镜像。CI 文件在本地提交后，需推送至 GitHub 才会运行；单元测试通过也不能替代镜像构建及完整安装验收。
+`.github/workflows/ci.yml` 在 main 的 push、pull request 或手动触发时，在 Ubuntu 24.04 amd64、Ubuntu 24.04 arm64 和 macOS 15 arm64 上使用 Node.js 24 执行 `npm ci`、类型检查和上述测试。工作流只有源码读取权限，不需要部署密钥，不构建或发布镜像。macOS 检查验证 Node 工具和源码的跨平台兼容性，不代表已验证 Mac Docker 构建。发布流水线复用同一套源码检查，镜像构建和部署验收在原生 Linux runner 上运行。
 
 | 命令 | 用途 |
 | --- | --- |
