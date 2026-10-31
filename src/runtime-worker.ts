@@ -64,7 +64,7 @@ input.on('line', line => {
           proxy.listen(0, '127.0.0.1'); await once(proxy, 'listening');
           chromeArgs.push(`--proxy-server=http://127.0.0.1:${(proxy.address() as AddressInfo).port}`, '--proxy-bypass-list=<-loopback>');
         }
-        await workspace.start('/usr/bin/google-chrome-stable', chromeArgs);
+        await workspace.start('/usr/bin/google-chrome-stable', chromeArgs, message.publicEgress === true);
         const lock = JSON.parse(await readFile('/app/runtime/assets.lock.json', 'utf8'));
         await workspace.verifyExtensions(lock.extensions);
       } else {

@@ -14,6 +14,7 @@ import { setTimeout as delay } from "node:timers/promises";
 import { promisify } from "node:util";
 import { chromium, type Browser } from "playwright";
 import { ChromiumWorkspace } from "./browser.js";
+import { ProxyNetworkState } from "./proxy-network-state.js";
 import {
   ServiceError,
   type Actor,
@@ -58,6 +59,7 @@ export class DesktopWorkspace implements BrowserWorkspace {
   private environment: NodeJS.ProcessEnv = {};
   private endpoint = "";
   private browser?: Browser;
+  private networkState?: ProxyNetworkState;
   private automation?: ChromiumWorkspace;
   private vnc?: ChildProcess;
   private vncPort = 0;
@@ -92,7 +94,7 @@ export class DesktopWorkspace implements BrowserWorkspace {
     throw new Error("Desktop component startup timed out");
   }
 
-  async start(executablePath: string, chromeArgs: string[] = []) {
+  async start(executablePath: string, chromeArgs: string[] = [], publicEgress = false) {
     if (process.platform !== "linux")
       throw new ServiceError(
         503,
@@ -106,6 +108,8 @@ export class DesktopWorkspace implements BrowserWorkspace {
       LANG: "C.UTF-8", HOME: homeDirectory, TMPDIR: this.directory,
       XDG_CONFIG_HOME: join(homeDirectory, ".config"),
       XDG_CACHE_HOME: join(homeDirectory, ".cache"),
+      LIBGL_ALWAYS_SOFTWARE: "1",
+      GALLIUM_DRIVER: "llvmpipe",
     };
     const auth = join(this.directory, "Xauthority");
     const cookie = randomBytes(16).toString("hex");
@@ -185,6 +189,10 @@ export class DesktopWorkspace implements BrowserWorkspace {
       "--no-default-browser-check",
       "--window-size=1280,900",
       "--window-position=0,0",
+      // The runtime has no GPU device. Explicitly use Mesa's CPU renderer;
+      // Chromium otherwise blocklists software GL, making WebGL sites crash.
+      "--use-angle=gl",
+      "--ignore-gpu-blocklist",
       ...chromeArgs,
       "about:blank",
     ]);
@@ -200,6 +208,12 @@ export class DesktopWorkspace implements BrowserWorkspace {
         return false;
       }
     }, chrome);
+    if (publicEgress) {
+      this.networkState = await ProxyNetworkState.connect(this.endpoint, () => {
+        void this.close().catch(() => {});
+      });
+      if (this.disposed) { this.networkState.close(); throw new Error("Desktop is closed"); }
+    }
     await this.setControl("agent");
   }
 
@@ -357,6 +371,7 @@ export class DesktopWorkspace implements BrowserWorkspace {
       this.closing = (async () => {
         // Stop browser processes before deleting the disposable workspace.
         for (const child of [...this.children].reverse()) await stop(child);
+        this.networkState?.close();
         await this.browser?.close().catch(() => {});
         await rm(this.directory, { recursive: true, force: true });
       })();

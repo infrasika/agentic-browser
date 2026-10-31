@@ -74,6 +74,7 @@ test('Docker Runtime: separate processes/files/network, no persistent login stat
       let port; for(const id of fs.readdirSync('/proc')) {try {const m=fs.readFileSync('/proc/'+id+'/cmdline','utf8').match(/--remote-debugging-port=(\\d+)/); if(m) {port=m[1];break;}}catch{}}
       const browser=await chromium.connectOverCDP('http://127.0.0.1:'+port,{noDefaults:true});
       const context=browser.contexts()[0];
+      if(await context.pages()[0].evaluate(()=>navigator.onLine)) throw new Error('Network-disabled runtime must remain offline');
       if(${write}) await context.addCookies([{name:'runtime_fixture_cookie',value:'private-A',url:'https://example.test/',expires:Date.now()/1000+3600}]);
       console.log((await context.cookies()).some(c=>c.name==='runtime_fixture_cookie'&&c.value==='private-A'));
       await browser.close();`);
@@ -134,6 +135,57 @@ test('Docker Runtime: public HTTPS works through private proxy; private/metadata
   const instance = await readFile(join(root, 'runtimes', 'instance-id'), 'utf8');
   assert.equal((await exec('docker', ['ps', '-aq', '--filter', `label=dev.agentic-browser.instance=${instance}`])).stdout.trim(), '');
   assert.equal((await readdir(join(root, 'runtimes'))).some(file => file.endsWith('-proxy')), false);
+});
+
+test('Docker Runtime: proxy online state and software WebGL survive handoff, reload and new pages', { timeout: 90000 }, async t => {
+  const root = await mkdtemp(join(tmpdir(), 'agentic-runtime-compat-'));
+  const engine = new DockerEngine({ image, dataDirectory: root, network: 'public' });
+  t.after(async () => { await engine.close(); await rm(root, { recursive: true, force: true }); });
+  const workspace = await engine.create();
+  // Container-local diagnostics only; CDP is never exposed by the product API.
+  async function inspect(newPage = false) {
+    const { stdout } = await exec('docker', ['exec', workspace.record.name, 'node', '--input-type=module', '-e', `
+      import fs from 'node:fs'; import { chromium } from 'playwright';
+      let port; for (const id of fs.readdirSync('/proc')) { try { const m=fs.readFileSync('/proc/'+id+'/cmdline','utf8').match(/--remote-debugging-port=(\\d+)/); if(m){port=m[1];break;} } catch {} }
+      const browser=await chromium.connectOverCDP('http://127.0.0.1:'+port,{noDefaults:true});
+      try {
+        const context=browser.contexts()[0];
+        const page=${newPage} ? await context.newPage() : context.pages()[0];
+        const fixture='<script>window.onlineAtStart=navigator.onLine</script><title>Runtime compatibility</title><body>Runtime compatibility</body>';
+        await page.route('https://example.com/**', route=>route.fulfill({contentType:'text/html',body:fixture+'<iframe src="https://example.org/frame"></iframe>'}));
+        await page.route('https://example.org/**', route=>route.fulfill({contentType:'text/html',body:fixture}));
+        await page.goto('https://example.com/fixture');
+        if(!await page.evaluate(()=>window.onlineAtStart)) throw new Error('First site script saw offline state');
+        await page.reload();
+        for(const frame of page.frames()) {
+          if(!await frame.evaluate(()=>window.onlineAtStart && navigator.onLine)) throw new Error('Reloaded page/frame saw offline state');
+        }
+        const state=await page.evaluate(()=>{
+          const gl=document.createElement('canvas').getContext('webgl2');
+          if(!gl) return {online:navigator.onLine,webgl2:false};
+          gl.clearColor(1,0,0,1); gl.clear(gl.COLOR_BUFFER_BIT);
+          const pixel=new Uint8Array(4); gl.readPixels(0,0,1,1,gl.RGBA,gl.UNSIGNED_BYTE,pixel);
+          const extension=gl.getExtension('WEBGL_debug_renderer_info');
+          return {online:navigator.onLine,webgl2:true,pixel:[...pixel],renderer:extension&&gl.getParameter(extension.UNMASKED_RENDERER_WEBGL)};
+        });
+        console.log(JSON.stringify(state));
+      } finally { await browser.close(); }
+    `]);
+    const state = JSON.parse(stdout);
+    assert.equal(state.online, true); assert.equal(state.webgl2, true);
+    assert.deepEqual(state.pixel, [255, 0, 0, 255]);
+    assert.match(state.renderer, /llvmpipe/i);
+  }
+  await inspect();
+  await workspace.setControl('human');
+  await assert.rejects(workspace.perform({ type: 'snapshot' }));
+  await inspect(true);
+  await workspace.setControl('agent');
+  await inspect();
+  await workspace.perform({ type: 'navigate', url: 'http://169.254.169.254/' });
+  assert.match((await workspace.perform({ type: 'snapshot' }) as { text: string }).text, /Network target is not allowed/);
+  const direct = await exec('docker', ['exec', workspace.record.name, 'node', '-e', "fetch('http://1.1.1.1',{signal:AbortSignal.timeout(1500)}).then(()=>console.log('bypassed'),()=>console.log('blocked'))"]);
+  assert.equal(direct.stdout.trim(), 'blocked');
 });
 
 test('Docker Runtime: crashed Chrome/container cannot be reused until verified cleanup; replacement starts with a fresh context', { timeout: 60000 }, async t => {
