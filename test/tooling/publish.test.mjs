@@ -114,3 +114,26 @@ test('anonymous verification pulls all six images on both platforms with an empt
     assert.ok(!fs.existsSync(config));
   } finally { if (before === undefined) delete process.env.DOCKER_HOST; else process.env.DOCKER_HOST = before; }
 });
+
+test('native verification binds Docker index, manifest and config IDs to the same built platform', async () => {
+  const digest = value => 'sha256:' + value.repeat(64);
+  const index=digest('a'), manifest=digest('b'), config=digest('c'), other=digest('d');
+  const images=Object.fromEntries(Object.keys(publisher.NAMES).map(name=>[name,'ghcr.io/example/'+name+'@'+index]));
+  const release={platforms:['linux/amd64','linux/arm64'],images};
+  const report={passed:true,sourceMode:'committed',platform:'linux/amd64',sourceCommits:{browser:'a'.repeat(40),librechat:'b'.repeat(40)},librechatTree:'c'.repeat(40),images:Object.fromEntries(Object.keys(images).map(name=>[name,{id:manifest}]))};
+  let children=[{digest:manifest,platform:{os:'linux',architecture:'amd64'}},{digest:other,platform:{os:'linux',architecture:'arm64'}}];
+  const registry={manifest:async(repo,ref)=>ref===index?[index,{manifests:children}]:ref===manifest?[manifest,{config:{digest:config}}]:[other,{config:{digest:other}}]};
+  for(const built of [manifest,config])for(const pulled of [index,manifest,config]){
+    const native=structuredClone(report);for(const image of Object.values(native.images))image.id=built;
+    const result=await publisher.verifyNativeBuild(release,native,{registry,imageInfo:async()=>({Id:pulled,Os:'linux',Architecture:'amd64'})});
+    assert.equal(result.platform,'linux/amd64');assert.equal(result.images.agent.manifest,manifest);assert.equal(result.images.agent.pulled,pulled);
+  }
+  for(const invalid of [{Id:other,Os:'linux',Architecture:'amd64'},{Id:index,Os:'linux',Architecture:'arm64'},{Id:index,Os:'windows',Architecture:'amd64'}])await assert.rejects(publisher.verifyNativeBuild(release,report,{registry,imageInfo:async()=>invalid}),/Pulled native image identity mismatch/);
+  const changed=structuredClone(report);changed.images.agent.id=other;
+  await assert.rejects(publisher.verifyNativeBuild(release,changed,{registry}),/Native build identity mismatch/);
+  await assert.rejects(publisher.verifyNativeBuild(release,report,{registry:{manifest:async()=>null}}),/Release index mismatch/);
+  children=[children[1]];
+  await assert.rejects(publisher.verifyNativeBuild(release,report,{registry}),/missing or ambiguous/);
+  children=[{digest:manifest,platform:{os:'linux',architecture:'amd64'}},{digest:other,platform:{os:'linux',architecture:'amd64'}}];
+  await assert.rejects(publisher.verifyNativeBuild(release,report,{registry}),/missing or ambiguous/);
+});

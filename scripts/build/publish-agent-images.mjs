@@ -112,6 +112,29 @@ export async function publish(prepared, registry, docker = run, imageInfo = insp
   }
   return [{ version: prepared.version, platforms: prepared.platforms, images: refs }, { ...prepared, images: receipts, published: !stageOnly, staged: stageOnly, anonymousPullVerified: false, independentHostVerified: false }];
 }
+export async function verifyNativeBuild(release, report, { registry = new Registry(), imageInfo = inspect } = {}) {
+  validateReport(report);
+  const architecture = report.platform.split('/')[1];
+  if (!release.platforms?.includes(report.platform)) throw new Failure('Native build platform missing from release');
+  const identities = {};
+  for (const name of Object.keys(NAMES)) {
+    const ref = release.images[name];
+    if (!/^ghcr\.io\/[a-z0-9/-]+@sha256:[a-f0-9]{64}$/.test(ref)) throw new Failure('Invalid GHCR digest reference');
+    const [repository, digest] = ref.slice(8).split('@');
+    const index = await registry.manifest(repository, digest);
+    if (!index || index[0] !== digest) throw new Failure('Release index mismatch: ' + name);
+    const children = (index[1].manifests ?? []).filter(m => m.platform?.os === 'linux' && m.platform?.architecture === architecture);
+    if (children.length !== 1) throw new Failure('Release platform manifest missing or ambiguous: ' + name);
+    const child = await registry.manifest(repository, children[0].digest);
+    if (!child || child[0] !== children[0].digest || !/^sha256:[a-f0-9]{64}$/.test(child[1].config?.digest ?? '') || ![child[0], child[1].config.digest].includes(report.images[name].id)) throw new Failure('Native build identity mismatch: ' + name);
+    const local = await imageInfo(ref);
+    // Docker's classic and containerd stores expose config, manifest or index IDs.
+    // Bind all three to the same verified native manifest before accepting an ID.
+    if (local.Os !== 'linux' || local.Architecture !== architecture || ![index[0], child[0], child[1].config?.digest].includes(local.Id)) throw new Failure('Pulled native image identity mismatch: ' + name);
+    identities[name] = { index: index[0], manifest: child[0], config: child[1].config.digest, build: report.images[name].id, pulled: local.Id };
+  }
+  return { platform: report.platform, images: identities };
+}
 export async function verifyPublic(release, docker = run, registry = new Registry()) {
   if (Object.keys(release.images ?? {}).sort().join(',') !== [...Object.keys(NAMES), ...Object.keys(INFRA)].sort().join(',')) throw new Failure('Six release images required');
   if (Object.entries(INFRA).some(([name, ref]) => release.images[name] !== ref)) throw new Failure('Unexpected infrastructure image');

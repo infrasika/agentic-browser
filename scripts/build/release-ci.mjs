@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
-import { NAMES, credentials, inspect, plan, publish, Registry, verifyPublic } from './publish-agent-images.mjs';
+import { credentials, inspect, plan, publish, Registry, verifyPublic, verifyNativeBuild } from './publish-agent-images.mjs';
 import { validateReport } from './release-images.mjs';
 import { writeCompose } from './package-compose.mjs';
 import { verifyCompose } from '../../test/acceptance/verify-compose.mjs';
@@ -66,7 +66,8 @@ async function main() {
     const publicReceipt = await verifyPublic({ ...release, platforms: ['linux/' + arch] });
     const buildReport=json(path.join(artifact(arch),'report.json'));
     validateReport(buildReport); assert.equal(buildReport.platform,'linux/'+arch);
-    for(const name of Object.keys(NAMES)) assert.equal((await inspect(release.images[name])).Id,buildReport.images[name].id,'Pulled image differs from native build: '+name);
+    console.log('Anonymous pulls passed; verifying native manifest and local image identities');
+    publicReceipt.nativeBuild = await verifyNativeBuild(release, buildReport);
     fs.mkdirSync('delivery');
     write('delivery/public-pull-' + arch + '.json', publicReceipt);
     const work=path.join(process.env.RUNNER_TEMP,'compose-acceptance');
