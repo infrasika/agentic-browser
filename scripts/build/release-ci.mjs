@@ -3,11 +3,11 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
-import { credentials, inspect, plan, publish, Registry, verifyPublic, verifyNativeBuild } from './publish-agent-images.mjs';
+import { NAMES, credentials, inspect, plan, publish, Registry, verifyPublic, verifyNativeBuild } from './publish-agent-images.mjs';
 import { validateReport } from './release-images.mjs';
 import { writeCompose } from './package-compose.mjs';
 import { verifyCompose } from '../../test/acceptance/verify-compose.mjs';
-import { cli, digest, json, run } from '../../deploy/agent/lib/system.mjs';
+import { cli, digest, Failure, json, run } from '../../deploy/agent/lib/system.mjs';
 
 const version = process.env.RELEASE_VERSION;
 const namespace = process.env.GITHUB_REPOSITORY_OWNER?.toLowerCase();
@@ -49,7 +49,7 @@ async function main() {
       for (const [name, image] of Object.entries(report.images)) {
         const child = receipt.images[name].platforms[report.platform];
         assert.equal(child.id, image.id);
-        assert(new RegExp('^ghcr\\.io/' + namespace + '/' + NAMES[name] + '@sha256:[a-f0-9]{64}$').test(child.reference));
+        if (!new RegExp('^ghcr\\.io/' + namespace + '/' + NAMES[name] + '@sha256:[a-f0-9]{64}$').test(child.reference)) throw new Failure('Invalid staged image reference: ' + name);
         await run(['docker', 'pull', '--platform', report.platform, child.reference], { timeout: 900_000 });
         assert.equal((await inspect(child.reference)).Id, image.id);
       }
