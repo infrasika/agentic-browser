@@ -2,6 +2,6 @@
   "format": 1,
   "repository": "https://github.com/LibreChat-AI/LibreChat.git",
   "commit": "61892206974618971b9001d109485d994dac2816",
-  "tree": "f229fe9cefac5c1f17cea8062a96549b5cc76b8b",
-  "patchSha256": "8617626608dc174d560b2510456040087e57f2dfdae867ad267effddf54145c0"
+  "tree": "ce4c884ee3a8e9fe23c45c0d88388a064cbce4e5",
+  "patchSha256": "df2acc3fb905650f5bbfdb6d5e43c122567325ef0d4878ec3b65bd2e59c9bcce"
 }

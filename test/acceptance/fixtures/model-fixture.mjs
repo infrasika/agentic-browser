@@ -1,14 +1,15 @@
 // Synthetic model only. Drives real graph tools, Chrome, handoff and resume.
 import { createServer } from 'node:http';
-let calls = 0;
+let calls = 0, maxSnapshotRequestBytes = 0;
 createServer(async (req, res) => {
   if (req.url === '/health') { res.end('ok'); return; }
-  if (req.url === '/stats') { res.setHeader('content-type', 'application/json'); res.end(JSON.stringify({ calls })); return; }
+  if (req.url === '/stats') { res.setHeader('content-type', 'application/json'); res.end(JSON.stringify({ calls, maxSnapshotRequestBytes })); return; }
   const chunks = []; for await (const chunk of req) chunks.push(chunk);
   const body = JSON.parse(Buffer.concat(chunks).toString()); calls++;
   const messages = body.messages ?? [];
   const last = messages.findLast(m => m.role === 'tool');
   const prior = messages.flatMap(m => m.tool_calls ?? []).find(t => t.id === last?.tool_call_id);
+  if (prior?.function?.name === 'browser_snapshot') maxSnapshotRequestBytes = Math.max(maxSnapshotRequestBytes, Buffer.byteLength(JSON.stringify(body)));
   const text = value => typeof value === 'string' ? value : (value ?? []).map(part => part.text ?? '').join('');
   let command, content = 'agentic-browser-acceptance — browser handoff completed.';
   if (body.tools?.some(t => t.function?.name === 'browser_open')) {
@@ -20,7 +21,8 @@ createServer(async (req, res) => {
       else if (prior?.function?.name === 'browser_request_handoff') command = { name: 'browser_snapshot', arguments: { leaseId: result.value.id } };
       else if (prior?.function?.name === 'browser_snapshot') {
         const handoff = messages.flatMap(m => m.tool_calls ?? []).findLast(t => t.function?.name === 'browser_request_handoff');
-        command = { name: 'browser_close', arguments: { leaseId: JSON.parse(handoff.function.arguments).leaseId } };
+        const snapshots = messages.flatMap(m => m.tool_calls ?? []).filter(t => t.function?.name === 'browser_snapshot').length;
+        command = { name: snapshots < 2 ? 'browser_snapshot' : 'browser_close', arguments: { leaseId: JSON.parse(handoff.function.arguments).leaseId } };
       }
     }
   } else content = 'Read agentic-browser-acceptance';

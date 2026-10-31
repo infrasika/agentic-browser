@@ -43,9 +43,12 @@ async function waitCompleted(account, leaseId) {
   }
   throw new Error('Completion deadline in '+report.stage);
 }
-async function start(account) {
+async function start(account, largeContext = false) {
   const messageId=randomUUID();
-  const result=await call(account.token,'/api/agents/chat',{text:'Open https://httpbin.org/anything/agentic-browser-acceptance, let me take control, then read the page and close the browser.', sender:'User',isCreatedByUser:true,parentMessageId:'00000000-0000-0000-0000-000000000000',conversationId:'new',messageId,responseMessageId:messageId+'_',endpoint:'agents',agent_id:'agent_browser_demo',spec:'browser-demo',isTemporary:false,isRegenerate:false});
+  // The long synthetic briefing crosses the former ~31 KiB budget gate while
+  // remaining well inside the model context and 256 KiB transport limits.
+  const briefing=largeContext?'\nReference notes:\n'+'Synthetic repository description for browser acceptance.\n'.repeat(700):'';
+  const result=await call(account.token,'/api/agents/chat',{text:'Open https://httpbin.org/anything/agentic-browser-acceptance, let me take control, then read the page and close the browser.'+briefing, sender:'User',isCreatedByUser:true,parentMessageId:'00000000-0000-0000-0000-000000000000',conversationId:'new',messageId,responseMessageId:messageId+'_',endpoint:'agents',agent_id:'agent_browser_demo',spec:'browser-demo',isTemporary:false,isRegenerate:false});
   assert.ok(result.conversationId); account.conversationId=result.conversationId;
 }
 
@@ -83,7 +86,7 @@ try {
   const blockedBudget=await call(owner.token,'/api/demo-admin');
   await call(owner.token,'/api/demo-admin/budget',{credits:budgetBefore.limitCredits,revision:blockedBudget.revision});
   report.checks.push('zero_daily_budget_prevents_provider_calls_and_personal_spend');
-  report.stage='human_handoff'; await start(owner);
+  report.stage='human_handoff'; await start(owner,true);
   const lease=await waitLease(owner,l=>l?.state==='active'&&l.control==='human');
   assert.deepEqual(await call(other.token,browserPath(owner)),{lease:null});
   assert.equal((await request(other.token,browserPath(owner)+'/viewer',{revision:lease.revision,role:'input'})).status,404);
@@ -114,11 +117,14 @@ try {
     const result=await call(account.token,'/api/messages/'+account.conversationId);
     const messages=Array.isArray(result)?result:result.messages;
     const snapshots=messages.flatMap(m=>m.content??[]).filter(p=>p.type==='tool_call'&&p.tool_call?.name==='browser_snapshot'&&p.tool_call.output).map(p=>JSON.parse(p.tool_call.output));
+    assert.equal(snapshots.length,2);
     assert.ok(snapshots.some(output=>output.ok&&output.value?.result?.text?.includes('agentic-browser-acceptance')));
   }
+  const modelStats=JSON.parse(await compose(['exec','-T','agent','node','-e',"fetch('http://fixture:9000/stats').then(r=>r.text()).then(console.log)"]));
+  assert.ok(modelStats.maxSnapshotRequestBytes>32000&&modelStats.maxSnapshotRequestBytes<=262144);
   const budgetAfter=await call(owner.token,'/api/demo-admin');
   assert.ok(budgetAfter.spentCredits>0); assert.equal(budgetAfter.reservedCredits,0);
-  report.checks.push('done_revokes_old_viewer_and_resumes_without_new_chat','queued_task_automatically_admitted','chat_title_and_tool_resume_share_budget');
+  report.checks.push('done_revokes_old_viewer_and_resumes_without_new_chat','queued_task_automatically_admitted','chat_title_and_tool_resume_share_budget','large_context_with_repeated_snapshots_resumes_and_settles');
   report.stage='restart_persistence';
   await compose(['restart','agent'],120000);
   await compose(['up','-d','--wait','--wait-timeout','120','agent'],150000);

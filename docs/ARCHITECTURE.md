@@ -59,6 +59,8 @@ MongoDB stores accounts, password hashes, conversations, personal credits, site 
 
 Defaults are 200,000 initial credits per account and 20,000,000 credits per site day. One million credits represents one US dollar in application accounting. Charges use operator-supplied model rates; bootstrap preserves existing balances and administrator-saved budgets. This accounting does not replace the provider's billing controls.
 
+Each model request reserves a conservative cost before reaching the provider, then settles against the reported usage. Missing usage retains the reservation. The byte-based estimate is used only for cost reservation; LibreChat manages the model context window separately. The demo limits serialized requests to 256 KiB and output to 4,096 tokens. Request-size, context-window and daily-budget failures are distinct.
+
 Administrators manage accounts, balances and the daily budget. The model receives prompts and tool results, which may include signed-in page contents. Users enter website passwords and one-time codes during human control, rather than in chat. The deployment operator controls the server and stored data.
 
 ## Deployment and recovery
