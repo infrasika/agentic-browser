@@ -1,41 +1,41 @@
-# 文档导航
+# Documentation
 
-Agentic Browser 是包含聊天、远程浏览器、本地账号和额度管理的完整 Agent。浏览器能力通过 LibreChat 原生工具调用私有服务；部署者安装一套 Compose 即可。
+Agentic Browser combines chat, a remote browser, local accounts and usage budgets. LibreChat calls a private Browser Service through native Agent tools. Deploy the complete application with Docker Compose; no separate MCP installation is required.
 
-## 按任务阅读
+## Choose a guide
 
-| 目标 | 文档 |
+| Task | Guide |
 | --- | --- |
-| 了解产品、GitHub 私有仓库示例与接管操作 | [Demo 使用](AGENT_DEMO.md) |
-| 理解组件、数据、身份与隔离边界 | [架构](ARCHITECTURE.md) |
-| 修改源码、LibreChat 补丁和运行测试 | [开发](DEVELOPMENT.md) |
-| 在 Mac / Ubuntu 构建 amd64、arm64 镜像 | [构建](BUILD.md) |
-| 发布 GHCR、制作和验收部署文件 | [发布](RELEASING.md) |
-| 从空白 Linux 服务器开始安装、自用关闭注册 | [部署](DEPLOYMENT.md) |
-| 填写参数和密钥、理解 Compose `.env` | [配置](CONFIGURATION.md) |
-| 管理用户、邮件、备份、恢复和升级 | [运维](OPERATIONS.md) |
-| 查看已验收范围与待完成事项 | [当前状态](STATUS.md) |
+| Use the GitHub example and hand browser control back to the Agent | [Agent demo](AGENT_DEMO.md) |
+| Understand components, identity, storage and isolation | [Architecture](ARCHITECTURE.md) |
+| Change source, maintain the LibreChat patch and run tests | [Development](DEVELOPMENT.md) |
+| Build Linux amd64/arm64 images on Mac or Ubuntu | [Build](BUILD.md) |
+| Publish images, verify them and prepare deployment files | [Release](RELEASING.md) |
+| Install on a Linux server, with registration closed or open | [Deployment](DEPLOYMENT.md) |
+| Set parameters and credentials; understand Compose `.env` | [Configuration](CONFIGURATION.md) |
+| Manage accounts, mail, backups, restores and upgrades | [Operations](OPERATIONS.md) |
+| Check delivered features, verified platforms and remaining work | [Status](STATUS.md) |
 
-构建、发布和部署是三个阶段：构建只读取源码和公共依赖；发布使用 Docker registry 授权；部署后才在安装目录填写模型、站点与邮件密钥。同一组镜像可以用于不同域名和账号配置。
+Building reads source and public dependencies. Publishing uses registry credentials. Deployment supplies model, site and optional mail credentials. The same images support different domains and operator configurations.
 
-## 目录约定
+## Repository layout
 
-| 路径 | 内容 | 是否进入 Git |
+| Path | Contents | Tracked in Git? |
 | --- | --- | --- |
-| `src/` | Browser Service、队列、画面、隔离运行时 | 是 |
-| `integrations/librechat/` | 固定上游提交、定制补丁和上游许可证 | 是 |
-| `runtime/` | Chrome Dockerfile、扩展安装器、资源锁、沙箱及许可证 | 是 |
-| `deploy/agent/` | Dockerfile、Nginx 模板、应用启动配置与共享工具 | 是 |
-| `deploy/compose/` | Docker-only 发行模板、容器内运维入口及 Docker CLI 分发许可 | 是 |
-| `config/*.example.*` | 公开配置字段示例，不填写真实密钥 | 是 |
-| `config/local/` | 可选本机配置位置，只保存用户填写的 settings.json 与 secrets.env | 否 |
-| `scripts/build/` | 源码准备、下载、镜像构建、发布和打包 | 是 |
-| `scripts/sync-browser-contract.mjs` | 同步两端浏览器 API 协议 | 是 |
-| `test/` | 单元测试；`tooling/` 验证工具，`acceptance/` 执行完整验收 | 是 |
-| `docs/` | 所有维护中的指南与状态说明 | 是 |
-| `output/` | 下载缓存、构建日志、候选包及验收记录 | 否 |
-| `.deployment/` | 本机 Compose 运行文件和备份；业务数据使用 Docker 命名卷；不是源码依赖 | 否 |
+| `src/` | Browser Service, scheduling, streaming and isolated runtime | Yes |
+| `integrations/librechat/` | Upstream source lock, customization patch and upstream license | Yes |
+| `runtime/` | Chrome Dockerfile, extension installer, asset lock, sandbox rules and licenses | Yes |
+| `deploy/agent/` | Dockerfiles, host Nginx template, application setup and shared tools | Yes |
+| `deploy/compose/` | Compose template, container operations and Docker CLI licenses | Yes |
+| `config/settings.example.json`, `config/secrets.env.example` | Public configuration examples with no real credentials | Yes |
+| `config/local/` | Optional local `settings.json` and `secrets.env` | No |
+| `scripts/build/` | Source preparation, asset downloads, image builds and publication | Yes |
+| `scripts/sync-browser-contract.mjs` | Browser API contract synchronization | Yes |
+| `test/` | Unit tests, tooling tests and full acceptance drivers | Yes |
+| `docs/` | Maintained guides and release status | Yes |
+| `output/` | Download caches, build logs, candidate packages and test evidence | No |
+| `.deployment/` | Local Compose deployments and backups; not a build input | No |
 
-根目录 `README.md` 是仓库入口。许可原文保留在对应组件目录。发行目录的 DEPLOYMENT.md、CONFIGURATION.md 和 OPERATIONS.md 直接来自这里，不维护第二套副本。
+The root README is the project entry point. Third-party license texts remain beside the relevant components. Release packaging copies `DEPLOYMENT.md`, `CONFIGURATION.md` and `OPERATIONS.md` from this directory; there is no separately maintained set of installation guides.
 
-新 clone 使用源码工具与公开示例初始化，不需要 `.deployment/` 中的任何文件。历史备份可能包含当时的配置快照，恢复归档不作为日常配置入口。运行实例的数据卷和 backups/ 需要保留；`output/` 中经过验收的发行包也可能用于恢复，清理时应按具体产物判断。浏览器调试工具生成的 `.playwright-cli/` 不是运行依赖。
+A fresh clone needs no files from a maintainer's deployment. Preserve the named volumes and completed backups of running installations. Before deleting local output, check whether a verified release or backup is still needed for recovery. Browser-debugging output in `.playwright-cli/` is not a runtime dependency.

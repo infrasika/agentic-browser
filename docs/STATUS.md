@@ -1,57 +1,49 @@
-# 当前状态与剩余验收
+# Status and verification
 
-更新：2026-10-31（北京时间）。项目采用 [MIT](../LICENSE)，日常开发使用 feature 分支，检查通过后通过 PR 合并到 main。历史实现过程保留在 Git，本页记录当前结果与验证边界。
+Updated October 31, 2026 (Asia/Shanghai). The project uses the [MIT License](../LICENSE); bundled dependencies retain their own licenses. This page records current capabilities and verification limits. Implementation history belongs in Git.
 
-## 已交付
+## Delivered
 
-聊天与浏览器同屏、本地账号、每用户一个会话、排队、人工接管归还后继续、credits、全站日预算、管理员入口、Turnstile 和可选 TLS SMTP 密码找回均已实现。GitHub 私有仓库数量/名称及实际邮件到达已由用户核对。
+- Chat and remote browser in one interface, local accounts and separate histories.
+- One unfinished browser task per account, queue admission and automatic continuation after human control.
+- Personal credits, a shared daily budget and administrator controls.
+- Turnstile for public registration and optional TLS SMTP password recovery.
+- Docker Compose deployment with persistent identity keys and project-specific named volumes.
+- Container-based account management, consistent backups, verification, restore, guarded upgrades and full rollback.
+- Daily backup scheduling, retention and same-day deduplication.
 
-部署统一为 Docker Compose：用户填写 settings.json 和 secrets.env；容器生成身份密钥，数据使用项目专属命名卷，宿主无需 Node/npm。ops 提供账号管理、停写备份、校验、新项目恢复、升级保护与完整回退；backup 容器提供每日备份、保留份数和同日去重。
+Fresh clones do not depend on maintainer configuration or `.deployment/`. Deployment hosts need Docker and Compose; maintenance commands run inside containers. The GitHub private-repository example and actual email receipt have also been checked manually on the test installation.
 
-旧宿主安装器、离线安装包和重复文档/测试入口已从源码移除。新 clone 不依赖本站配置或 .deployment。MIT 已接入源码、npm 元数据和镜像/发行文件，第三方组件保留各自许可。
+## Verified release
 
-## 已发布与验收
+[v0.1.0-preview.11](https://github.com/infrasika/agentic-browser/releases/tag/v0.1.0-preview.11) is the current verified preview. Its [release workflow](https://github.com/infrasika/agentic-browser/actions/runs/41151558451) completed successfully. Three project images support Linux amd64 and arm64; all six deployment images are pinned by digest and can be pulled anonymously. Preview publication does not move a `latest` image tag.
 
-[v0.1.0-preview.11](https://github.com/infrasika/agentic-browser/releases/tag/v0.1.0-preview.11) 已发布到 GitHub Release 和 GHCR，包含容器化运维工具。三种项目镜像均支持 Linux amd64 / arm64，不更新 latest。源码仓库目前仍私有，Release 下载需要仓库权限；镜像可匿名拉取。
-
-[发布流水线](https://github.com/infrasika/agentic-browser/actions/runs/41151558451) 已全部通过：
-
-| 范围 | 已验证结果 |
+| Area | Evidence |
 | --- | --- |
-| 源码 | Linux amd64、Linux arm64、macOS 的 66 项单元/工具测试及 TypeScript 检查通过 |
-| 原生构建 | 两种 Linux 架构的 Agent、Browser Service、Chrome Runtime 均构建成功；镜像源码 e0d0790，发行工具与指南源码 4ca69c8，镜像输入一致性已校验 |
-| 镜像身份 | 六种镜像匿名拉取通过；项目镜像按索引、平台清单和配置摘要核对构建记录及本地镜像，拒绝错镜像、错架构和歧义清单 |
-| 完整部署 | 两台全新原生 Linux runner 各 30 项 Docker-only 验收通过；测试容器、网络和数据卷剩余均为 0 |
-| 业务 | 真实 Chrome、接管继续、双账号隔离、排队、credits 幂等、日预算拦截、登出清理、登录限流、邮件单次重置和旧登录失效 |
-| 运维 | 配置与密钥持久化、账号命令、活跃任务拒绝备份、停写备份、独立项目恢复、损坏备份拒绝、故障升级完整回退、强杀恢复、每日轮转与去重、升级保留备份服务 |
-| 交付 | 15 个发行附件已下载并核对 SHA256；包括 Compose、配置模板、指南、许可证及两平台验收证据 |
-| 实际站点 | 已从本机候选升级为发布的 GHCR 镜像；65 个集合、身份密钥及用户配置核对通过，公网入口和备份服务正常 |
+| Source checks | TypeScript checks and the 66-test suite ran on Linux amd64, Linux arm64 and macOS; two Linux-only locking tests are skipped on macOS |
+| Native builds | Agent, Browser Service and Chrome runtime built on both Linux architectures |
+| Image provenance | Image source commit `e0d0790`; release tooling commit `4ca69c8`; image-input consistency was checked before build reuse |
+| Image identity | Anonymous pulls of all six images; index, platform manifest and configuration digests bind project images to native build records |
+| Full deployment | Each fresh native Linux runner passed 30 acceptance checks; no test containers, networks or volumes remained |
+| Application | Real Chrome, handoff/resume, account isolation, queueing, credit idempotency, daily budget enforcement, logout cleanup and login rate limiting |
+| Email | Simulated TLS SMTP password recovery, single-use reset and revocation of previous logins |
+| Operations | Persistent identity/data, account commands, active-task backup rejection, verified restore, corrupt-backup rejection, interrupted-backup recovery, failed-upgrade rollback and daily retention |
+| Delivery | All 15 assets were checked against GitHub digests and `SHA256SUMS`; configuration files contain placeholders |
+| Existing installation | Upgrade preserved stored data, identity keys and input configuration; health checks and scheduled backup verification passed |
 
-验收使用模拟模型和本地 TLS 邮件服务，没有付费模型调用或外部发信。macOS 源码测试不等于 Mac Docker 镜像构建验收。
+The workflow uses simulated model and mail services. It does not call a paid model or send external mail. macOS source checks do not establish that Docker image builds work on a physical Mac. Current CI uses macOS 15 arm64 after the macOS 14 runner retirement announcement; [the runner update passed all three source jobs](https://github.com/infrasika/agentic-browser/actions/runs/41158854382).
 
-本机证据：
+The release includes `compose-acceptance-amd64.json`, `compose-acceptance-arm64.json`, both public-pull receipts, `publication.json` and `release.json`. These are the portable verification records; maintainer-local logs are not deployment prerequisites.
 
-- 发行附件：`output/releases/v0.1.0-preview.11/`，其中包含两平台的完整验收报告。
-- 发行校验：`output/releases/preview11-progress/delivery-verification.json`。
-- 实际站点升级：`output/deploy/site-preview11-20261031/report.json`。
+Current guides describe the Compose layout introduced in preview.11. Older preview packages and their bundled documentation are historical snapshots; do not mix their installers with current operations commands. Documentation updates in `main` are included in future releases without rewriting existing checksummed release assets.
 
-这些是本机未跟踪报告，新 clone 不需要复制。实际数据核对只忽略权限初始化会刷新的 accessroles.updatedAt、aclentries.grantedAt / updatedAt、systemgrants.grantedAt / updatedAt，其余字段和标识一致。
+## Remaining acceptance and product work
 
-## 当前测试站
-
-https://agentic-browser.zkpass.org 运行 **v0.1.0-preview.11**，六种服务镜像均使用不可变摘要。运行目录为 `.deployment/agent-site-compose/`，项目名 agentic-browser-site，入口 127.0.0.1:3351。配置位于根目录 `config/local/`，只需 settings.json 和 secrets.env；业务数据及生成的密钥保存在命名卷。
-
-服务健康、非维护状态，首页与 api/config 公网返回 200，mcp 返回 404。每天 Asia/Shanghai 04:00 后空闲时执行备份，保留 7 份；10 月 31 日的自动备份已实际完成并校验，旧 systemd timer 已停用。本次升级前备份为 `backups/20261031T005812Z-370ac37a`，升级后完整备份为 `backups/20261031T005854Z-5fedea33`，均位于当前运行目录，已校验。
-
-每账号一个会话；实际容量仍为 5，硬上限 10。初始个人额度 200,000 credits，全站日预算初始值 20,000,000 credits，管理员保存值优先。现有源站 TLS 设置按此前决定保留。旧站目录和切换前有效备份仅作为本机回退材料，不是公开部署入口。
-
-## 后续待完成
-
-| 工作 | 完成条件 |
+| Work | Completion criterion |
 | --- | --- |
-| Mac 实机构建 | 在 Mac Docker 环境完成镜像构建；源码测试已经通过 |
-| 源码公开 | MIT 已完成；单独确定仓库公开范围和可见性 |
-| 异地恢复与重启 | 确定受控异地存储并跨机恢复，在维护窗口验证整机重启 |
-| 公网正式开放 | 核对源站 HTTPS、Turnstile、真实模型和邮件全链路 |
+| Physical Mac Docker build | Build images using the documented workflow on Mac Docker; source tests already pass |
+| Off-host recovery | Copy a completed backup to a separately controlled host and verify a full restore |
+| Host reboot recovery | Verify recovery after an actual host restart in a maintenance window |
+| Public deployment acceptance | Verify the chosen origin HTTPS setup, Turnstile, real model provider and delivered password-recovery email end to end |
 
-Agent 切换模型按当前要求暂不开发。本机副本不等于异地备份，进程强杀不等于整机断电；未执行的验证不标记为通过。
+Changing an existing Agent's model is not currently supported. A local backup is not an off-host backup, and process-interruption tests do not prove recovery from a host power loss. The ten-session configuration ceiling is a limit, not a capacity guarantee; size and test each deployment for its workload.

@@ -1,72 +1,76 @@
-# Agent 架构
+# Architecture
 
-当前产品是完整 LibreChat Agent：用户在聊天旁查看独立 Chrome，人工接管完成登录或验证，归还控制后任务自动继续。浏览器能力通过原生 Agent tools 调用私有 HTTP 服务。
+Agentic Browser is a complete LibreChat-based Agent. A user sees an isolated Chrome session beside chat, takes control for sign-in or verification, then returns control so the task can continue. Native Agent tools call a private HTTP Browser Service.
 
 ```mermaid
 flowchart LR
-  User[用户浏览器] --> CF[Cloudflare]
-  CF --> Host[宿主 HTTPS Nginx]
+  User[User browser] --> CF[Cloudflare]
+  CF --> Host[Host HTTPS Nginx]
   Host --> Gateway[Compose gateway / loopback]
   Gateway --> Agent[LibreChat Agent]
-  Gateway -->|授权画面和输入 WebSocket| Browser[Browser Service]
-  Agent -->|私有 API / 服务凭据| Browser
-  Agent --> Model[配置的 LLM API]
+  Gateway -->|Authorized display and input WebSockets| Browser[Browser Service]
+  Agent -->|Private API / service credential| Browser
+  Agent --> Model[Configured LLM API]
   Agent --> Mongo[(MongoDB)]
   Agent --> Redis[(Redis)]
-  Browser --> Ledger[(SQLite 调度账本)]
-  Browser -->|Docker / 每会话创建| Chrome[隔离 Chrome]
-  Chrome --> Egress[每会话出口代理]
-  Egress --> Website[公网网站]
+  Browser --> Ledger[(SQLite scheduler)]
+  Browser -->|Docker / one per session| Chrome[Isolated Chrome]
+  Chrome --> Egress[Session egress proxy]
+  Egress --> Website[Public websites]
 ```
 
-## 项目边界
+This diagram shows the documented public deployment. Private use can reach the loopback gateway through an SSH tunnel without Cloudflare or host Nginx.
 
-| 目录 / 项目 | 职责 |
+## Component boundaries
+
+| Path | Responsibility |
 | --- | --- |
-| `integrations/librechat/`（上游版本锁与定制补丁） | 聊天界面、本地账号、Turnstile、Qwen、原生工具、credits、全站预算、管理员入口和密码找回 |
-| `src/api/` | 内部浏览器协议与控制 API |
-| `src/scheduling/` | SQLite 队列、每用户配额、会话控制状态机、恢复事件和资源回收 |
-| `src/streaming/` | 一次性 viewer grant、画面与人工输入 WebSocket |
-| `src/docker-runtime.ts` | 创建、隔离和清理 Chrome / egress 容器 |
-| `src/runtime-worker.ts`、`src/desktop.ts`、`src/browser.ts` | 容器内 Chrome、扩展、CDP 和 VNC 生命周期 |
-| `src/egress-*` | 公网出口代理与目标地址限制 |
-| `deploy/agent/app/` | Agent 镜像内的配置、初始化、邮件与账号管理 |
-| `deploy/compose/` | Docker-only Compose 模板、备份、恢复、升级和调度入口 |
-| `deploy/agent/` | Dockerfile、宿主 Nginx 模板和共享文件/归档工具 |
-| `runtime/` | Chrome 镜像构建、扩展版本锁定、沙箱规则及许可证 |
-| `scripts/build/` | 资源下载、镜像构建、发行打包与 GHCR 发布 |
-| `test/acceptance/` | 完整 Agent、运维和浏览器验收；`fixtures/` 保存模拟模型和邮件服务 |
+| `integrations/librechat/` | Upstream lock and patch for chat, browser panel, accounts, Turnstile, model configuration, tools, credits, budgets, administration and password recovery |
+| `src/api/` | Internal browser protocol and control API |
+| `src/scheduling/` | SQLite queue, account quotas, control state, resume events and resource cleanup |
+| `src/streaming/` | Single-use viewer grants, display and human-input WebSockets |
+| `src/docker-runtime.ts` | Creation, isolation and cleanup of Chrome and egress containers |
+| `src/runtime-worker.ts`, `src/desktop.ts`, `src/browser.ts` | Chrome, extensions, CDP and VNC lifecycle inside the runtime |
+| `src/egress-*` | Outbound proxy and destination restrictions |
+| `deploy/agent/app/` | Configuration, initialization, email and account operations inside the Agent image |
+| `deploy/compose/` | Compose template, backups, restores, upgrades and scheduled operations |
+| `deploy/agent/` | Dockerfiles, host Nginx template and shared process/archive tools |
+| `runtime/` | Chrome image, pinned assets, sandbox rules and licenses |
+| `scripts/build/` | Source preparation, image builds, GHCR publication and delivery files |
+| `test/acceptance/` | Complete application and operations acceptance; fixtures provide model and mail simulations |
 
-## 请求与身份
+## Identity and control
 
-浏览器访问 gateway → LibreChat。LibreChat 验证登录账号，从服务端会话生成用户、对话和任务标识，使用内部服务密钥调用 Browser Service。入口代理清除访客提供的身份头；仅传 `X-User-ID` 无法绕过服务验证或任务归属检查。
+The gateway forwards application requests to LibreChat. LibreChat authenticates the account, derives user/conversation/task identifiers on the server and calls the Browser Service with an internal service credential. The edge proxy removes visitor-supplied identity headers. Sending `X-User-ID` alone does not bypass authentication or task ownership checks.
 
-控制 API 不向公网开放。画面和输入仅开放两个精确 WebSocket 路径，由 LibreChat 签发的短时、一次性授权约束用户、任务、角色和控制版本。Agent 运行时允许观察；人工接管期间禁止 Agent 操作和观察，CDP 断开。归还时重新接入同一个 Chrome，再由持久化事件驱动 Agent 继续。过期连接和旧版本操作失效。
+The control API is not published on a host port. Display and input use two explicitly routed WebSocket endpoints. Short-lived, single-use grants bind access to a user, task, role and control version. During human control, Agent observation and actions are suspended and CDP is disconnected. Returning control reconnects to the same Chrome session; persisted events resume the Agent. Old grants and operations from a previous control version are rejected.
 
-## 会话与资源
+## Sessions and resources
 
-每用户最多一个未结束的 lease，包括排队、启动、运行和等待清理。SQLite 事务保证全局容量和 FIFO 队列；只有确认容器消失后才释放名额。全局硬上限 10，部署默认 1，实际放行量由配置决定。默认会话 5 分钟、绝对上限 10 分钟，排队最多 10 分钟。已确认的结束记录默认保留 24 小时，未确认事件保留以供恢复。
+Each account can hold one unfinished lease, including time spent queued, starting, active or awaiting cleanup. SQLite transactions enforce capacity and FIFO admission. A slot is released only after container removal is confirmed. The deployment default is one active browser, with a configurable ceiling of ten. The service defaults to a five-minute session deadline, a ten-minute absolute lifetime and a ten-minute queue timeout. Ended records are retained for at least 24 hours; unacknowledged events and live resources are retained for recovery.
 
-每个 lease 使用一次性 Chrome 容器及临时用户目录。网站登录、扩展存储在同一次接管前后保留，会话销毁后不保留。浏览器服务复用 LibreChat 的用户身份，不另设账号系统或跨会话浏览器档案。
+Every lease has a disposable Chrome container and browser profile. Sign-in and extension state survive a handoff within that session, but are removed when the session is destroyed. Browser identity comes from LibreChat; there is no second account system or persistent cross-session browser profile.
 
-Chrome 无 Docker socket、模型密钥或数据库卷，根文件系统只读、无直连网络、无公开 CDP/VNC 端口。只有本会话出口 socket 子目录以只读方式挂入 Chrome。出口代理拒绝私网、loopback、云元数据和站点自身地址；不内置可绕过代理的 Demo 网页。
+Chrome has no Docker socket, model key or database volume. Its root filesystem is read-only, it has no direct network connection, and CDP/VNC ports are not published. A read-only mount exposes only that session's egress socket directory. The proxy rejects private addresses, loopback, cloud metadata and the application's own origin. Browser Service and operations containers do have Docker access and are part of the trusted host-management boundary.
 
-## 数据与成本
+## Data and usage accounting
 
-MongoDB 保存 LibreChat 账号、密码摘要、聊天、个人 credits、全站预算和账单记录；Redis 保存流、恢复状态及短期缓存；Browser Service 使用独立 SQLite 保存调度和事件。默认新账号 200,000 credits、全站每日 20,000,000 credits。模型费率用于扣账，已有账号额度和管理员修改的预算不会被 bootstrap 覆盖。
+MongoDB stores accounts, password hashes, conversations, personal credits, site budgets and billing records. Redis stores streams, resume state and short-lived cache data. Browser Service keeps scheduling and events in a separate SQLite database.
 
-站点管理员可以管理账号、额度和预算。模型接收提示及工具结果；用户应在远程浏览器中输入网站密码和验证码。部署者控制服务器及所存数据。
+Defaults are 200,000 initial credits per account and 20,000,000 credits per site day. One million credits represents one US dollar in application accounting. Charges use operator-supplied model rates; bootstrap preserves existing balances and administrator-saved budgets. This accounting does not replace the provider's billing controls.
 
-## 部署
+Administrators manage accounts, balances and the daily budget. The model receives prompts and tool results, which may include signed-in page contents. Users enter website passwords and one-time codes during human control, rather than in chat. The deployment operator controls the server and stored data.
 
-新部署使用 [Docker-only Compose](DEPLOYMENT.md)。宿主 Nginx 将域名转到 gateway 的回环端口；数据库、浏览器状态、应用文件和生成的配置使用项目专属命名卷，重建容器保留数据。用户填写 `settings.json` 和 `secrets.env`，可通过 `AGENT_CONFIG_DIR` 放在独立目录。首次启动由 `init` 生成应用身份密钥，以后保留同一身份；用户输入与镜像构建无关。
+## Deployment and recovery
 
-容器内 `ops` 通过 Docker socket 管理该项目，和可选每日 `backup` 服务共享内核操作锁。备份先关闭入口并排空请求，确认没有浏览器任务后停止写入者，归档全部持久卷和输入配置，校验成功才将临时目录标记为完成。恢复默认只接受新项目；升级失败保留维护状态，回退恢复升级前完整数据。中断操作的状态在独立卷持久化，不以简单重启代替恢复确认。运维容器无公网入口，与 Browser Service 一样只允许服务器管理员控制。
+[Deployment](DEPLOYMENT.md) uses one Compose definition. Persistent data and generated configuration live in project-specific named volumes. Operators supply `settings.json` and `secrets.env`, optionally in an external `AGENT_CONFIG_DIR`. The initializer generates identity keys on first startup and preserves them on subsequent starts. None of these operator inputs is needed to build an image.
 
-官方公网安装路径统一为 Cloudflare DNS/代理 → 宿主 HTTPS Nginx（Full strict）→ Compose gateway，公开注册使用 Turnstile。这样统一入口模板和验收，不给应用增加 Cloudflare DNS/证书管理 SDK、Tunnel 服务或另一套 Compose。关闭注册只是本地账号系统的策略开关，保留自用和隔离验收能力。
+The on-demand `ops` container and optional daily `backup` service share an operating-system lock. Backup closes the gateway, drains requests, checks for browser tasks, stops writers, then archives persistent data and input configuration. Only verified archives become completed backups. The operations state volume tracks interrupted work separately from backed-up application data.
 
-密码找回共用一套 TLS SMTP 实现，官方指南提供 Cloudflare Email Sending 配置；发信服务不是核心启动的硬依赖。源站证书归宿主，模型密钥归配置文件，应用身份密钥归配置卷，构建和发布均不依赖这些部署参数。
+Restore normally targets a new project. An upgrade takes a full backup and verifies the new services; failure leaves maintenance enabled. Rollback restores both the previous Compose version and its data. A restart alone is not proof that an interrupted restore or upgrade is safe to resume. See [Operations](OPERATIONS.md).
 
-`deploy/` 是版本控制中的部署源码，`.deployment/` 是不提交的本地运行状态，根目录 `config/local/` 可以保存本机配置。新部署从发行文件及公开示例开始，不依赖本站的私密目录。构建日志和报告在 `output/build/`，临时验收安装在 `output/tests/`。完整目录约定见 [文档导航](README.md)。
+The documented public entry is Cloudflare DNS/proxy, Full (strict) HTTPS to host Nginx, then a loopback Compose gateway. Public registration requires Turnstile. Closed registration uses the same account system. TLS SMTP is optional; the guide gives Cloudflare Email Sending settings, and the implementation also supports other TLS SMTP providers.
 
-发行清单包含 Agent、Browser Service、Chrome runtime、gateway、MongoDB、Redis 六个不可变镜像。Chrome runtime 由 Browser Service 按会话启动，并非常驻 Compose 服务。源码工具将 ops 及其依赖编译后放进 Agent 镜像；源码准备、镜像构建、GHCR 上传和部署文件生成分别见 [开发](DEVELOPMENT.md)、[构建](BUILD.md) 和 [发布](RELEASING.md)。已验收平台和剩余工作见 [当前状态](STATUS.md)。
+A release pins six images: Agent, Browser Service, Chrome runtime, gateway, MongoDB and Redis. Compose pulls the runtime image through a one-shot service; Browser Service creates the actual Chrome containers per session. The Agent image contains the bundled operations program, Docker CLI and Compose plugin, so deployment hosts do not need Node/npm.
+
+See [Build](BUILD.md), [Release](RELEASING.md) and [repository layout](README.md) for tooling boundaries. [Status](STATUS.md) records verified coverage and outstanding acceptance work.
