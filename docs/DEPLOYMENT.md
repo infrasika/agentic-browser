@@ -2,7 +2,7 @@
 
 本指南安装完整聊天 Agent、同屏浏览器、本地账号、credits 和全站预算。服务器只需 Docker / Compose，无需源码、Node.js、npm 或独立 MCP。公网步骤使用 Cloudflare + Nginx，自用可通过 SSH 隧道访问并关闭注册。
 
-本文对应包含 `ops` 服务的新发行文件。使用同一版本 Release 的文件和镜像；preview.10 及更早发行物缺少新运维入口。当前发布进度见源码仓库的 `docs/STATUS.md`。
+使用同一版本 Release 中的 Compose、配置模板、指南和镜像。当前已验证发行版见[开发进度](https://github.com/infrasika/agentic-browser/blob/main/docs/STATUS.md)。
 
 ## 1. 准备服务器
 
