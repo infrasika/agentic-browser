@@ -63,7 +63,7 @@ The `--` after an npm script forwards the remaining arguments. `build:agent` alr
 | `--builder NAME` | Reuse an existing Buildx builder or native multi-node setup |
 | `--component agent\|browser\|runtime` | Rebuild one component during development; a release requires all three |
 
-Development builds may omit `--committed` to use working-tree versions of tracked files. Such reports cannot be used for verified publication.
+Development builds may omit `--committed` to use working-tree versions of tracked files. Untracked files are excluded: stage new source files before building them. Such reports cannot be used for verified publication.
 
 The builder:
 
