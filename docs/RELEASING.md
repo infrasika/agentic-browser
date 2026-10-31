@@ -33,7 +33,7 @@ The pipeline performs:
 1. Source and type checks on Ubuntu amd64, Ubuntu arm64 and macOS.
 2. Native Linux builds on both architectures, validation against source reports and upload of architecture candidates.
 3. Assembly of immutable multi-platform indexes and a six-image `release.json`, including pinned official Nginx, MongoDB and Redis images.
-4. Anonymous image pulls and full Compose acceptance on two fresh native Linux runners.
+4. Anonymous image pulls, full Compose acceptance, and native Chrome regression checks for proxy networking, handoff and software WebGL on two fresh Linux runners.
 5. Version, source, image, architecture and cleanup verification; creation of deployment files and checksums, then a new Git tag and GitHub prerelease. It does not update image tags named `latest` or mark the prerelease as GitHub's latest release.
 
 See [Full Compose acceptance](DEVELOPMENT.md#full-compose-acceptance) for test coverage and report requirements. CI uses simulated providers; real model, HTTPS, Turnstile and mailbox checks belong to [deployment verification](DEPLOYMENT.md#7-choose-registration-policy-and-verify-features).
