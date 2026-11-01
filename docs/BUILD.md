@@ -96,3 +96,19 @@ agentic-browser-runtime:VERSION-amd64
 Source and major assets are locked, but APT/npm downloads still require network access; builds are not claimed to be byte-for-byte reproducible.
 
 Keep the reports and local images together. Continue with [manual publication](RELEASING.md#manual-publication-from-mac-or-ubuntu), setting `BUILD_DIR` to the printed directory and using the same Docker daemon. Runtime testing is documented in [Development](DEVELOPMENT.md#full-compose-acceptance).
+
+## 5. Clean generated artifacts
+
+`output/` is ignored by Git. Its files are local build, publication and test artifacts; deleting them does not create a Git change. Before removing a directory, confirm no running build, test or deployment uses it, including through a bind mount or symlink.
+
+| Path | Retention guidance |
+| --- | --- |
+| `output/build/` | Keep reports needed for pending publication and the current/previous deployed versions; remove older completed build directories |
+| `output/releases/` | Keep the current/previous deployment manifests and summarized validation evidence; remove superseded release downloads and scratch records after publication |
+| `output/runtime/packages/` | Verified download cache; reusable across builds, so normally keep it |
+| `output/sources/` | Prepared LibreChat checkouts; remove only after any local changes are captured in the tracked customization patch and lock |
+| `output/tests/` | Diagnostic workspaces; remove after test resources are cleaned up and useful evidence is retained |
+
+Older checkouts may also contain `output/agent/releases/` with offline bundles that include Docker images. These are not used by the current GHCR/Compose delivery workflow and can be removed when no longer needed for an offline installation.
+
+Deleting output files does not remove Docker images, containers or volumes. Preserve the active deployment directory, private configuration, persistent volumes, rollback images and verified backups separately; follow [Operations](OPERATIONS.md) for running-site maintenance.

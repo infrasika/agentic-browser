@@ -29,7 +29,7 @@ Commit and push reviewed changes, then open a PR into `main`. Contributors witho
 | `test/` | Unit, tooling and acceptance tests |
 | `docs/` | Maintained guides; the root README is the documentation index |
 
-Generated `output/`, `.deployment/` and `.playwright-cli/` directories are ignored. They hold build/test output, local deployments and browser-debugging output, respectively; none is a fresh-clone build prerequisite. Preserve active deployment files, named volumes and backups when cleaning local output. See [Architecture](ARCHITECTURE.md) for component responsibilities.
+Generated `output/`, `.deployment/` and `.playwright-cli/` directories are ignored. They hold build/test output, local deployments and browser-debugging output, respectively; none is a fresh-clone build prerequisite. Follow the [artifact retention guidance](BUILD.md#5-clean-generated-artifacts) when cleaning local output. See [Architecture](ARCHITECTURE.md) for component responsibilities.
 
 ## Change LibreChat
 
