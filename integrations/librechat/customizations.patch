@@ -1803,10 +1803,10 @@ index 834a47de330afc3dd080ef053de072a07ae6daab..c4833ee330159d0b0fbb62ffaecfb821
  /**
 diff --git a/client/src/components/Demo/Admin.tsx b/client/src/components/Demo/Admin.tsx
 new file mode 100644
-index 0000000000000000000000000000000000000000..6425ceec0e4429d3c9b533c074681ed9598e6d64
+index 0000000000000000000000000000000000000000..86f64bdc17d7bd4ed99136557825039eb5237c0e
 --- /dev/null
 +++ b/client/src/components/Demo/Admin.tsx
-@@ -0,0 +1,282 @@
+@@ -0,0 +1,285 @@
 +import { useState } from 'react';
 +import { Link } from 'react-router-dom';
 +import { Button, Input, Label, Spinner } from '@librechat/client';
@@ -1994,7 +1994,10 @@ index 0000000000000000000000000000000000000000..6425ceec0e4429d3c9b533c074681ed9
 +                        variant="outline"
 +                        size="sm"
 +                        disabled={
-+                          pending || account.role !== SystemRoles.USER || account.credits == null
++                          pending ||
++                          (account.role !== SystemRoles.USER &&
++                            account.role !== SystemRoles.ADMIN) ||
++                          account.credits == null
 +                        }
 +                        onClick={() => {
 +                          setTarget(account.id);
@@ -2091,10 +2094,10 @@ index 0000000000000000000000000000000000000000..6425ceec0e4429d3c9b533c074681ed9
 +}
 diff --git a/client/src/components/Demo/__tests__/Admin.spec.tsx b/client/src/components/Demo/__tests__/Admin.spec.tsx
 new file mode 100644
-index 0000000000000000000000000000000000000000..ac77f44e4179d2b8a79e181c430e6e3dd146d995
+index 0000000000000000000000000000000000000000..1c7538974c48608c960398cf6641e8109ffd7e53
 --- /dev/null
 +++ b/client/src/components/Demo/__tests__/Admin.spec.tsx
-@@ -0,0 +1,118 @@
+@@ -0,0 +1,138 @@
 +import React from 'react';
 +import { MemoryRouter } from 'react-router-dom';
 +import { dataService } from 'librechat-data-provider';
@@ -2184,6 +2187,26 @@ index 0000000000000000000000000000000000000000..ac77f44e4179d2b8a79e181c430e6e3d
 +  expect(await screen.findByRole('alert')).toHaveTextContent('com_demo_failed');
 +  fireEvent.click(screen.getByRole('button', { name: 'com_demo_refresh' }));
 +  expect(await screen.findByText('com_demo_daily_budget')).toBeInTheDocument();
++});
++test.each(['admin', 'another-admin'])('an administrator can add credits to %s', async (id) => {
++  jest.spyOn(dataService, 'getDemoAccounts').mockResolvedValue({
++    users: [{ id, email: 'admin@example.test', name: 'Administrator', role: 'ADMIN', credits: 0 }],
++    total: 1,
++    page: 0,
++  });
++  const topup = jest.spyOn(dataService, 'addDemoCredits').mockResolvedValue({ outcome: 'applied' });
++  mount();
++  const button = await screen.findByRole('button', { name: 'com_demo_add_credits' });
++  expect(button).toBeEnabled();
++  fireEvent.click(button);
++  fireEvent.click(screen.getByRole('button', { name: 'com_demo_confirm_topup' }));
++  await waitFor(() =>
++    expect(topup).toHaveBeenCalledWith(id, {
++      credits: 200000,
++      id: 'e18d417a-2f0e-4aeb-a90d-32633ba52a33',
++    }),
++  );
++  expect(await screen.findByRole('status')).toHaveTextContent('com_demo_saved');
 +});
 +test('uncertain top-up retry keeps the same id and amount', async () => {
 +  jest.spyOn(dataService, 'getDemoAccounts').mockResolvedValue({
@@ -18712,10 +18735,10 @@ index 0000000000000000000000000000000000000000..b8b1812304d39cb89588e3a388f692e7
 +}
 diff --git a/packages/api/src/budget/admin.spec.ts b/packages/api/src/budget/admin.spec.ts
 new file mode 100644
-index 0000000000000000000000000000000000000000..29b6dcaf430aab3a74f079721e7b355163d1b51a
+index 0000000000000000000000000000000000000000..00738a9fe72193e368f150f3cfcc9c44f05b7d64
 --- /dev/null
 +++ b/packages/api/src/budget/admin.spec.ts
-@@ -0,0 +1,87 @@
+@@ -0,0 +1,112 @@
 +import express from 'express';
 +import request from 'supertest';
 +import { siteBudgetSchema } from 'librechat-data-provider';
@@ -18746,7 +18769,7 @@ index 0000000000000000000000000000000000000000..29b6dcaf430aab3a74f079721e7b3551
 +  const server = express();
 +  server.use(express.json());
 +  server.use(((req: ServerRequest, _res, next) => {
-+    req.user = { id: 'admin-fixture', role, tenantId } as ServerRequest['user'];
++    req.user = { id: 'aaaaaaaaaaaaaaaaaaaaaaaa', role, tenantId } as ServerRequest['user'];
 +    req.config = {
 +      balance: { siteBudget: siteBudgetSchema.parse({ enabled }) },
 +    } as ServerRequest['config'];
@@ -18766,7 +18789,32 @@ index 0000000000000000000000000000000000000000..29b6dcaf430aab3a74f079721e7b3551
 +      (await request(fixture.server).post('/budget').send({ credits: 0, revision: 0 })).status,
 +    );
 +    expect(fixture.deps.setSiteBudgetLimit).not.toHaveBeenCalled();
++    expect([403, 404]).toContain(
++      (
++        await request(fixture.server)
++          .post('/users/aaaaaaaaaaaaaaaaaaaaaaaa/credits')
++          .send({ credits: 100, id: 'e18d417a-2f0e-4aeb-a90d-32633ba52a33' })
++      ).status,
++    );
++    expect(fixture.deps.creditDemoAccount).not.toHaveBeenCalled();
 +  }
++});
++test('an administrator can credit their own account, but cross-origin requests are rejected', async () => {
++  const { server, deps } = app();
++  const data = { credits: 100, id: 'e18d417a-2f0e-4aeb-a90d-32633ba52a33' };
++  const path = '/users/aaaaaaaaaaaaaaaaaaaaaaaa/credits';
++  expect(
++    (await request(server).post(path).set('Origin', 'https://demo.example.test').send(data)).status,
++  ).toBe(200);
++  expect(deps.creditDemoAccount).toHaveBeenCalledWith({
++    ...data,
++    userId: 'aaaaaaaaaaaaaaaaaaaaaaaa',
++    actor: 'aaaaaaaaaaaaaaaaaaaaaaaa',
++  });
++  expect(
++    (await request(server).post(path).set('Origin', 'https://evil.example').send(data)).status,
++  ).toBe(403);
++  expect(deps.creditDemoAccount).toHaveBeenCalledTimes(1);
 +});
 +test('same-origin admin can read state and optimistic conflicts require a refresh', async () => {
 +  const { server, deps } = app();
@@ -21006,10 +21054,10 @@ index df0ae5a998ce683537f34c448228ad62bee438b9..60f46aa8f08f210cca32283a037903d4
    const enabled = Boolean(loadedTurnstile.siteKey);
 diff --git a/packages/data-schemas/src/methods/demo.ts b/packages/data-schemas/src/methods/demo.ts
 new file mode 100644
-index 0000000000000000000000000000000000000000..cf7d4e844bf705931f555e2c110509866f0dd2c7
+index 0000000000000000000000000000000000000000..56e64a76d7f8df4209eca8c5b9a334d57927de5e
 --- /dev/null
 +++ b/packages/data-schemas/src/methods/demo.ts
-@@ -0,0 +1,85 @@
+@@ -0,0 +1,89 @@
 +import type { DemoAccountsResponse } from 'librechat-data-provider';
 +import { createBalanceModel } from '~/models/balance';
 +import { createUserModel } from '~/models/user';
@@ -21066,7 +21114,11 @@ index 0000000000000000000000000000000000000000..cf7d4e844bf705931f555e2c11050986
 +        input.credits > 10_000_000
 +      )
 +        throw new Error('Invalid credit adjustment');
-+      const user = await User.findOne({ _id: input.userId, role: 'USER', provider: 'local' })
++      const user = await User.findOne({
++        _id: input.userId,
++        role: { $in: ['USER', 'ADMIN'] },
++        provider: 'local',
++      })
 +        .select('_id')
 +        .lean();
 +      if (!user) return 'missing';
@@ -21132,10 +21184,10 @@ index f624427bcffa743fca37227d4a7ee82c824b7ddd..5376fbf05ef9886e6d876b476f42011a
      ...roleMethods,
 diff --git a/packages/data-schemas/src/methods/siteBudget.spec.ts b/packages/data-schemas/src/methods/siteBudget.spec.ts
 new file mode 100644
-index 0000000000000000000000000000000000000000..e15bce267adaacc2cec07b353cbd1062ce984f97
+index 0000000000000000000000000000000000000000..3d3481143b3acc1a97ff966eb99826737702c852
 --- /dev/null
 +++ b/packages/data-schemas/src/methods/siteBudget.spec.ts
-@@ -0,0 +1,122 @@
+@@ -0,0 +1,127 @@
 +import mongoose from 'mongoose';
 +import { randomUUID } from 'node:crypto';
 +import { MongoMemoryServer } from 'mongodb-memory-server';
@@ -21223,17 +21275,21 @@ index 0000000000000000000000000000000000000000..e15bce267adaacc2cec07b353cbd1062
 +  await methods.setSiteBudgetLimit({ ...policy, credits: 0, revision: 1, actor: 'admin' });
 +  expect(await methods.reserveSiteBudget({ ...policy, id: randomUUID(), credits: 1 })).toBe(false);
 +});
-+test('admin top-up retries cannot credit twice and do not expose audit data', async () => {
++test.each([
++  { role: 'USER', self: false },
++  { role: 'ADMIN', self: false },
++  { role: 'ADMIN', self: true },
++])('admin top-up is idempotent and audited for $role (self=$self)', async ({ role, self }) => {
 +  const user = await User.create({
 +    email: 'fixture@example.test',
 +    name: 'Fixture',
-+    role: 'USER',
++    role,
 +    provider: 'local',
 +  });
 +  await Balance.create({ user: user._id, tokenCredits: 200 });
 +  const input = {
 +    userId: String(user._id),
-+    actor: String(new mongoose.Types.ObjectId()),
++    actor: self ? String(user._id) : String(new mongoose.Types.ObjectId()),
 +    id: randomUUID(),
 +    credits: 50,
 +  };
@@ -21246,16 +21302,17 @@ index 0000000000000000000000000000000000000000..e15bce267adaacc2cec07b353cbd1062
 +  expect((await Balance.findOne({ user: user._id }).lean())?.adminCredits).toBeUndefined();
 +  const audit = await Balance.findOne({ user: user._id }).select('+adminCredits').lean();
 +  expect(audit?.adminCredits).toHaveLength(1);
++  expect(audit?.adminCredits?.[0]).toMatchObject({ id: input.id, actor: input.actor, credits: 50 });
 +  expect(await admin.creditDemoAccount({ ...input, credits: 51 })).toBe('missing');
 +  const listed = await admin.listDemoAccounts(0);
 +  expect(listed.users[0]).toEqual({
 +    id: String(user._id),
 +    name: 'Fixture',
 +    email: 'fixture@example.test',
-+    role: 'USER',
++    role,
 +    credits: 250,
 +  });
-+  await User.updateOne({ _id: user._id }, { $set: { role: 'ADMIN' } });
++  await User.updateOne({ _id: user._id }, { $set: { provider: 'google' } });
 +  expect(await admin.creditDemoAccount({ ...input, id: randomUUID() })).toBe('missing');
 +});
 diff --git a/packages/data-schemas/src/methods/siteBudget.ts b/packages/data-schemas/src/methods/siteBudget.ts
