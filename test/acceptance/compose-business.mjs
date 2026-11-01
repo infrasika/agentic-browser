@@ -31,7 +31,10 @@ async function waitCompleted(account, leaseId) {
     if (!status.active) {
       const result=await call(account.token,'/api/messages/'+account.conversationId);
       const messages=Array.isArray(result)?result:result.messages;
-      const closed=messages?.flatMap(m=>m.content??[]).find(part=>part.type==='tool_call'&&part.tool_call?.name==='browser_close');
+      const closed=messages?.flatMap(m=>m.content??[]).find(part=>{
+        if(part.type!=='tool_call'||part.tool_call?.name!=='browser_close'||!part.tool_call.output) return false;
+        try { return JSON.parse(part.tool_call.output).value?.id===leaseId; } catch { return false; }
+      });
       if (closed?.tool_call.output) {
         const value=JSON.parse(closed.tool_call.output);
         assert.equal(value.ok,true); assert.equal(value.value.id,leaseId); assert.ok(['completed','closing','cleanup_pending'].includes(value.value.state));
@@ -43,12 +46,21 @@ async function waitCompleted(account, leaseId) {
   }
   throw new Error('Completion deadline in '+report.stage);
 }
-async function start(account, largeContext = false) {
+async function start(account, largeContext = false, followUp = false) {
   const messageId=randomUUID();
+  let parentMessageId='00000000-0000-0000-0000-000000000000';
+  if(followUp) {
+    const response=await call(account.token,'/api/messages/'+account.conversationId);
+    const messages=Array.isArray(response)?response:response.messages;
+    const parent=messages.filter(m=>m.isCreatedByUser===false).sort((a,b)=>Date.parse(b.createdAt)-Date.parse(a.createdAt))[0];
+    assert.ok(parent?.messageId,'Follow-up attaches to the previous assistant response');
+    parentMessageId=parent.messageId;
+  }
   // The long synthetic briefing crosses the former ~31 KiB budget gate while
   // remaining well inside the model context and 256 KiB transport limits.
   const briefing=largeContext?'\nReference notes:\n'+'Synthetic repository description for browser acceptance.\n'.repeat(700):'';
-  const result=await call(account.token,'/api/agents/chat',{text:'Open https://httpbin.org/anything/agentic-browser-acceptance, let me take control, then read the page and close the browser.'+briefing, sender:'User',isCreatedByUser:true,parentMessageId:'00000000-0000-0000-0000-000000000000',conversationId:'new',messageId,responseMessageId:messageId+'_',endpoint:'agents',agent_id:'agent_browser_demo',spec:'browser-demo',isTemporary:false,isRegenerate:false});
+  const result=await call(account.token,'/api/agents/chat',{text:'Open https://httpbin.org/anything/agentic-browser-acceptance, let me take control, then read the page and close the browser.'+briefing, sender:'User',isCreatedByUser:true,parentMessageId,conversationId:followUp?account.conversationId:'new',messageId,responseMessageId:messageId+'_',endpoint:'agents',agent_id:'agent_browser_demo',spec:'browser-demo',isTemporary:false,isRegenerate:false});
+  if(followUp) assert.equal(result.conversationId,account.conversationId);
   assert.ok(result.conversationId); account.conversationId=result.conversationId;
 }
 
@@ -74,6 +86,19 @@ try {
   const credited=await call(other.token,'/api/balance');
   assert.equal(credited.tokenCredits,balanceBefore.tokenCredits+1000);
   report.checks.push('admin_credit_retry_is_idempotent');
+  const ownerId=await compose(['exec','-T','mongo','mongosh','--quiet','--eval',"db.getSiblingDB('AgenticBrowser').users.findOne({role:'ADMIN'})._id.toString()"]);
+  assert.match(ownerId,/^[a-f0-9]{24}$/);
+  const ownerBalanceBefore=await call(owner.token,'/api/balance');
+  const selfCredit={credits:1000,id:randomUUID()};
+  assert.equal((await request(other.token,'/api/demo-admin/users/'+ownerId+'/credits',selfCredit)).status,403);
+  assert.equal((await request(undefined,'/api/demo-admin/users/'+ownerId+'/credits',selfCredit)).status,401);
+  const selfResults=await Promise.all(Array.from({length:3},()=>call(owner.token,'/api/demo-admin/users/'+ownerId+'/credits',selfCredit)));
+  assert.equal(selfResults.filter(result=>result.outcome==='applied').length,1);
+  assert.equal(selfResults.filter(result=>result.outcome==='duplicate').length,2);
+  assert.equal((await call(owner.token,'/api/balance')).tokenCredits,ownerBalanceBefore.tokenCredits+1000);
+  assert.deepEqual(await call(other.token,'/api/balance'),credited);
+  assert.deepEqual(await call(owner.token,'/api/demo-admin'),budgetBefore);
+  report.checks.push('admin_self_credit_is_authorized_idempotent_and_preserves_site_budget');
   await call(owner.token,'/api/demo-admin/budget',{credits:0,revision:budgetBefore.revision});
   const callsBefore=await modelCalls();
   await start(other);
@@ -120,7 +145,26 @@ try {
     assert.equal(snapshots.length,2);
     assert.ok(snapshots.some(output=>output.ok&&output.value?.result?.text?.includes('agentic-browser-acceptance')));
   }
+  report.stage='follow_up_same_conversation';
+  await start(owner,false,true);
+  const followUp=await waitLease(owner,l=>l?.state==='active'&&l.control==='human');
+  assert.notEqual(followUp.id,lease.id);
+  assert.notEqual(followUp.taskId,lease.taskId);
+  assert.notEqual(followUp.sessionId,lease.sessionId);
+  const followUpGrant=await call(owner.token,browserPath(owner)+'/viewer',{revision:followUp.revision,role:'input'});
+  socket=new WebSocket(origin.replace('http:','ws:')+followUpGrant.path,{origin});socket.on('error',()=>{});
+  await once(socket,'open',{signal:AbortSignal.timeout(15000)});
+  const followUpFrame=once(socket,'message',{signal:AbortSignal.timeout(15000)});
+  socket.send(JSON.stringify({grant:followUpGrant.grant}));
+  assert.ok(Buffer.from((await followUpFrame)[0]).toString('ascii').startsWith('RFB '));
+  const followUpClosed=once(socket,'close',{signal:AbortSignal.timeout(30000)});
+  await call(owner.token,browserPath(owner)+'/control',{revision:followUp.revision,target:'agent',operationId:randomUUID()});
+  await followUpClosed;
+  await waitCompleted(owner,followUp.id);
+  report.checks.push('same_conversation_follow_up_creates_fresh_browser_viewer_and_completes');
   const modelStats=JSON.parse(await compose(['exec','-T','agent','node','-e',"fetch('http://fixture:9000/stats').then(r=>r.text()).then(console.log)"]));
+  assert.ok(modelStats.followUpHistoryChecks>0,'Follow-up model requests retain browser calls and results from previous turns');
+  report.checks.push('follow_up_model_requests_preserve_structured_browser_history');
   assert.ok(modelStats.maxSnapshotRequestBytes>32000&&modelStats.maxSnapshotRequestBytes<=262144);
   const budgetAfter=await call(owner.token,'/api/demo-admin');
   assert.ok(budgetAfter.spentCredits>0); assert.equal(budgetAfter.reservedCredits,0);

@@ -4,6 +4,8 @@ Maintain an existing installation using Docker and Compose. For first installati
 
 `ops` is an on-demand management container with no public interface. Use the application's administrator interface to adjust balances and the daily budget.
 
+In **Demo administration → User accounts**, administrators can add credits to local user and administrator accounts, including their own. Select **Add credits**, enter the amount and confirm. The balance refreshes after success. Retrying an unconfirmed request does not apply it twice. Personal credits do not increase or bypass the site-wide daily budget; ordinary users cannot adjust balances.
+
 ## Health and manual backups
 
 ```bash

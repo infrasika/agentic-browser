@@ -96,7 +96,7 @@ node --test test/tooling/compose-operations.test.mjs
 | `npm run source:prepare -- --output NEW_DIRECTORY` | Prepare and verify LibreChat source |
 | `npm run runtime:fetch -- --arch arm64` | Download and verify pinned browser assets |
 | `npm run test:runtime` | Real Chrome sandbox, process/file/network isolation and failure cleanup; needs Docker |
-| `npm run test:extensions` | Both extensions loading and opening their pages inside a container; needs Docker/Bash |
+| `npm run test:extensions` | Original extension UIs, native TransGate popup navigation, new-tab online state and Schema Validator handoff; needs Docker/Bash |
 
 `test:runtime` and `test:extensions` select a fixed local image through `BROWSER_RUNTIME_IMAGE`. Build a development runtime for the host architecture, for example:
 
@@ -125,7 +125,7 @@ npm run accept:compose -- \
 
 The work directory must be new, with an existing parent directory. Acceptance generates its own deployment files. For local candidate images, use fixed local tags for the three built images in the manifest and add `--development`; official releases require immutable digests. Keep infrastructure references pinned. Ports 3350/3351 must be free; `--port` selects the first, and the restore project uses the next. Deployment subprocesses have only Docker on PATH to check that operators need no host Node/npm installation.
 
-Coverage includes configuration rejection, initial startup, account isolation, credits and budget enforcement, queue admission, handoff/resume, logout cleanup and password recovery. Operations coverage includes persistent keys/data, account creation/reset, active-task backup rejection, verified restore, corrupt-backup rejection, failed-upgrade rollback, interrupted-backup recovery, scheduled retention and backup-service preservation across upgrades.
+Coverage includes configuration rejection, initial startup, account isolation, credits and budget enforcement, queue admission, handoff/resume, consecutive browser tasks in the same chat, logout cleanup and password recovery. Follow-up tests inspect the model request: historical browser calls and results must remain structured messages, and browser tools must stay available. Operations coverage includes persistent keys/data, account creation/reset, active-task backup rejection, verified restore, corrupt-backup rejection, failed-upgrade rollback, interrupted-backup recovery, scheduled retention and backup-service preservation across upgrades.
 
 Inspect `report.json` in the work directory. Confirm the intended version, host architecture and image references, plus `passed: true`, `cleanup.passed: true` and `cleanup.remaining: 0`. Cleanup includes all test profiles, containers, networks and volumes. Keep diagnostic workspaces private; only summarized evidence belongs in a release. Release CI requires this acceptance on both native Linux architectures; emulated builds are not a substitute.
 

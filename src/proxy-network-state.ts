@@ -95,12 +95,18 @@ export class ProxyNetworkState {
     // Page.enable installs Chrome's document-start hook. Without it, the
     // bootstrap runs in the existing document but silently stops on navigation.
     // Page events are ignored; neither DOM nor Runtime observation is enabled.
-    await this.send('Page.enable', {}, sessionId);
-    await this.send('Page.addScriptToEvaluateOnNewDocument', {
-      source: proxyOnlineBootstrap, runImmediately: true,
-    }, sessionId);
-    await this.send('Target.setAutoAttach', autoAttach, sessionId);
-    await this.send('Runtime.runIfWaitingForDebugger', {}, sessionId);
+    // A renderer created by target=_blank/window.open may not answer Page
+    // commands until it is resumed. Queue the bootstrap before the resume on
+    // the same ordered connection, but do not wait for each response: doing so
+    // deadlocks new tabs and eventually closes the entire workspace.
+    await Promise.all([
+      this.send('Page.enable', {}, sessionId),
+      this.send('Page.addScriptToEvaluateOnNewDocument', {
+        source: proxyOnlineBootstrap, runImmediately: true,
+      }, sessionId),
+      this.send('Target.setAutoAttach', autoAttach, sessionId),
+      this.send('Runtime.runIfWaitingForDebugger', {}, sessionId),
+    ]);
   }
 
   private fail() {

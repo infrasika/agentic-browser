@@ -12,7 +12,10 @@ async function until(check: () => boolean) {
   assert.fail('Network state event did not complete');
 }
 
-async function fixture(t: test.TestContext, rejectSession?: string, detachFirst = false) {
+async function fixture(t: test.TestContext, options: {
+  rejectSession?: string; detachFirst?: boolean; pausedSession?: string;
+} = {}) {
+  const { rejectSession, detachFirst, pausedSession } = options;
   const messages: { id: number; method: string; params: Record<string, unknown>; sessionId?: string }[] = [];
   let peer: WebSocket | undefined;
   let failures = 0;
@@ -23,8 +26,16 @@ async function fixture(t: test.TestContext, rejectSession?: string, detachFirst 
   const sockets = new WebSocketServer({ server });
   sockets.on('connection', socket => {
     peer = socket;
+    const deferred: number[] = [];
     socket.on('message', data => {
       const message = JSON.parse(data.toString()); messages.push(message);
+      // Chrome's popup renderer can defer Page command responses until resume.
+      if (message.sessionId === pausedSession && message.method.startsWith('Page.')) {
+        deferred.push(message.id); return;
+      }
+      if (message.sessionId === pausedSession && message.method === 'Runtime.runIfWaitingForDebugger') {
+        for (const id of deferred.splice(0)) socket.send(JSON.stringify({ id, result: {} }));
+      }
       if (message.method === 'Target.setAutoAttach' && !message.sessionId)
         socket.send(JSON.stringify({ method: 'Target.attachedToTarget', params: { sessionId: 'initial-page' } }));
       if (message.method === 'Page.addScriptToEvaluateOnNewDocument' && message.sessionId === rejectSession) {
@@ -68,7 +79,7 @@ test('proxy network state configures existing/new targets before resuming withou
 });
 
 test('proxy network state treats a disappearing target as a normal tab closure', async t => {
-  const f = await fixture(t, 'closed-popup', true); await f.connect(); f.attach('closed-popup');
+  const f = await fixture(t, { rejectSession: 'closed-popup', detachFirst: true }); await f.connect(); f.attach('closed-popup');
   await until(() => f.messages.some(m => m.sessionId === 'closed-popup'));
   f.attach('next-popup');
   await until(() => f.messages.some(m => m.sessionId === 'next-popup' && m.method === 'Runtime.runIfWaitingForDebugger'));
@@ -76,10 +87,18 @@ test('proxy network state treats a disappearing target as a normal tab closure',
 });
 
 test('proxy network state fails startup and notifies its owner if an attached page cannot be configured', async t => {
-  const f = await fixture(t, 'initial-page');
+  const f = await fixture(t, { rejectSession: 'initial-page' });
   await assert.rejects(f.connect(), /initialization failed/);
   assert.equal(f.failures(), 1);
-  assert.ok(!f.messages.some(m => m.method === 'Runtime.runIfWaitingForDebugger'));
+});
+
+test('proxy network state releases paused popup renderers without waiting for Page responses', async t => {
+  const f = await fixture(t, { pausedSession: 'initial-page' });
+  const state = await f.connect();
+  f.attach('next-tab');
+  await until(() => f.messages.some(m => m.sessionId === 'next-tab' && m.method === 'Runtime.runIfWaitingForDebugger'));
+  assert.equal(f.failures(), 0);
+  state.close();
 });
 
 test('proxy network state notifies its owner once if its persistent transport disconnects', async t => {
