@@ -1,14 +1,26 @@
 // Synthetic model only. Drives real graph tools, Chrome, handoff and resume.
 import { createServer } from 'node:http';
-let calls = 0, maxSnapshotRequestBytes = 0;
+let calls = 0, maxSnapshotRequestBytes = 0, followUpHistoryChecks = 0;
 createServer(async (req, res) => {
   if (req.url === '/health') { res.end('ok'); return; }
-  if (req.url === '/stats') { res.setHeader('content-type', 'application/json'); res.end(JSON.stringify({ calls, maxSnapshotRequestBytes })); return; }
+  if (req.url === '/stats') { res.setHeader('content-type', 'application/json'); res.end(JSON.stringify({ calls, maxSnapshotRequestBytes, followUpHistoryChecks })); return; }
   const chunks = []; for await (const chunk of req) chunks.push(chunk);
   const body = JSON.parse(Buffer.concat(chunks).toString()); calls++;
   // A follow-up in the same conversation starts a new task. Historical tool
   // results must not make the fixture treat the new user message as completed.
   const history = body.messages ?? [];
+  const previousTurns = history.slice(0, history.findLastIndex(m => m.role === 'user'));
+  if (body.tools?.some(t => t.function?.name === 'browser_open') && previousTurns.some(m => m.role === 'user')) {
+    const previousCalls = previousTurns.flatMap(m => m.tool_calls ?? []);
+    const paired = ['browser_open', 'browser_request_handoff', 'browser_snapshot', 'browser_close'].every(name =>
+      previousCalls.some(call => call.function?.name === name && previousTurns.some(message => message.role === 'tool' && message.tool_call_id === call.id)));
+    if (!paired || body.tool_choice === 'none') {
+      res.writeHead(422, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({ error: { message: 'Browser follow-up lost structured tool history or tool access.' } }));
+      return;
+    }
+    followUpHistoryChecks++;
+  }
   const messages = history.slice(history.findLastIndex(m => m.role === 'user') + 1);
   const last = messages.findLast(m => m.role === 'tool');
   const prior = messages.flatMap(m => m.tool_calls ?? []).find(t => t.id === last?.tool_call_id);

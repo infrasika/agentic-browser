@@ -163,6 +163,8 @@ try {
   await waitCompleted(owner,followUp.id);
   report.checks.push('same_conversation_follow_up_creates_fresh_browser_viewer_and_completes');
   const modelStats=JSON.parse(await compose(['exec','-T','agent','node','-e',"fetch('http://fixture:9000/stats').then(r=>r.text()).then(console.log)"]));
+  assert.ok(modelStats.followUpHistoryChecks>0,'Follow-up model requests retain browser calls and results from previous turns');
+  report.checks.push('follow_up_model_requests_preserve_structured_browser_history');
   assert.ok(modelStats.maxSnapshotRequestBytes>32000&&modelStats.maxSnapshotRequestBytes<=262144);
   const budgetAfter=await call(owner.token,'/api/demo-admin');
   assert.ok(budgetAfter.spentCredits>0); assert.equal(budgetAfter.reservedCredits,0);

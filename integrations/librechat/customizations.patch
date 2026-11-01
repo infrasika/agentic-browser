@@ -30,10 +30,10 @@ index 3a1fb286b691ca29fa05a0d1e7bc7fd7c313d74c..941c195a1434c4a0f217bc193e91fbb1
    "devDependencies": {
      "@babel/preset-env": "^7.29.5",
 diff --git a/api/server/controllers/agents/client.js b/api/server/controllers/agents/client.js
-index 426e81012d23e42d0885ea6d158c933cdb6d6219..bdd46b9d13c15070fe8cbc6cd701a85c6d5d8134 100644
+index 426e81012d23e42d0885ea6d158c933cdb6d6219..f4db56cb04f3d0b8ce36517d26a4b3893aefc014 100644
 --- a/api/server/controllers/agents/client.js
 +++ b/api/server/controllers/agents/client.js
-@@ -4,6 +4,7 @@ const { logger, MAX_AGENT_EVENT_ACTOR_ENCODING_LENGTH } = require('@librechat/da
+@@ -4,9 +4,11 @@ const { logger, MAX_AGENT_EVENT_ACTOR_ENCODING_LENGTH } = require('@librechat/da
  const { getBufferString, HumanMessage } = require('@librechat/agents/langchain/messages');
  const {
    createRun,
@@ -41,7 +41,11 @@ index 426e81012d23e42d0885ea6d158c933cdb6d6219..bdd46b9d13c15070fe8cbc6cd701a85c
    isEnabled,
    checkAccess,
    buildRunToolSet,
-@@ -254,6 +255,7 @@ const { getAccessibleMCPServers } = require('~/server/services/MCP');
++  BROWSER_TOOL_NAMES,
+   logToolError,
+   sanitizeTitle,
+   payloadParser,
+@@ -254,6 +256,7 @@ const { getAccessibleMCPServers } = require('~/server/services/MCP');
  const BaseClient = require('~/app/clients/BaseClient');
  const { getMCPManager } = require('~/config');
  const db = require('~/models');
@@ -49,7 +53,7 @@ index 426e81012d23e42d0885ea6d158c933cdb6d6219..bdd46b9d13c15070fe8cbc6cd701a85c
  
  const loadAgent = (params) =>
    loadAgentFn(params, {
-@@ -1066,7 +1068,12 @@ class AgentClient extends BaseClient {
+@@ -1066,7 +1069,12 @@ class AgentClient extends BaseClient {
            conversationId: this.conversationId,
            parentMessageId: this.parentMessageId,
          },
@@ -63,7 +67,7 @@ index 426e81012d23e42d0885ea6d158c933cdb6d6219..bdd46b9d13c15070fe8cbc6cd701a85c
        }).catch((error) => {
          /** Never cache a rejection: a transient credential read failure would
           *  otherwise disable labels for the rest of the response. */
-@@ -1089,7 +1096,12 @@ class AgentClient extends BaseClient {
+@@ -1089,7 +1097,12 @@ class AgentClient extends BaseClient {
            conversationId: this.conversationId,
            parentMessageId: this.parentMessageId,
          },
@@ -77,7 +81,7 @@ index 426e81012d23e42d0885ea6d158c933cdb6d6219..bdd46b9d13c15070fe8cbc6cd701a85c
        }).catch((error) => {
          this.activityPhaseLabelLLMPromise = null;
          throw error;
-@@ -1110,7 +1122,12 @@ class AgentClient extends BaseClient {
+@@ -1110,7 +1123,12 @@ class AgentClient extends BaseClient {
            conversationId: this.conversationId,
            parentMessageId: this.parentMessageId,
          },
@@ -91,7 +95,7 @@ index 426e81012d23e42d0885ea6d158c933cdb6d6219..bdd46b9d13c15070fe8cbc6cd701a85c
        }).catch((error) => {
          this.reasoningLabelLLMPromise = null;
          throw error;
-@@ -3433,6 +3450,8 @@ class AgentClient extends BaseClient {
+@@ -3433,6 +3451,8 @@ class AgentClient extends BaseClient {
          getAccessibleMcpServerNames,
          updateFilesUsage: db.updateFilesUsage,
          getUserKeyValues: db.getUserKeyValues,
@@ -100,22 +104,43 @@ index 426e81012d23e42d0885ea6d158c933cdb6d6219..bdd46b9d13c15070fe8cbc6cd701a85c
          getToolFilesByIds: db.getToolFilesByIds,
          getCodeGeneratedFiles: db.getCodeGeneratedFiles,
          filterFilesByAgentAccess,
-@@ -5028,6 +5047,14 @@ class AgentClient extends BaseClient {
+@@ -4716,10 +4736,26 @@ class AgentClient extends BaseClient {
+         version: 'v2',
+       };
+ 
++      const browser = this.options.req.app?.locals?.browser?.bind(
++        {
++          userId: this.options.req.user.id,
++          conversationId: this.conversationId,
++          createdAt: this.jobCreatedAt,
++        },
++        abortController.signal,
++      );
++      // Native graph tools are attached by createRun, outside agent.tools.
++      // Preserve their historical call/result pairs when formatting a new turn.
++      const hostGeneratedToolNames = [
++        ...(this.options.subagentTasks == null ? [] : [Constants.CHECK_BACKGROUND_TASK]),
++        ...(browser && topLevelAgents.some((agent) => browser.agentIds.includes(agent.id))
++          ? BROWSER_TOOL_NAMES
++          : []),
++      ];
+       const toolSet = buildRunToolSet(
+         this.options.agent,
+         this.agentConfigs?.values(),
+-        this.options.subagentTasks == null ? undefined : [Constants.CHECK_BACKGROUND_TASK],
++        hostGeneratedToolNames,
+         payload,
+       );
+       const tokenCounter = withRetainedAnswerTokenCounter(
+@@ -5028,6 +5064,7 @@ class AgentClient extends BaseClient {
            activityPhase?.handlers(offsetHandlers) ??
            (activityLabel ? createAssistantPhaseStampingHandlers(offsetHandlers) : offsetHandlers);
          const createRunPromise = createRun({
-+          browser: this.options.req.app?.locals?.browser?.bind(
-+            {
-+              userId: this.options.req.user.id,
-+              conversationId: this.conversationId,
-+              createdAt: this.jobCreatedAt,
-+            },
-+            abortController.signal,
-+          ),
++          browser,
            scheduledMCPExecution: getScheduleMCPExecution(getMCPRequestContext(this.options.req)),
            recordScheduledMCPDenial: createScheduledMCPPolicyRecorder(
              getScheduleMCPExecution(getMCPRequestContext(this.options.req)),
-@@ -5422,6 +5449,7 @@ class AgentClient extends BaseClient {
+@@ -5422,6 +5459,7 @@ class AgentClient extends BaseClient {
     */
    async resumeCompletion({
      resumeValue,
@@ -123,7 +148,7 @@ index 426e81012d23e42d0885ea6d158c933cdb6d6219..bdd46b9d13c15070fe8cbc6cd701a85c
      reviewedToolApprovals,
      seedContent = [],
      runSteps = [],
-@@ -5440,6 +5468,7 @@ class AgentClient extends BaseClient {
+@@ -5440,6 +5478,7 @@ class AgentClient extends BaseClient {
      let config;
      /** @type {ReturnType<createRun>} */
      let run;
@@ -131,7 +156,7 @@ index 426e81012d23e42d0885ea6d158c933cdb6d6219..bdd46b9d13c15070fe8cbc6cd701a85c
      const appConfig = this.options.req.config;
      const terminalRunError = createTerminalRunErrorObserver({
        maxProviderErrorChars: appConfig?.endpoints?.agents?.maxProviderErrorChars,
-@@ -5455,6 +5484,29 @@ class AgentClient extends BaseClient {
+@@ -5455,6 +5494,29 @@ class AgentClient extends BaseClient {
      const balanceConfig = getBalanceConfig(appConfig);
      const transactionsConfig = getTransactionsConfig(appConfig);
      try {
@@ -161,7 +186,7 @@ index 426e81012d23e42d0885ea6d158c933cdb6d6219..bdd46b9d13c15070fe8cbc6cd701a85c
        if (!abortController) {
          abortController = new AbortController();
        }
-@@ -5840,6 +5892,14 @@ class AgentClient extends BaseClient {
+@@ -5840,6 +5902,14 @@ class AgentClient extends BaseClient {
          activityPhase?.handlers(offsetHandlers) ??
          (activityLabel ? createAssistantPhaseStampingHandlers(offsetHandlers) : offsetHandlers);
        run = await createRun({
@@ -176,7 +201,7 @@ index 426e81012d23e42d0885ea6d158c933cdb6d6219..bdd46b9d13c15070fe8cbc6cd701a85c
          scheduledMCPExecution: getScheduleMCPExecution(getMCPRequestContext(this.options.req)),
          recordScheduledMCPDenial: createScheduledMCPPolicyRecorder(
            getScheduleMCPExecution(getMCPRequestContext(this.options.req)),
-@@ -6068,6 +6128,7 @@ class AgentClient extends BaseClient {
+@@ -6068,6 +6138,7 @@ class AgentClient extends BaseClient {
            getSafeErrorMetadata(err),
          );
        }
@@ -184,7 +209,7 @@ index 426e81012d23e42d0885ea6d158c933cdb6d6219..bdd46b9d13c15070fe8cbc6cd701a85c
        if (this._resolveRun) {
          this._resolveRun(this.run ?? null);
          this._resolveRun = null;
-@@ -6193,6 +6254,8 @@ class AgentClient extends BaseClient {
+@@ -6193,6 +6264,8 @@ class AgentClient extends BaseClient {
        db: {
          getUserKey: db.getUserKey,
          getUserKeyValues: db.getUserKeyValues,
@@ -193,7 +218,7 @@ index 426e81012d23e42d0885ea6d158c933cdb6d6219..bdd46b9d13c15070fe8cbc6cd701a85c
        },
      });
  
-@@ -6369,6 +6432,7 @@ class AgentClient extends BaseClient {
+@@ -6369,6 +6442,7 @@ class AgentClient extends BaseClient {
          usage,
          context,
          collectedUsage: this.collectedUsage,
@@ -17106,6 +17131,70 @@ index 0000000000000000000000000000000000000000..83a569329028f6d6762a4cce0a7c369a
 +    });
 +  }
 +}
+diff --git a/packages/api/src/browser/history.spec.ts b/packages/api/src/browser/history.spec.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..5eeac032fd5a9d556d3217ae223e3000dd67b24c
+--- /dev/null
++++ b/packages/api/src/browser/history.spec.ts
+@@ -0,0 +1,58 @@
++import { formatAgentMessages } from '@librechat/agents';
++import type { TPayload } from '@librechat/agents';
++import { AIMessage, ToolMessage } from '@librechat/agents/langchain/messages';
++import { buildRunToolSet } from '../agents/tools';
++import { BROWSER_TOOL_NAMES } from './tools';
++
++const history: TPayload = [
++  { role: 'user', content: 'Read a page, let me confirm it, then close the browser.' },
++  {
++    role: 'assistant',
++    content: [
++      { type: 'text', text: 'I will inspect the page.' },
++      ...BROWSER_TOOL_NAMES.map((name, index) => ({
++        type: 'tool_call' as const,
++        tool_call: {
++          id: `browser-${index}`,
++          name,
++          args: JSON.stringify({ leaseId: 'previous-task-browser' }),
++          output: JSON.stringify({ ok: true, value: { evidence: name } }),
++        },
++      })),
++      { type: 'text', text: 'The browser task is complete.' },
++    ],
++  },
++  { role: 'user', content: 'Open another website in a new browser.' },
++];
++
++test('a browser follow-up retains structured historical calls and their results', () => {
++  const allowlist = buildRunToolSet({ tools: [] }, undefined, BROWSER_TOOL_NAMES);
++  const { messages } = formatAgentMessages(structuredClone(history), undefined, allowlist);
++  const calls = messages
++    .filter((message): message is AIMessage => message instanceof AIMessage)
++    .flatMap((message) => message.tool_calls ?? []);
++  const results = messages.filter(
++    (message): message is ToolMessage => message instanceof ToolMessage,
++  );
++  expect(calls.map((call) => call.name)).toEqual(BROWSER_TOOL_NAMES);
++  expect(results.map((result) => result.tool_call_id)).toEqual(calls.map((call) => call.id));
++  expect(results.map((result) => JSON.parse(String(result.content)).value.evidence)).toEqual(
++    BROWSER_TOOL_NAMES,
++  );
++  expect(messages.at(-1)?.content).toEqual(
++    expect.arrayContaining([
++      expect.objectContaining({ text: 'Open another website in a new browser.' }),
++    ]),
++  );
++});
++
++test('browser history is not implicitly authorized for an agent without native browser tools', () => {
++  const allowlist = buildRunToolSet({ tools: [] });
++  const { messages } = formatAgentMessages(structuredClone(history), undefined, allowlist);
++  expect(messages.some((message) => message instanceof ToolMessage)).toBe(false);
++  expect(
++    messages
++      .filter((message): message is AIMessage => message instanceof AIMessage)
++      .flatMap((message) => message.tool_calls ?? []),
++  ).toEqual([]);
++});
 diff --git a/packages/api/src/browser/http.spec.ts b/packages/api/src/browser/http.spec.ts
 new file mode 100644
 index 0000000000000000000000000000000000000000..1550d091bd19feff927833d6c14b18085279134c
@@ -18345,10 +18434,10 @@ index 0000000000000000000000000000000000000000..e4c86aaaed7b3c9ce99513590cd569be
 +);
 diff --git a/packages/api/src/browser/tools.ts b/packages/api/src/browser/tools.ts
 new file mode 100644
-index 0000000000000000000000000000000000000000..ea86a4ba76324d256b5146cd12c114f2bb4aea9c
+index 0000000000000000000000000000000000000000..00ba97fea0f838d5f44caff280fee857c7ec2557
 --- /dev/null
 +++ b/packages/api/src/browser/tools.ts
-@@ -0,0 +1,208 @@
+@@ -0,0 +1,209 @@
 +import { z } from 'zod';
 +import { createHash } from 'node:crypto';
 +import { tool } from '@librechat/agents/langchain/tools';
@@ -18367,6 +18456,7 @@ index 0000000000000000000000000000000000000000..ea86a4ba76324d256b5146cd12c114f2
 +];
 +export const BROWSER_SKILL = `Browser skill (deployment owned):
 +Use browser_open to start a task, then browser_snapshot to inspect page text and browser_action to interact.
++Browser action claims require successful tool results for the current task. Earlier assistant prose without corresponding tool calls is unverified; never imitate it or simulate browser actions in text. If the latest user request requires browsing and this task has not yet called browser_open, invoke browser_open. If this task already opened a browser that then expired, was cancelled, or was closed, report its outcome instead of reopening it automatically. General questions that do not need live browsing may be answered normally.
 +A follow-up after the previous task has ended starts a new browser task, even in the same conversation. Browser IDs in historical messages belong to their original task and must not be reused for a new task. Call browser_open to obtain a fresh browser; the user does not need a new chat.
 +Never reuse a closed, expired, cancelled, or previous-task leaseId. A later user request can open a fresh browser in this chat. Do not automatically restart an expired or cancelled task, bypass session limits, or repeat a submission whose outcome is uncertain.
 +Call one browser tool at a time. Never invent selectors or retry an action with an uncertain outcome.
