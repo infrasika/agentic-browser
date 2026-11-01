@@ -96,7 +96,7 @@ node --test test/tooling/compose-operations.test.mjs
 | `npm run source:prepare -- --output NEW_DIRECTORY` | Prepare and verify LibreChat source |
 | `npm run runtime:fetch -- --arch arm64` | Download and verify pinned browser assets |
 | `npm run test:runtime` | Real Chrome sandbox, process/file/network isolation and failure cleanup; needs Docker |
-| `npm run test:extensions` | Both extensions loading and opening their pages inside a container; needs Docker/Bash |
+| `npm run test:extensions` | Original extension UIs, native TransGate popup navigation, new-tab online state and Schema Validator handoff; needs Docker/Bash |
 
 `test:runtime` and `test:extensions` select a fixed local image through `BROWSER_RUNTIME_IMAGE`. Build a development runtime for the host architecture, for example:
 

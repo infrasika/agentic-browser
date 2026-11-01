@@ -18,9 +18,9 @@ const lock = JSON.parse(await readFile('/app/runtime/assets.lock.json', 'utf8'))
 const internals = (workspace: DesktopWorkspace) => workspace as unknown as {
   browser?: Browser; environment: NodeJS.ProcessEnv;
 };
-async function createWorkspace() {
+async function createWorkspace(publicEgress = false) {
   const workspace = new DesktopWorkspace(await mkdtemp(join(tmpdir(), 'extension-test-')));
-  try { await workspace.start('/usr/bin/google-chrome-stable'); return workspace; }
+  try { await workspace.start('/usr/bin/google-chrome-stable', [], publicEgress); return workspace; }
   catch (error) { await workspace.close(); throw error; }
 }
 async function extensionInfo(page: Page) {
@@ -105,6 +105,91 @@ test('image: both original extensions install without network and remain usable 
   assert.equal(returned.url, `chrome-extension://${validator.id}/${validator.popup}`);
   assert.ok(returned.text.trim().length > 0);
   console.log('Native handoff restored extension UI; old VNC connection revoked.');
+});
+
+test('TransGate: original popup opens Portal during human control without closing the browser', { timeout: 60000 }, async t => {
+  // Exercise the production online-state adapter with the original extension.
+  // This container has no egress, so the destination may show a network error;
+  // its new tab must still initialize and survive the adapter's 5s timeout.
+  const workspace = await createWorkspace(true);
+  t.after(() => workspace.close());
+  const context = internals(workspace).browser!.contexts()[0];
+  const page = context.pages()[0];
+  await waitForExtensions(page);
+  const transgate = lock.extensions[0];
+  await page.goto(`chrome-extension://${transgate.id}/${transgate.popup}`);
+  await page.bringToFront();
+  const link = page.getByRole('link', { name: 'Enter the World of Crypto' });
+  assert.equal(await link.getAttribute('href'), 'https://portal.zkpass.org');
+  assert.equal(await link.getAttribute('target'), '_blank');
+  await page.evaluate(() => (globalThis as any).chrome.action.openPopup());
+  await delay(500);
+  await workspace.setControl('human');
+  const env = { ...process.env, ...internals(workspace).environment };
+  // The popup's only focusable element is its Portal link. Use native input,
+  // with no automation client attached while Chrome creates the new target.
+  await exec('xdotool', ['key', '--clearmodifiers', 'Tab', 'Return'], { env });
+  await delay(6500);
+  assert.equal(internals(workspace).browser, undefined);
+  await assert.rejects(workspace.perform({ type: 'snapshot' }));
+  await workspace.setControl('agent');
+  const returnedContext = internals(workspace).browser!.contexts()[0];
+  const returned = returnedContext.pages();
+  assert.equal(returned.length, 2, 'The original tab and Portal tab both survive');
+  const portal = returned.find(p => !p.url().startsWith('chrome-extension:'))!;
+  // Chrome exposes chrome-error://chromewebdata/ for an offline tab via CDP;
+  // navigation history retains the real URL attempted by the extension.
+  const inspector = await returnedContext.newCDPSession(portal);
+  const history = await inspector.send('Page.getNavigationHistory');
+  assert.equal(history.entries[history.currentIndex].url, 'https://portal.zkpass.org/');
+  await inspector.detach();
+  assert.equal(await portal.evaluate(() => document.visibilityState), 'visible');
+  const snapshot = await workspace.perform({ type: 'snapshot' }) as { url: string; text: string };
+  assert.equal(snapshot.url, portal.url(), 'Agent adopts the tab opened by the human');
+  assert.match(snapshot.text, /ERR_INTERNET_DISCONNECTED/);
+});
+
+test('proxy online bootstrap runs before the first script in native link and window.open tabs', { timeout: 60000 }, async t => {
+  const { createServer } = await import('node:http');
+  const observations = new Map<string, string>();
+  const fixture = createServer((req, res) => {
+    const url = new URL(req.url!, 'http://fixture');
+    res.setHeader('Content-Type', 'text/html');
+    if (url.pathname === '/observed') {
+      observations.set(url.searchParams.get('kind')!, url.searchParams.get('online')!);
+      res.end('ok');
+    } else if (url.pathname === '/opened') {
+      res.end(`<script>fetch('/observed?kind='+${JSON.stringify(url.searchParams.get('kind'))}+'&online='+navigator.onLine)</script><h1>New tab ready</h1>`);
+    } else {
+      res.end(`<a id="link" href="/opened?kind=link" target="_blank">New tab</a><button id="script" onclick="window.open('/opened?kind=script')">New window</button><script>
+        document.addEventListener('keydown', event => {
+          if (event.key === 'F8') document.getElementById('link').click();
+          if (event.key === 'F9') document.getElementById('script').click();
+        });
+      </script>`);
+    }
+  });
+  fixture.listen(0, '127.0.0.1'); await once(fixture, 'listening');
+  const base = `http://127.0.0.1:${(fixture.address() as { port: number }).port}`;
+  t.after(() => { fixture.closeAllConnections(); fixture.close(); });
+  const workspace = await createWorkspace(true);
+  t.after(() => workspace.close());
+  const env = { ...process.env, ...internals(workspace).environment };
+  await waitForExtensions(internals(workspace).browser!.contexts()[0].pages()[0]);
+  for (const kind of ['link', 'script']) {
+    const page = internals(workspace).browser!.contexts()[0].pages()[0];
+    await page.goto(base); await page.bringToFront();
+    await page.locator('body').click({ position: { x: 400, y: 10 } });
+    await workspace.setControl('human');
+    await exec('xdotool', ['key', '--clearmodifiers', kind === 'link' ? 'F8' : 'F9'], { env });
+    for (let i = 0; i < 80 && !observations.has(kind); i++) await delay(100);
+    assert.equal(internals(workspace).browser, undefined, 'No automation connection during native navigation');
+    await workspace.setControl('agent');
+    assert.equal(observations.get(kind), 'true', `${kind}: the first document script sees the proxy online state; tabs: ${internals(workspace).browser!.contexts()[0].pages().map(p => p.url()).join(', ')}`);
+    const snapshot = await workspace.perform({ type: 'snapshot' }) as { url: string; text: string };
+    assert.equal(snapshot.url, `${base}/opened?kind=${kind}`);
+    assert.match(snapshot.text, /New tab ready/);
+  }
 });
 
 test('Schema Validator: original extension captures a synthetic API while CDP is detached, returns result, then hands back', { timeout: 60000 }, async t => {
