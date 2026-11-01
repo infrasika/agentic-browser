@@ -6,7 +6,10 @@ createServer(async (req, res) => {
   if (req.url === '/stats') { res.setHeader('content-type', 'application/json'); res.end(JSON.stringify({ calls, maxSnapshotRequestBytes })); return; }
   const chunks = []; for await (const chunk of req) chunks.push(chunk);
   const body = JSON.parse(Buffer.concat(chunks).toString()); calls++;
-  const messages = body.messages ?? [];
+  // A follow-up in the same conversation starts a new task. Historical tool
+  // results must not make the fixture treat the new user message as completed.
+  const history = body.messages ?? [];
+  const messages = history.slice(history.findLastIndex(m => m.role === 'user') + 1);
   const last = messages.findLast(m => m.role === 'tool');
   const prior = messages.flatMap(m => m.tool_calls ?? []).find(t => t.id === last?.tool_call_id);
   if (prior?.function?.name === 'browser_snapshot') maxSnapshotRequestBytes = Math.max(maxSnapshotRequestBytes, Buffer.byteLength(JSON.stringify(body)));
